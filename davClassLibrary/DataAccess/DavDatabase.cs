@@ -1,6 +1,5 @@
-﻿using SQLite;
-using System;
-using System.Diagnostics;
+﻿using davClassLibrary.Models;
+using SQLite;
 
 namespace davClassLibrary
 {
