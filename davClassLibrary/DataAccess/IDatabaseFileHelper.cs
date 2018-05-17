@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace davClassLibrary
+namespace davClassLibrary.DataAccess
 {
     public interface IDatabaseFileHelper
     {
