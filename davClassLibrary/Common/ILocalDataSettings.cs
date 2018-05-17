@@ -6,7 +6,7 @@ namespace davClassLibrary.Common
 {
     public interface ILocalDataSettings
     {
-        void SaveValue(string key, string value);
+        void SetValue(string key, string value);
         string GetValue(string key);
     }
 }
