@@ -1,14 +1,18 @@
 ﻿using davClassLibrary.Common;
+using PCLStorage;
 using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.NetworkInformation;
 using System.Runtime.Serialization.Json;
 using System.Text;
 using System.Threading.Tasks;
+using Windows.Storage;
+using Windows.UI.Xaml.Media.Imaging;
 
 namespace davClassLibrary.Models
 {
@@ -39,7 +43,7 @@ namespace davClassLibrary.Models
             get { return GetPlan(); }
             set { SetPlan(value); }
         }
-        public Bitmap Avatar { get; set; }      // TODO Save new Avatar image on set
+        public BitmapImage Avatar { get; set; }
         public string AvatarEtag
         {
             get { return GetAvatarEtag(); }
@@ -74,9 +78,27 @@ namespace davClassLibrary.Models
             DownloadUserInformation();
         }
 
-        public void Login(string email, string password)
+        public async Task Login(string jwt)
         {
+            JWT = jwt;
+            IsLoggedIn = true;
+            await DownloadUserInformation();
+        }
 
+        public async Task Logout()
+        {
+            // Clear all values
+            IsLoggedIn = false;
+            SetJWT(null);
+            SetEmail(null);
+            SetUsername(null);
+            SetTotalStorage(0);
+            SetUsedStorage(0);
+            SetPlan(DavPlan.Free);
+            SetAvatarEtag(null);
+
+            // Delete the avatar
+            await DeleteAvatar();
         }
 
         private async Task DownloadUserInformation()
@@ -93,40 +115,38 @@ namespace davClassLibrary.Models
                 HttpResponseMessage httpResponse = new HttpResponseMessage();
                 string httpResponseBody = "";
 
-                try
-                {
-                    //Send the GET request
-                    httpResponse = await httpClient.GetAsync(requestUri);
-                    httpResponseBody = await httpResponse.Content.ReadAsStringAsync();
+                //Send the GET request
+                httpResponse = await httpClient.GetAsync(requestUri);
+                httpResponseBody = await httpResponse.Content.ReadAsStringAsync();
 
-                    if (httpResponse.IsSuccessStatusCode)
+                if (httpResponse.IsSuccessStatusCode)
+                {
+                    // Deserialize the json and create a user object
+                    var serializer = new DataContractJsonSerializer(typeof(DavUserData));
+                    var ms = new MemoryStream(Encoding.UTF8.GetBytes(httpResponseBody));
+                    var dataReader = (DavUserData)serializer.ReadObject(ms);
+
+                    Email = dataReader.email;
+                    Username = dataReader.username;
+                    TotalStorage = dataReader.total_storage;
+                    UsedStorage = dataReader.used_storage;
+                    Plan = ParseIntToDavPlan(dataReader.plan);
+                    string newAvatarEtag = dataReader.avatar_etag;
+
+                    if (!String.Equals(AvatarEtag, newAvatarEtag))
                     {
-                        // Deserialize the json and create a user object
-                        var serializer = new DataContractJsonSerializer(typeof(DavUserData));
-                        var ms = new MemoryStream(Encoding.UTF8.GetBytes(httpResponseBody));
-                        var dataReader = (DavUserData)serializer.ReadObject(ms);
-
-                        Email = dataReader.email;
-                        Username = dataReader.username;
-                        TotalStorage = dataReader.total_storage;
-                        UsedStorage = dataReader.used_storage;
-                        Plan = ParseIntToDavPlan(dataReader.plan);
-                        string newAvatarEtag = dataReader.avatar_etag;
-
-                        if(!String.Equals(AvatarEtag, newAvatarEtag))
-                        {
-                            // TODO Download the new avatar
-                            DownloadAvatar(dataReader.avatar);
-                        }
-
-                        // Save new values in local settings
-                        SetUserInformation();
+                        // Download the new avatar
+                        DownloadAvatar(dataReader.avatar);
+                        Avatar = new BitmapImage(new Uri(Dav.DataPath + "/avatar.png"));
                     }
+                    AvatarEtag = newAvatarEtag;
+
+                    // Save new values in local settings
+                    SetUserInformation();
                 }
-                catch (Exception e)
+                else
                 {
-                    httpResponseBody = "Error: " + e.HResult.ToString("X") + " Message: " + e.Message;
-                    Debug.WriteLine(httpResponseBody);
+                    Debug.WriteLine("There was an error in DownloadUserInformation: " + httpResponse.StatusCode);
                 }
             }
         }
@@ -157,7 +177,19 @@ namespace davClassLibrary.Models
 
         private void DownloadAvatar(string avatarUrl)
         {
-            // TODO
+            using (var client = new WebClient())
+            {
+                client.DownloadFile(avatarUrl, Dav.DataPath + "/avatar.png");
+            }
+        }
+
+        private async Task DeleteAvatar()
+        {
+            var fileSystem = FileSystem.Current;
+            IFolder dataFolder = await fileSystem.GetFolderFromPathAsync(Dav.DataPath);
+            IFile avatarFile = await dataFolder.GetFileAsync("avatar.png");
+            if(avatarFile != null)
+                await avatarFile.DeleteAsync();
         }
 
         private void GetUserInformation()
@@ -170,6 +202,7 @@ namespace davClassLibrary.Models
             Plan = GetPlan();
             JWT = GetJWT();
             AvatarEtag = GetAvatarEtag();
+            Avatar = new BitmapImage(new Uri(Dav.DataPath + "/avatar.png"));
         }
 
         private string GetEmail()
@@ -198,7 +231,17 @@ namespace davClassLibrary.Models
 
         private DavPlan GetPlan()
         {
-            return ParseIntToDavPlan(int.Parse(ProjectInterface.LocalDataSettings.GetValue(Dav.planKey)));
+            var plan = ProjectInterface.LocalDataSettings.GetValue(Dav.planKey);
+            if(plan != null)
+            {
+                var planInt = 0;
+                int.TryParse(plan, out planInt);
+                return ParseIntToDavPlan(planInt);
+            }
+            else
+            {
+                return DavPlan.Free;
+            }
         }
 
         private string GetJWT()
@@ -216,8 +259,10 @@ namespace davClassLibrary.Models
             SetEmail(Email);
             SetUsername(Username);
             SetTotalStorage(TotalStorage);
+            SetUsedStorage(UsedStorage);
             SetPlan(Plan);
             SetAvatarEtag(AvatarEtag);
+            SetJWT(JWT);
         }
 
         private void SetEmail(string email)
