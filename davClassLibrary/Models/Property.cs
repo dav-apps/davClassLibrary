@@ -13,4 +13,12 @@ namespace davClassLibrary.Models
         public string Name { get; set; }
         public string Value { get; set; }
     }
+
+    public class PropertyData
+    {
+        public int id { get; set; }
+        public int table_object_id { get; set; }
+        public string name { get; set; }
+        public string value { get; set; }
+    }
 }

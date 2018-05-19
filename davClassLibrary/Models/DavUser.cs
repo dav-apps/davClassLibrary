@@ -76,6 +76,8 @@ namespace davClassLibrary.Models
             }
 
             DownloadUserInformation();
+
+            TableObject.Sync();
         }
 
         public async Task Login(string jwt)
@@ -83,6 +85,7 @@ namespace davClassLibrary.Models
             JWT = jwt;
             IsLoggedIn = true;
             await DownloadUserInformation();
+            // Download all data from the server
         }
 
         public async Task Logout()
@@ -103,27 +106,15 @@ namespace davClassLibrary.Models
 
         private async Task DownloadUserInformation()
         {
-            if (NetworkInterface.GetIsNetworkAvailable() && IsLoggedIn)
+            if (IsLoggedIn)
             {
-                // Get the user information from the server and update local informations
-                HttpClient httpClient = new HttpClient();
-                var headers = httpClient.DefaultRequestHeaders;
-                httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(JWT);
-
-                Uri requestUri = new Uri(Dav.ApiBaseUrl + Dav.GetUserUrl);
-
-                HttpResponseMessage httpResponse = new HttpResponseMessage();
-                string httpResponseBody = "";
-
-                //Send the GET request
-                httpResponse = await httpClient.GetAsync(requestUri);
-                httpResponseBody = await httpResponse.Content.ReadAsStringAsync();
-
-                if (httpResponse.IsSuccessStatusCode)
+                string userInformation = await DavDatabase.HttpGet(JWT, Dav.GetUserUrl);
+                
+                if(!String.IsNullOrEmpty(userInformation))
                 {
                     // Deserialize the json and create a user object
                     var serializer = new DataContractJsonSerializer(typeof(DavUserData));
-                    var ms = new MemoryStream(Encoding.UTF8.GetBytes(httpResponseBody));
+                    var ms = new MemoryStream(Encoding.UTF8.GetBytes(userInformation));
                     var dataReader = (DavUserData)serializer.ReadObject(ms);
 
                     Email = dataReader.email;
@@ -144,14 +135,10 @@ namespace davClassLibrary.Models
                     // Save new values in local settings
                     SetUserInformation();
                 }
-                else
-                {
-                    Debug.WriteLine("There was an error in DownloadUserInformation: " + httpResponse.StatusCode);
-                }
             }
         }
 
-        private static DavPlan ParseIntToDavPlan(int planValue)
+        public static DavPlan ParseIntToDavPlan(int planValue)
         {
             switch (planValue)
             {
@@ -162,7 +149,7 @@ namespace davClassLibrary.Models
             }
         }
 
-        private static int ParseDavPlanToInt(DavPlan plan)
+        public static int ParseDavPlanToInt(DavPlan plan)
         {
             switch (plan)
             {
@@ -244,7 +231,7 @@ namespace davClassLibrary.Models
             }
         }
 
-        private string GetJWT()
+        public static string GetJWT()
         {
             return ProjectInterface.LocalDataSettings.GetValue(Dav.jwtKey);
         }
