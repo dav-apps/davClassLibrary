@@ -1,17 +1,12 @@
 ﻿using davClassLibrary.Common;
+using davClassLibrary.DataAccess;
 using PCLStorage;
 using System;
-using System.Diagnostics;
-using System.Drawing;
 using System.IO;
 using System.Net;
-using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Net.NetworkInformation;
 using System.Runtime.Serialization.Json;
 using System.Text;
 using System.Threading.Tasks;
-using Windows.Storage;
 using Windows.UI.Xaml.Media.Imaging;
 
 namespace davClassLibrary.Models

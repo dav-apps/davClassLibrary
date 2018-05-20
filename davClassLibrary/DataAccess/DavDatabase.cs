@@ -1,6 +1,7 @@
 ﻿using davClassLibrary.Models;
 using SQLite;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -8,125 +9,158 @@ using System.Net.NetworkInformation;
 using System.Runtime.Serialization.Json;
 using System.Text;
 using System.Threading.Tasks;
-using static davClassLibrary.DavDatabase;
 using static davClassLibrary.Models.SyncObject;
 
-namespace davClassLibrary
+namespace davClassLibrary.DataAccess
 {
     public class DavDatabase
     {
-        readonly SQLiteAsyncConnection database;
-        private string databaseName = "dav.db";
+        readonly SQLiteConnection database;
+        private readonly string databaseName = "dav.db";
 
         public DavDatabase()
         {
-            database = new SQLiteAsyncConnection(Dav.DataPath + databaseName);
-            database.CreateTableAsync<TableObject>().Wait();
-            database.CreateTableAsync<Property>().Wait();
-            database.CreateTableAsync<SyncTableObject>().Wait();
-            database.CreateTableAsync<SyncProperty>().Wait();
+            database = new SQLiteConnection(Dav.DataPath + databaseName);
+            database.CreateTable<TableObject>();
+            database.CreateTable<Property>();
+            database.CreateTable<SyncTableObject>();
+            database.CreateTable<SyncProperty>();
         }
 
         #region CRUD for TableObject
-        public async Task<int> CreateTableObject(TableObject tableObject)
+        public int CreateTableObject(TableObject tableObject)
         {
-            int id = await database.InsertAsync(tableObject);
-            await CreateSyncTableObject(new SyncTableObject(tableObject.Uuid, SyncOperation.Create));
+            int id = database.Insert(tableObject);
+            CreateSyncTableObject(new SyncTableObject(tableObject.Uuid, SyncOperation.Create));
+
+            // Save the properties
+            foreach (var property in tableObject.Properties)
+                CreateProperty(property);
+
             return id;
         }
 
-        public async Task<TableObject> GetTableObject(int id)
+        public List<TableObject> GetAllTableObjects(int tableId)
         {
-            return await database.GetAsync<TableObject>(id);
+            var tableObjects = database.Table<TableObject>().Where(obj => obj.TableId == tableId);
+            List<TableObject> tableObjectsList = new List<TableObject>();
+
+            // Get the properties of the table objects
+            foreach(var tableObject in tableObjects)
+            {
+                tableObject.GetProperties(database);
+                tableObjectsList.Add(tableObject);
+            }
+
+            return tableObjectsList;
         }
 
-        public async Task UpdateTableObject(TableObject tableObject)
+        public TableObject GetTableObject(int id)
         {
-            await database.UpdateAsync(tableObject);
-            await CreateSyncTableObject(new SyncTableObject(tableObject.Uuid, SyncOperation.Update));
+            var tableObject = database.Get<TableObject>(id);
+            tableObject.GetProperties(database);
+            return tableObject;
         }
 
-        public async Task DeleteTableObject(TableObject tableObject)
+        public TableObject GetTableObject(Guid uuid)
         {
-            await database.DeleteAsync(tableObject);
-            await CreateSyncTableObject(new SyncTableObject(tableObject.Uuid, SyncOperation.Delete));
+            var tableObject = database.Get<TableObject>(obj => obj.Uuid == uuid);
+            if(tableObject != null)
+                tableObject.GetProperties(database);
+
+            return tableObject;
+        }
+
+        public void UpdateTableObject(TableObject tableObject)
+        {
+            database.Update(tableObject);
+            CreateSyncTableObject(new SyncTableObject(tableObject.Uuid, SyncOperation.Update));
+
+            // Update the properties
+
+        }
+
+        public void DeleteTableObject(TableObject tableObject)
+        {
+            database.Delete(tableObject);
+            CreateSyncTableObject(new SyncTableObject(tableObject.Uuid, SyncOperation.Delete));
         }
         #endregion
 
         #region CRUD for Property
-        public async Task<int> CreateProperty(Property property)
+        public int CreateProperty(Property property)
         {
-            int id = await database.InsertAsync(property);
-            await CreateSyncProperty(new SyncProperty(property.Id, SyncOperation.Create));
+            int id = database.Insert(property);
+            CreateSyncProperty(new SyncProperty(property.Id, SyncOperation.Create));
             return id;
         }
 
-        public async Task<Property> GetProperty(int id)
+        public Property GetProperty(int id)
         {
-            return await database.GetAsync<Property>(id);
+            return database.Get<Property>(id);
         }
 
-        public async Task UpdateProperty(Property property)
+        public void UpdateProperty(Property property)
         {
-            await database.UpdateAsync(property);
-            await CreateSyncProperty(new SyncProperty(property.Id, SyncOperation.Update));
+            database.Update(property);
+            CreateSyncProperty(new SyncProperty(property.Id, SyncOperation.Update));
         }
 
-        public async Task DeleteProperty(Property property)
+        public void DeleteProperty(Property property)
         {
-            await database.DeleteAsync(property);
-            await CreateSyncProperty(new SyncProperty(property.Id, SyncOperation.Delete));
+            database.Delete(property);
+            CreateSyncProperty(new SyncProperty(property.Id, SyncOperation.Delete));
         }
         #endregion
 
         #region CRD for SyncTableObject
-        public async Task<int> CreateSyncTableObject(SyncTableObject syncTableObject)
+        public int CreateSyncTableObject(SyncTableObject syncTableObject)
         {
-            return await database.InsertAsync(syncTableObject);
+            return database.Insert(syncTableObject);
         }
 
-        public async Task<SyncTableObject> GetSyncTableObject(int id)
+        public SyncTableObject GetSyncTableObject(int id)
         {
-            return await database.GetAsync<SyncTableObject>(id);
+            return database.Get<SyncTableObject>(id);
         }
 
-        public async Task DeleteSyncTableObject(int id)
+        public void DeleteSyncTableObject(int id)
         {
             // Get SyncTableObject from the database
             var syncTableObject = GetSyncTableObject(id);
 
             if(syncTableObject != null)
-                await database.DeleteAsync(syncTableObject);
+                database.Delete(syncTableObject);
         }
 
         public void DeleteSyncTableObject(SyncTableObject syncTableObject)
         {
-            database.DeleteAsync(syncTableObject);
+            database.Delete(syncTableObject);
         }
         #endregion
 
         #region CRD for SyncProperty
-        public async Task<int> CreateSyncProperty(SyncProperty syncProperty)
+        public int CreateSyncProperty(SyncProperty syncProperty)
         {
-            return await database.InsertAsync(syncProperty);
+            return database.Insert(syncProperty);
         }
 
-        public async Task<SyncProperty> GetSyncProperty(int id)
+        public SyncProperty GetSyncProperty(int id)
         {
-            return await database.GetAsync<SyncProperty>(id);
+            return database.Get<SyncProperty>(id);
         }
 
-        public async Task DeleteSyncProperty(int id)
+        public void DeleteSyncProperty(int id)
         {
-            var syncProperty = await GetSyncProperty(id);
+            var syncProperty = GetSyncProperty(id);
 
             if (syncProperty != null)
-                await database.DeleteAsync(syncProperty);
+                database.Delete(syncProperty);
         }
 
         public void DeleteSyncProperty(SyncProperty syncProperty)
         {
-            database.DeleteAsync(syncProperty);
+            database.Delete(syncProperty);
         }
         #endregion
 
@@ -184,6 +218,21 @@ namespace davClassLibrary
             var serializer = new DataContractJsonSerializer(typeof(TableObjectData));
             var ms = new MemoryStream(Encoding.UTF8.GetBytes(json));
             return (TableObjectData)serializer.ReadObject(ms);
+        }
+
+        public static DirectoryInfo GetTableFolder(int tableId)
+        {
+            DirectoryInfo dataFolder = new DirectoryInfo(Dav.DataPath);
+            if(Directory.Exists(Path.Combine(dataFolder.FullName, tableId.ToString())))
+            {
+                // Return the folder
+                return Directory.GetParent(Path.Combine(dataFolder.FullName, tableId.ToString()));
+            }
+            else
+            {
+                // Create the folder and return it
+                return dataFolder.CreateSubdirectory(tableId.ToString());
+            }
         }
         #endregion
     }

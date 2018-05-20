@@ -1,4 +1,6 @@
-﻿namespace davClassLibrary
+﻿using davClassLibrary.DataAccess;
+
+namespace davClassLibrary
 {
     public class Dav
     {

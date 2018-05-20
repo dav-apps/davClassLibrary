@@ -1,8 +1,8 @@
-﻿using PCLStorage;
+﻿using davClassLibrary.DataAccess;
 using SQLite;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
+using System.IO;
 using System.Threading.Tasks;
 
 namespace davClassLibrary.Models
@@ -10,22 +10,38 @@ namespace davClassLibrary.Models
     public class TableObject
     {
         [PrimaryKey, AutoIncrement]
-        public int Id { get; }
+        public int Id { get; private set; }
         public int TableId { get; }
         private TableObjectVisibility _visibility;
         public TableObjectVisibility Visibility
         {
             get => _visibility;
-            set { UpdateVisibility(value); }
+            set
+            {
+                if (_visibility == value)
+                    return;
+
+                _visibility = value;
+                Save();
+            }
         }
         public Guid Uuid { get; }
         public bool IsFile { get; }
-        private IFile _file;
-        public IFile File
+        private FileInfo _file;
+        public FileInfo File
         {
             get => _file;
-            set { UpdateFile(value); }
+            set
+            {
+                if (_file == value)
+                    return;
+
+                _file = value;
+                SaveFile(value);
+                Save();
+            }
         }
+        [Ignore]
         public List<Property> Properties { get; }
 
         public enum TableObjectVisibility
@@ -37,40 +53,95 @@ namespace davClassLibrary.Models
 
         public TableObject()
         {
+            Uuid = Guid.NewGuid();
             Properties = new List<Property>();
         }
 
-        public TableObject(int id, int tableId, TableObjectVisibility visibility, Guid uuid, bool isFile)
+        public TableObject(Guid uuid)
         {
+            if (uuid == null)
+                Uuid = Guid.NewGuid();
+            else
+                Uuid = uuid;
+        }
+
+        public TableObject(Guid uuid, int tableId)
+        {
+            if (uuid == null)
+                Uuid = Guid.NewGuid();
+            else
+                Uuid = uuid;
+
+            TableId = tableId;
+            Properties = new List<Property>();
+
+            Save();
+        }
+
+        public TableObject(Guid uuid, int tableId, List<Property> properties)
+        {
+            if (uuid == null)
+                Uuid = Guid.NewGuid();
+            else
+                Uuid = uuid;
+
+            TableId = tableId;
+            Properties = new List<Property>();
+            foreach (var property in properties)
+                Properties.Add(property);
+
+            Save();
+        }
+
+        public TableObject(Guid uuid, int tableId, FileInfo file)
+        {
+            if (uuid == null)
+                Uuid = Guid.NewGuid();
+            else
+                Uuid = uuid;
+
+            TableId = tableId;
+            _file = file;
+            Properties = new List<Property>();
+
+            // Copy file into the data folder
+            _file = SaveFile(file);
+
+            Save();
+        }
+
+        public TableObject(Guid uuid, int id, int tableId, TableObjectVisibility visibility, bool isFile)
+        {
+            if (uuid == null)
+                Uuid = Guid.NewGuid();
+            else
+                Uuid = uuid;
+
             Id = id;
             TableId = tableId;
             Visibility = visibility;
-            Uuid = uuid;
             IsFile = isFile;
             Properties = new List<Property>();
+
+            Save();
         }
 
-
-        private void UpdateVisibility(TableObjectVisibility visibility)
+        private void Save()
         {
-            // Update the property
-            _visibility = visibility;
-
-            // Add object to sync table if it is not there
-            AddToSyncTable();
+            // Check if the tableObject already exists
+            if (Dav.Database.GetTableObject(Uuid) == null)
+                Id = Dav.Database.CreateTableObject(this);
+            else
+                Dav.Database.UpdateTableObject(this);
         }
 
-        private void UpdateFile(IFile file)
+        public void GetProperties(SQLiteConnection connection)
         {
-            _file = file;
-
-            // Upload the new file
-            // TODO
-        }
-
-        private void AddToSyncTable()
-        {
-
+            foreach(var property in connection.Table<Property>().Where(prop => prop.TableObjectId == Id))
+            {
+                if(!Properties.Contains(property))
+                    Properties.Add(property);
+            }
         }
 
         public static async Task Sync()
@@ -106,6 +177,14 @@ namespace davClassLibrary.Models
 
             // Get table objects of the tables
 
+        }
+
+        private FileInfo SaveFile(FileInfo file)
+        {
+            // Save the file in the data folder with the name uuid.ext
+            string filename = Uuid.ToString() + file.Extension;
+            var tableFolder = DavDatabase.GetTableFolder(TableId);
+            return file.CopyTo(Path.Combine(tableFolder.FullName, filename), true);
         }
 
         private static TableObjectVisibility ParseIntToVisibility(int visibility)
