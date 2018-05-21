@@ -101,6 +101,7 @@ namespace davClassLibrary.Models
                 Uuid = uuid;
 
             TableId = tableId;
+            IsFile = true;
             _file = file;
             Properties = new List<Property>();
 
@@ -142,6 +143,11 @@ namespace davClassLibrary.Models
                 if(!Properties.Contains(property))
                     Properties.Add(property);
             }
+        }
+
+        public void AddProperty(string name, string value)
+        {
+            Properties.Add(new Property(Id, name, value));
         }
 
         public static async Task Sync()

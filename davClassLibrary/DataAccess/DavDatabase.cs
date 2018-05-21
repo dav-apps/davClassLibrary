@@ -75,13 +75,21 @@ namespace davClassLibrary.DataAccess
         {
             database.Update(tableObject);
             CreateSyncTableObject(new SyncTableObject(tableObject.Uuid, SyncOperation.Update));
+        }
 
-            // Update the properties
-
+        public void DeleteTableObject(Guid uuid)
+        {
+            var tableObject = GetTableObject(uuid);
+            if(tableObject != null)
+                DeleteTableObject(tableObject);
         }
 
         public void DeleteTableObject(TableObject tableObject)
         {
+            // Delete the properties of the table object
+            foreach(var property in tableObject.Properties)
+                DeleteProperty(property);
+
             database.Delete(tableObject);
             CreateSyncTableObject(new SyncTableObject(tableObject.Uuid, SyncOperation.Delete));
         }
@@ -104,6 +112,13 @@ namespace davClassLibrary.DataAccess
         {
             database.Update(property);
             CreateSyncProperty(new SyncProperty(property.Id, SyncOperation.Update));
+        }
+
+        public void DeleteProperty(int id)
+        {
+            var property = GetProperty(id);
+            if (property != null)
+                DeleteProperty(property);
         }
 
         public void DeleteProperty(Property property)
