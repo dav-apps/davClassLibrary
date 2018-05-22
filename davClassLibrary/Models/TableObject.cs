@@ -42,7 +42,7 @@ namespace davClassLibrary.Models
             }
         }
         [Ignore]
-        public List<Property> Properties { get; }
+        private List<Property> Properties { get; }
 
         public enum TableObjectVisibility
         {
@@ -136,7 +136,32 @@ namespace davClassLibrary.Models
                 Dav.Database.UpdateTableObject(this);
         }
 
-        public void GetProperties(SQLiteConnection connection)
+        public void SetPropertyValue(string name, string value)
+        {
+            var property = Properties.Find(prop => prop.Name == name);
+
+            if(property != null)
+            {
+                // Update the property
+                property.Value = value;
+            }
+            else
+            {
+                // Create a new property
+                Properties.Add(new Property(Id, name, value));
+            }
+        }
+
+        public string GetPropertyValue(string propertyName)
+        {
+            var property = Properties.Find(prop => prop.Name == propertyName);
+            if (property != null)
+                return property.Value;
+            else
+                return null;
+        }
+
+        private void GetProperties(SQLiteConnection connection)
         {
             foreach(var property in connection.Table<Property>().Where(prop => prop.TableObjectId == Id))
             {
@@ -145,10 +170,7 @@ namespace davClassLibrary.Models
             }
         }
 
-        public void AddProperty(string name, string value)
-        {
-            Properties.Add(new Property(Id, name, value));
-        }
+        
 
         public static async Task Sync()
         {
