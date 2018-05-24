@@ -1,4 +1,6 @@
-﻿using davClassLibrary.DataAccess;
+﻿using davClassLibrary.Common;
+using davClassLibrary.DataAccess;
+using System;
 
 namespace davClassLibrary
 {
@@ -15,10 +17,18 @@ namespace davClassLibrary
         //public const string ApiBaseUrl = "https://dav-backend.herokuapp.com/v1/";
         public const string ApiBaseUrl = "https://61eacf05.ngrok.io/v1/";
         public const string GetUserUrl = "auth/user";
-
-        public static string ApiKey = "";         
-        public static string DataPath;
-        public static int AppId;
+        public static string DataPath
+        {
+            get { return ProjectInterface.RetrieveConstants.GetDataPath(); }
+        }
+        public static string ApiKey
+        {
+            get { return ProjectInterface.RetrieveConstants.GetApiKey(); }
+        }
+        public static int AppId
+        {
+            get { return ProjectInterface.RetrieveConstants.GetAppId(); }
+        }
 
         private static DavDatabase database;
 

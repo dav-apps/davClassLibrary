@@ -1,8 +1,11 @@
 ﻿using davClassLibrary.Models;
+using Ionic.Zip;
 using SQLite;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.NetworkInformation;
@@ -20,7 +23,7 @@ namespace davClassLibrary.DataAccess
 
         public DavDatabase()
         {
-            database = new SQLiteConnection(Dav.DataPath + databaseName);
+            database = new SQLiteConnection(Path.Combine(Dav.DataPath, databaseName));
             database.CreateTable<TableObject>();
             database.CreateTable<Property>();
             database.CreateTable<SyncTableObject>();
@@ -30,45 +33,65 @@ namespace davClassLibrary.DataAccess
         #region CRUD for TableObject
         public int CreateTableObject(TableObject tableObject)
         {
-            int id = database.Insert(tableObject);
+            database.Insert(tableObject);
             CreateSyncTableObject(new SyncTableObject(tableObject.Uuid, SyncOperation.Create));
+            return tableObject.Id;
+        }
 
-            // Save the properties
-            foreach (var property in tableObject.Properties)
-                CreateProperty(property);
+        private List<TableObject> GetAllTableObjects()
+        {
+            List<TableObject> tableObjectList = new List<TableObject>();
+            List<TableObject> tableObjects = database.Table<TableObject>().ToList();
 
-            return id;
+            foreach (var tableObject in tableObjects)
+            {
+                tableObject.Load();
+                tableObjectList.Add(tableObject);
+            }
+            
+            return tableObjectList;
         }
 
         public List<TableObject> GetAllTableObjects(int tableId)
         {
-            var tableObjects = database.Table<TableObject>().Where(obj => obj.TableId == tableId);
             List<TableObject> tableObjectsList = new List<TableObject>();
-
+            List<TableObject> tableObjects = database.Table<TableObject>().ToList();
+            
             // Get the properties of the table objects
-            foreach(var tableObject in tableObjects)
+            foreach (var tableObject in tableObjects)
             {
-                tableObject.GetProperties(database);
-                tableObjectsList.Add(tableObject);
+                if(tableObject.TableId == tableId)
+                {
+                    tableObject.Load();
+                    tableObjectsList.Add(tableObject);
+                }
             }
 
             return tableObjectsList;
         }
-
-        public TableObject GetTableObject(int id)
-        {
-            var tableObject = database.Get<TableObject>(id);
-            tableObject.GetProperties(database);
-            return tableObject;
-        }
-
+        
         public TableObject GetTableObject(Guid uuid)
         {
-            var tableObject = database.Get<TableObject>(obj => obj.Uuid == uuid);
-            if(tableObject != null)
-                tableObject.GetProperties(database);
+            List<TableObject> tableObjects = database.Query<TableObject>("SELECT * FROM TableObject WHERE Uuid = ?", uuid);
+            if (tableObjects.Count == 0)
+                return null;
+            else
+            {
+                var tableObject = tableObjects.First();
+                tableObject.Load();
+                return tableObject;
+            }
+        }
 
-            return tableObject;
+        public List<Property> GetPropertiesOfTableObject(int tableObjectId)
+        {
+            List<Property> allProperties = database.Query<Property>("SELECT * FROM Property WHERE TableObjectId = ?", tableObjectId);
+            return allProperties;
+        }
+
+        public bool TableObjectExists(Guid uuid)
+        {
+            return database.Query<TableObject>("SELECT * FROM TableObject WHERE Uuid = ?", uuid).Count > 0;
         }
 
         public void UpdateTableObject(TableObject tableObject)
@@ -79,7 +102,7 @@ namespace davClassLibrary.DataAccess
 
         public void DeleteTableObject(Guid uuid)
         {
-            var tableObject = GetTableObject(uuid);
+            TableObject tableObject = GetTableObject(uuid);
             if(tableObject != null)
                 DeleteTableObject(tableObject);
         }
@@ -87,9 +110,8 @@ namespace davClassLibrary.DataAccess
         public void DeleteTableObject(TableObject tableObject)
         {
             // Delete the properties of the table object
-            foreach(var property in tableObject.Properties)
-                DeleteProperty(property);
-
+            tableObject.RemoveAllProperties();
+            
             database.Delete(tableObject);
             CreateSyncTableObject(new SyncTableObject(tableObject.Uuid, SyncOperation.Delete));
         }
@@ -98,14 +120,24 @@ namespace davClassLibrary.DataAccess
         #region CRUD for Property
         public int CreateProperty(Property property)
         {
-            int id = database.Insert(property);
+            database.Insert(property);
             CreateSyncProperty(new SyncProperty(property.Id, SyncOperation.Create));
-            return id;
+            return property.Id;
         }
 
         public Property GetProperty(int id)
         {
-            return database.Get<Property>(id);
+            List<Property> properties = database.Query<Property>("SELECT * FROM Property WHERE Id = ?", id);
+            
+            if (properties.Count == 0)
+                return null;
+            else
+                return properties.First();
+        }
+
+        public bool PropertyExists(int id)
+        {
+            return database.Query<Property>("SELECT * FROM Property WHERE Id = ?", id).Count > 0;
         }
 
         public void UpdateProperty(Property property)
@@ -142,7 +174,7 @@ namespace davClassLibrary.DataAccess
         public void DeleteSyncTableObject(int id)
         {
             // Get SyncTableObject from the database
-            var syncTableObject = GetSyncTableObject(id);
+            var syncTableObject = database.Get<SyncTableObject>(id);
 
             if(syncTableObject != null)
                 database.Delete(syncTableObject);
@@ -238,16 +270,74 @@ namespace davClassLibrary.DataAccess
         public static DirectoryInfo GetTableFolder(int tableId)
         {
             DirectoryInfo dataFolder = new DirectoryInfo(Dav.DataPath);
-            if(Directory.Exists(Path.Combine(dataFolder.FullName, tableId.ToString())))
+            string tableFolderPath = Path.Combine(dataFolder.FullName, tableId.ToString());
+
+            return Directory.CreateDirectory(tableFolderPath);
+        }
+
+        public static async Task ExportData(DirectoryInfo exportFolder, DirectoryInfo destinationFolder, string fileName, IProgress<int> progress)
+        {
+            // 1. foreach all table object
+            // 1.1 Create a folder for every table in the export folder
+            // 1.2 Write the list as json to a file in the export folder
+            // 2. If the tableObject is a file, copy the file into the appropriate folder
+            // 3. Zip the export folder and copy it to the destination
+            // 4. Delete the export folder and the zip file in the local storage
+
+            await Task.Run(() =>
             {
-                // Return the folder
-                return Directory.GetParent(Path.Combine(dataFolder.FullName, tableId.ToString()));
-            }
-            else
-            {
-                // Create the folder and return it
-                return dataFolder.CreateSubdirectory(tableId.ToString());
-            }
+                List<TableObjectData> tableObjectDataList = new List<TableObjectData>();
+                var tableObjects = Dav.Database.GetAllTableObjects();
+                int i = 1;
+
+                using (var zip = new ZipFile())
+                {
+                    zip.AddDirectory(exportFolder.FullName);
+                    zip.Save(fileName + ".zip");
+
+                    foreach (var tableObject in tableObjects)
+                    {
+                        // Create a folder for the table
+                        //Directory.CreateDirectory(Path.Combine(exportFolder.FullName, tableObject.TableId.ToString()));
+                        string directoryName = tableObject.TableId.ToString();
+
+                        if (!zip.ContainsEntry(directoryName))
+                            zip.AddDirectory(directoryName);
+
+                        if (tableObject.IsFile)
+                        {
+                            //tableObject.File.CopyTo(Path.Combine(exportFolder.FullName, tableObject.TableId.ToString(), tableObject.File.Name));
+                            zip.AddFile(tableObject.File.FullName, directoryName);
+                        }
+
+                        tableObjectDataList.Add(tableObject.ToTableObjectData());
+
+                        progress.Report((int)Math.Round(100.0 / tableObjects.Count * i));
+                        i++;
+                    }
+
+                    // Write the list of tableObjects as json
+                    string dataFilePath = Path.Combine(exportFolder.FullName, "data.json");
+                    WriteFile(dataFilePath, tableObjectDataList);
+
+                    zip.AddFile(dataFilePath);
+
+                    zip.Save(Path.Combine(exportFolder.FullName, fileName + ".zip"));
+                }
+            });
+        }
+
+        private static void WriteFile(string path, Object objectToWrite)
+        {
+            DataContractJsonSerializer js = new DataContractJsonSerializer(objectToWrite.GetType());
+            MemoryStream ms = new MemoryStream();
+            js.WriteObject(ms, objectToWrite);
+
+            ms.Position = 0;
+            StreamReader sr = new StreamReader(ms);
+            string data = sr.ReadToEnd();
+
+            File.WriteAllText(path, data);
         }
         #endregion
     }

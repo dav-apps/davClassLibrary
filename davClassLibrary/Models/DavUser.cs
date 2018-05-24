@@ -1,6 +1,5 @@
 ﻿using davClassLibrary.Common;
 using davClassLibrary.DataAccess;
-using PCLStorage;
 using System;
 using System.IO;
 using System.Net;
@@ -83,7 +82,7 @@ namespace davClassLibrary.Models
             // Download all data from the server
         }
 
-        public async Task Logout()
+        public void Logout()
         {
             // Clear all values
             IsLoggedIn = false;
@@ -96,7 +95,7 @@ namespace davClassLibrary.Models
             SetAvatarEtag(null);
 
             // Delete the avatar
-            await DeleteAvatar();
+            DeleteAvatar();
         }
 
         private async Task DownloadUserInformation()
@@ -165,13 +164,11 @@ namespace davClassLibrary.Models
             }
         }
 
-        private async Task DeleteAvatar()
+        private void DeleteAvatar()
         {
-            var fileSystem = FileSystem.Current;
-            IFolder dataFolder = await fileSystem.GetFolderFromPathAsync(Dav.DataPath);
-            IFile avatarFile = await dataFolder.GetFileAsync("avatar.png");
-            if(avatarFile != null)
-                await avatarFile.DeleteAsync();
+            string path = Path.Combine(Dav.DataPath, "avatar.png");
+            if(File.Exists(path))
+                File.Delete(path);
         }
 
         private void GetUserInformation()
@@ -184,7 +181,7 @@ namespace davClassLibrary.Models
             Plan = GetPlan();
             JWT = GetJWT();
             AvatarEtag = GetAvatarEtag();
-            Avatar = new BitmapImage(new Uri(Dav.DataPath + "/avatar.png"));
+            Avatar = GetAvatar();
         }
 
         private string GetEmail()
@@ -234,6 +231,12 @@ namespace davClassLibrary.Models
         private string GetAvatarEtag()
         {
             return ProjectInterface.LocalDataSettings.GetValue(Dav.avatarEtagKey);
+        }
+
+        private BitmapImage GetAvatar()
+        {
+            string avatarPath = Path.Combine(Dav.DataPath, "avatar.png");
+            return File.Exists(avatarPath) ? new BitmapImage(new Uri(avatarPath)) : null;
         }
 
         private void SetUserInformation()

@@ -11,73 +11,57 @@ namespace davClassLibrary.Models
     {
         [PrimaryKey, AutoIncrement]
         public int Id { get; private set; }
-        public int TableId { get; }
-        private TableObjectVisibility _visibility;
-        public TableObjectVisibility Visibility
-        {
-            get => _visibility;
-            set
-            {
-                if (_visibility == value)
-                    return;
-
-                _visibility = value;
-                Save();
-            }
-        }
-        public Guid Uuid { get; }
-        public bool IsFile { get; }
-        private FileInfo _file;
-        public FileInfo File
-        {
-            get => _file;
-            set
-            {
-                if (_file == value)
-                    return;
-
-                _file = value;
-                SaveFile(value);
-                Save();
-            }
-        }
+        public int TableId { get; private set; }
+        public TableObjectVisibility Visibility { get; private set; }
+        [NotNull]
+        public Guid Uuid { get; private set; }
+        public bool IsFile { get; private set; }
         [Ignore]
-        private List<Property> Properties { get; }
+        public FileInfo File { get; private set; }
+        [Ignore]
+        private List<Property> Properties { get; set; }
 
         public enum TableObjectVisibility
         {
-            Public,
-            Protected,
-            Private
+            Public = 2,
+            Protected = 1,
+            Private = 0
         }
 
-        public TableObject()
-        {
-            Uuid = Guid.NewGuid();
-            Properties = new List<Property>();
-        }
-
+        public TableObject(){}
+        /*
         public TableObject(Guid uuid)
         {
-            if (uuid == null)
+            if (Equals(uuid, Guid.Empty))
+            {
                 Uuid = Guid.NewGuid();
+                
+            }
             else
+            {
                 Uuid = uuid;
+            }
+            Properties = new List<Property>();
         }
-
-        public TableObject(Guid uuid, int tableId)
+        */
+        public TableObject(int tableId)
         {
-            if (uuid == null)
-                Uuid = Guid.NewGuid();
-            else
-                Uuid = uuid;
-
+            Uuid = Guid.NewGuid();
             TableId = tableId;
             Properties = new List<Property>();
 
             Save();
         }
 
+        public TableObject(Guid uuid, int tableId)
+        {
+            Uuid = uuid;
+            TableId = tableId;
+            Properties = new List<Property>();
+
+            Save();
+        }
+        /*
         public TableObject(Guid uuid, int tableId, List<Property> properties)
         {
             if (uuid == null)
@@ -91,8 +75,8 @@ namespace davClassLibrary.Models
                 Properties.Add(property);
 
             Save();
-        }
-
+        }*/
+        /*
         public TableObject(Guid uuid, int tableId, FileInfo file)
         {
             if (uuid == null)
@@ -105,35 +89,42 @@ namespace davClassLibrary.Models
             _file = file;
             Properties = new List<Property>();
 
+            Save();
+
             // Copy file into the data folder
             _file = SaveFile(file);
-
+        }
+        */
+        public void SetVisibility(TableObjectVisibility visibility)
+        {
+            Visibility = visibility;
             Save();
         }
 
-        public TableObject(Guid uuid, int id, int tableId, TableObjectVisibility visibility, bool isFile)
+        public void SetFile(FileInfo file)
         {
-            if (uuid == null)
-                Uuid = Guid.NewGuid();
-            else
-                Uuid = uuid;
+            File = file;
+            SaveFile(file);
+        }
 
-            Id = id;
-            TableId = tableId;
-            Visibility = visibility;
-            IsFile = isFile;
-            Properties = new List<Property>();
-
-            Save();
+        public void Load()
+        {
+            LoadProperties();
+            LoadFile();
         }
 
         private void Save()
         {
             // Check if the tableObject already exists
-            if (Dav.Database.GetTableObject(Uuid) == null)
+            if (!Dav.Database.TableObjectExists(Uuid))
                 Id = Dav.Database.CreateTableObject(this);
             else
                 Dav.Database.UpdateTableObject(this);
+        }
+
+        private void LoadProperties()
+        {
+            Properties = Dav.Database.GetPropertiesOfTableObject(Id);
         }
 
         public void SetPropertyValue(string name, string value)
@@ -152,25 +143,54 @@ namespace davClassLibrary.Models
             }
         }
 
-        public string GetPropertyValue(string propertyName)
+        public string GetPropertyValue(string name)
         {
-            var property = Properties.Find(prop => prop.Name == propertyName);
+            var property = Properties.Find(prop => prop.Name == name);
             if (property != null)
                 return property.Value;
             else
                 return null;
         }
 
-        private void GetProperties(SQLiteConnection connection)
+        public void RemoveProperty(string name)
         {
-            foreach(var property in connection.Table<Property>().Where(prop => prop.TableObjectId == Id))
+            var property = Properties.Find(prop => prop.Name == name);
+
+            if(property != null)
             {
-                if(!Properties.Contains(property))
-                    Properties.Add(property);
+                Dav.Database.DeleteProperty(property);
             }
         }
 
-        
+        public void RemoveAllProperties()
+        {
+            LoadProperties();
+            foreach (var property in Properties)
+                Dav.Database.DeleteProperty(property);
+        }
+
+        private void LoadFile()
+        {
+            if (!IsFile) return;
+
+            string filePath = Path.Combine(Dav.DataPath, TableId.ToString(), Uuid.ToString());
+            var file = new FileInfo(filePath);
+
+            if (file != null)
+                File = file;
+        }
+
+        private FileInfo SaveFile(FileInfo file)
+        {
+            SetPropertyValue("ext", file.Extension.Replace(".", ""));
+            IsFile = true;
+            Save();
+
+            // Save the file in the data folder with the uuid as name (without extension)
+            string filename = Uuid.ToString();
+            var tableFolder = DavDatabase.GetTableFolder(TableId);
+            return file.CopyTo(Path.Combine(tableFolder.FullName, filename), true);
+        }
 
         public static async Task Sync()
         {
@@ -207,14 +227,6 @@ namespace davClassLibrary.Models
 
         }
 
-        private FileInfo SaveFile(FileInfo file)
-        {
-            // Save the file in the data folder with the name uuid.ext
-            string filename = Uuid.ToString() + file.Extension;
-            var tableFolder = DavDatabase.GetTableFolder(TableId);
-            return file.CopyTo(Path.Combine(tableFolder.FullName, filename), true);
-        }
-
         private static TableObjectVisibility ParseIntToVisibility(int visibility)
         {
             switch (visibility)
@@ -241,13 +253,32 @@ namespace davClassLibrary.Models
 
             }
         }
+
+        public TableObjectData ToTableObjectData()
+        {
+            var tableObjectData = new TableObjectData
+            {
+                id = Id,
+                table_id = TableId,
+                visibility = ParseVisibilityToInt(Visibility),
+                uuid = Uuid.ToString(),
+                file = IsFile,
+                properties = new List<PropertyData>()
+            };
+
+            foreach(var property in Properties)
+            {
+                tableObjectData.properties.Add(property.ToPropertyData());
+            }
+
+            return tableObjectData;
+        }
     }
 
     public class TableObjectData
     {
         public int id { get; set; }
         public int table_id { get; set; }
-        public int user_id { get; set; }
         public int visibility { get; set; }
         public string uuid { get; set; }
         public bool file { get; set; }
