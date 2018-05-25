@@ -19,31 +19,25 @@ namespace davClassLibrary.Models
         [Ignore]
         public FileInfo File { get; private set; }
         [Ignore]
-        private List<Property> Properties { get; set; }
+        public List<Property> Properties { get; private set; }
+        public TableObjectUploadStatus UploadStatus { get; private set; }
 
         public enum TableObjectVisibility
         {
-            Public = 2,
+            Private = 0,
             Protected = 1,
-            Private = 0
+            Public = 2
+        }
+        public enum TableObjectUploadStatus
+        {
+            UpToDate = 0,
+            Updated = 1,
+            New = 2,
+            NoUpload
         }
 
         public TableObject(){}
-        /*
-        public TableObject(Guid uuid)
-        {
-            if (Equals(uuid, Guid.Empty))
-            {
-                Uuid = Guid.NewGuid();
-                
-            }
-            else
-            {
-                Uuid = uuid;
-            }
-            Properties = new List<Property>();
-        }
-        */
+        
         public TableObject(int tableId)
         {
             Uuid = Guid.NewGuid();
@@ -61,40 +55,16 @@ namespace davClassLibrary.Models
 
             Save();
         }
-        /*
+
         public TableObject(Guid uuid, int tableId, List<Property> properties)
         {
-            if (uuid == null)
-                Uuid = Guid.NewGuid();
-            else
-                Uuid = uuid;
-
+            Uuid = uuid;
             TableId = tableId;
-            Properties = new List<Property>();
-            foreach (var property in properties)
-                Properties.Add(property);
+            Properties = properties;
 
-            Save();
-        }*/
-        /*
-        public TableObject(Guid uuid, int tableId, FileInfo file)
-        {
-            if (uuid == null)
-                Uuid = Guid.NewGuid();
-            else
-                Uuid = uuid;
-
-            TableId = tableId;
-            IsFile = true;
-            _file = file;
-            Properties = new List<Property>();
-
-            Save();
-
-            // Copy file into the data folder
-            _file = SaveFile(file);
+            SaveWithProperties();
         }
-        */
+        
         public void SetVisibility(TableObjectVisibility visibility)
         {
             Visibility = visibility;
@@ -103,7 +73,6 @@ namespace davClassLibrary.Models
 
         public void SetFile(FileInfo file)
         {
-            File = file;
             SaveFile(file);
         }
 
@@ -117,9 +86,20 @@ namespace davClassLibrary.Models
         {
             // Check if the tableObject already exists
             if (!Dav.Database.TableObjectExists(Uuid))
+            {
+                UploadStatus = TableObjectUploadStatus.New;
                 Id = Dav.Database.CreateTableObject(this);
+            }
             else
+            {
                 Dav.Database.UpdateTableObject(this);
+            }
+        }
+
+        private void SaveWithProperties()
+        {
+            UploadStatus = TableObjectUploadStatus.New;
+            Dav.Database.CreateTableObjectWithProperties(this);
         }
 
         private void LoadProperties()
@@ -134,13 +114,18 @@ namespace davClassLibrary.Models
             if(property != null)
             {
                 // Update the property
-                property.Value = value;
+                if (property.Value == value) return;
+
+                property.SetValue(value);
             }
             else
             {
                 // Create a new property
                 Properties.Add(new Property(Id, name, value));
             }
+
+            if (UploadStatus == TableObjectUploadStatus.UpToDate)
+                UploadStatus = TableObjectUploadStatus.Updated;
         }
 
         public string GetPropertyValue(string name)
@@ -155,11 +140,12 @@ namespace davClassLibrary.Models
         public void RemoveProperty(string name)
         {
             var property = Properties.Find(prop => prop.Name == name);
+            if (property == null) return;
 
-            if(property != null)
-            {
-                Dav.Database.DeleteProperty(property);
-            }
+            if (UploadStatus == TableObjectUploadStatus.UpToDate)
+                UploadStatus = TableObjectUploadStatus.Updated;
+
+            Dav.Database.DeleteProperty(property);
         }
 
         public void RemoveAllProperties()
@@ -167,6 +153,9 @@ namespace davClassLibrary.Models
             LoadProperties();
             foreach (var property in Properties)
                 Dav.Database.DeleteProperty(property);
+
+            if (UploadStatus == TableObjectUploadStatus.UpToDate)
+                UploadStatus = TableObjectUploadStatus.Updated;
         }
 
         private void LoadFile()
@@ -182,14 +171,27 @@ namespace davClassLibrary.Models
 
         private FileInfo SaveFile(FileInfo file)
         {
+            if (File == file) return File;
+
             SetPropertyValue("ext", file.Extension.Replace(".", ""));
             IsFile = true;
+            if (UploadStatus == TableObjectUploadStatus.UpToDate)
+                UploadStatus = TableObjectUploadStatus.Updated;
             Save();
 
             // Save the file in the data folder with the uuid as name (without extension)
             string filename = Uuid.ToString();
             var tableFolder = DavDatabase.GetTableFolder(TableId);
-            return file.CopyTo(Path.Combine(tableFolder.FullName, filename), true);
+            File = file.CopyTo(Path.Combine(tableFolder.FullName, filename), true);
+            return File;
+        }
+
+        public void SetUploadStatus(TableObjectUploadStatus newUploadStatus)
+        {
+            if (UploadStatus == newUploadStatus) return;
+
+            UploadStatus = newUploadStatus;
+            Save();
         }
 
         public static async Task Sync()

@@ -26,15 +26,30 @@ namespace davClassLibrary.DataAccess
             database = new SQLiteConnection(Path.Combine(Dav.DataPath, databaseName));
             database.CreateTable<TableObject>();
             database.CreateTable<Property>();
-            database.CreateTable<SyncTableObject>();
-            database.CreateTable<SyncProperty>();
         }
 
         #region CRUD for TableObject
         public int CreateTableObject(TableObject tableObject)
         {
             database.Insert(tableObject);
-            CreateSyncTableObject(new SyncTableObject(tableObject.Uuid, SyncOperation.Create));
+            return tableObject.Id;
+        }
+
+        public int CreateTableObjectWithProperties(TableObject tableObject)
+        {
+            database.RunInTransaction(() =>
+            {
+                database.Insert(tableObject);
+
+                foreach (var property in tableObject.Properties)
+                {
+                    if (!PropertyExists(property.Id))
+                    {
+                        property.TableObjectId = tableObject.Id;
+                        database.Insert(property);
+                    }
+                }
+            });
             return tableObject.Id;
         }
 
@@ -97,7 +112,6 @@ namespace davClassLibrary.DataAccess
         public void UpdateTableObject(TableObject tableObject)
         {
             database.Update(tableObject);
-            CreateSyncTableObject(new SyncTableObject(tableObject.Uuid, SyncOperation.Update));
         }
 
         public void DeleteTableObject(Guid uuid)
@@ -109,11 +123,16 @@ namespace davClassLibrary.DataAccess
 
         public void DeleteTableObject(TableObject tableObject)
         {
-            // Delete the properties of the table object
-            tableObject.RemoveAllProperties();
-            
-            database.Delete(tableObject);
-            CreateSyncTableObject(new SyncTableObject(tableObject.Uuid, SyncOperation.Delete));
+            database.RunInTransaction(() =>
+            {
+                // Delete the properties of the table object
+                tableObject.Load();
+                foreach(var property in tableObject.Properties)
+                {
+                    database.Delete(property);
+                }
+                database.Delete(tableObject);
+            });
         }
         #endregion
 
@@ -121,7 +140,6 @@ namespace davClassLibrary.DataAccess
         public int CreateProperty(Property property)
         {
             database.Insert(property);
-            CreateSyncProperty(new SyncProperty(property.Id, SyncOperation.Create));
             return property.Id;
         }
 
@@ -143,7 +161,6 @@ namespace davClassLibrary.DataAccess
         public void UpdateProperty(Property property)
         {
             database.Update(property);
-            CreateSyncProperty(new SyncProperty(property.Id, SyncOperation.Update));
         }
 
         public void DeleteProperty(int id)
@@ -156,58 +173,6 @@ namespace davClassLibrary.DataAccess
         public void DeleteProperty(Property property)
         {
             database.Delete(property);
-            CreateSyncProperty(new SyncProperty(property.Id, SyncOperation.Delete));
-        }
-        #endregion
-
-        #region CRD for SyncTableObject
-        public int CreateSyncTableObject(SyncTableObject syncTableObject)
-        {
-            return database.Insert(syncTableObject);
-        }
-
-        public SyncTableObject GetSyncTableObject(int id)
-        {
-            return database.Get<SyncTableObject>(id);
-        }
-
-        public void DeleteSyncTableObject(int id)
-        {
-            // Get SyncTableObject from the database
-            var syncTableObject = database.Get<SyncTableObject>(id);
-
-            if(syncTableObject != null)
-                database.Delete(syncTableObject);
-        }
-
-        public void DeleteSyncTableObject(SyncTableObject syncTableObject)
-        {
-            database.Delete(syncTableObject);
-        }
-        #endregion
-
-        #region CRD for SyncProperty
-        public int CreateSyncProperty(SyncProperty syncProperty)
-        {
-            return database.Insert(syncProperty);
-        }
-
-        public SyncProperty GetSyncProperty(int id)
-        {
-            return database.Get<SyncProperty>(id);
-        }
-
-        public void DeleteSyncProperty(int id)
-        {
-            var syncProperty = GetSyncProperty(id);
-
-            if (syncProperty != null)
-                database.Delete(syncProperty);
-        }
-
-        public void DeleteSyncProperty(SyncProperty syncProperty)
-        {
-            database.Delete(syncProperty);
         }
         #endregion
 

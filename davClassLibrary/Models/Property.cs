@@ -1,4 +1,5 @@
 ﻿using SQLite;
+using System.Diagnostics;
 
 namespace davClassLibrary.Models
 {
