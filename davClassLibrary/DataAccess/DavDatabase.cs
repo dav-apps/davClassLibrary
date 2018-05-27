@@ -1,10 +1,10 @@
 ﻿using davClassLibrary.Models;
-using Ionic.Zip;
 using SQLite;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -12,7 +12,6 @@ using System.Net.NetworkInformation;
 using System.Runtime.Serialization.Json;
 using System.Text;
 using System.Threading.Tasks;
-using static davClassLibrary.Models.SyncObject;
 
 namespace davClassLibrary.DataAccess
 {
@@ -43,13 +42,11 @@ namespace davClassLibrary.DataAccess
 
                 foreach (var property in tableObject.Properties)
                 {
-                    if (!PropertyExists(property.Id))
-                    {
-                        property.TableObjectId = tableObject.Id;
-                        database.Insert(property);
-                    }
+                    property.TableObjectId = tableObject.Id;
+                    database.Insert(property);
                 }
             });
+
             return tableObject.Id;
         }
 
@@ -240,7 +237,7 @@ namespace davClassLibrary.DataAccess
             return Directory.CreateDirectory(tableFolderPath);
         }
 
-        public static async Task ExportData(DirectoryInfo exportFolder, DirectoryInfo destinationFolder, string fileName, IProgress<int> progress)
+        public static async Task ExportData(DirectoryInfo exportFolder, IProgress<int> progress)
         {
             // 1. foreach all table object
             // 1.1 Create a folder for every table in the export folder
@@ -253,12 +250,41 @@ namespace davClassLibrary.DataAccess
             {
                 List<TableObjectData> tableObjectDataList = new List<TableObjectData>();
                 var tableObjects = Dav.Database.GetAllTableObjects();
-                int i = 1;
+                int i = 0;
 
-                using (var zip = new ZipFile())
+                foreach(var tableObject in tableObjects)
+                {
+                    tableObjectDataList.Add(tableObject.ToTableObjectData());
+
+                    if (tableObject.IsFile)
+                    {
+                        string tablePath = Path.Combine(exportFolder.FullName, tableObject.TableId.ToString());
+                        Directory.CreateDirectory(tablePath);
+
+                        string tableObjectFilePath = Path.Combine(tablePath, tableObject.File.Name);
+                        tableObject.File.CopyTo(tableObjectFilePath, true);
+                    }
+
+                    i++;
+                    progress.Report((int)Math.Round(100.0 / tableObjects.Count * i));
+                }
+
+                // Write the list of tableObjects as json
+                string dataFilePath = Path.Combine(exportFolder.FullName, "data.json");
+                WriteFile(dataFilePath, tableObjectDataList);
+
+                // Create a zip file of the export folder and copy it into the destination folder
+                //string destinationFilePath = Path.Combine(exportFolder.Parent.FullName, "export.zip");
+                //ZipFile.CreateFromDirectory(exportFolder.FullName, destinationFilePath);
+                //return new FileInfo(destinationFilePath);
+
+                /*
+                 * Alternative approach with dotNetZip, which still does not support .NET Standard
+                 * 
+                Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+                using (ZipFile zip = new ZipFile())
                 {
                     zip.AddDirectory(exportFolder.FullName);
-                    zip.Save(fileName + ".zip");
 
                     foreach (var tableObject in tableObjects)
                     {
@@ -267,7 +293,11 @@ namespace davClassLibrary.DataAccess
                         string directoryName = tableObject.TableId.ToString();
 
                         if (!zip.ContainsEntry(directoryName))
-                            zip.AddDirectory(directoryName);
+                        {
+                            string tablePath = Path.Combine(exportFolder.FullName, directoryName);
+                            Directory.CreateDirectory(tablePath);
+                            zip.AddDirectory(tablePath);
+                        }
 
                         if (tableObject.IsFile)
                         {
@@ -286,10 +316,43 @@ namespace davClassLibrary.DataAccess
                     WriteFile(dataFilePath, tableObjectDataList);
 
                     zip.AddFile(dataFilePath);
-
                     zip.Save(Path.Combine(exportFolder.FullName, fileName + ".zip"));
                 }
+                */
             });
+        }
+
+        public static void ImportData(DirectoryInfo importFolder, IProgress<int> progress)
+        {
+            string dataFilePath = Path.Combine(importFolder.FullName, "data.json");
+            FileInfo dataFile = new FileInfo(dataFilePath);
+            List<TableObjectData> tableObjects = GetDataFromFile(dataFile);
+            int i = 0;
+
+            foreach(var tableObjectData in tableObjects)
+            {
+                TableObject tableObject = TableObject.ConvertTableObjectDataToTableObject(tableObjectData);
+                Dav.Database.CreateTableObjectWithProperties(tableObject);
+
+                // If the tableObject is a file, get the file from the appropriate folder
+                if (tableObject.IsFile)
+                {
+                    try
+                    {
+                        string tablePath = Path.Combine(importFolder.FullName, tableObject.TableId.ToString());
+                        string filePath = Path.Combine(tablePath, tableObject.Uuid.ToString());
+                        FileInfo tableObjectFile = new FileInfo(filePath);
+                        tableObject.SetFile(tableObjectFile);
+                    }
+                    catch(Exception e)
+                    {
+                        Debug.WriteLine(e.Message);
+                    }
+                }
+
+                i++;
+                progress.Report((int)Math.Round(100.0 / tableObjects.Count * i));
+            }
         }
 
         private static void WriteFile(string path, Object objectToWrite)
@@ -303,6 +366,25 @@ namespace davClassLibrary.DataAccess
             string data = sr.ReadToEnd();
 
             File.WriteAllText(path, data);
+        }
+
+        public static List<TableObjectData> GetDataFromFile(FileInfo dataFile)
+        {
+            string data = File.ReadAllText(dataFile.FullName);
+
+            //Deserialize Json
+            var serializer = new DataContractJsonSerializer(typeof(List<TableObjectData>));
+            var ms = new MemoryStream(Encoding.UTF8.GetBytes(data));
+            var dataReader = (List<TableObjectData>)serializer.ReadObject(ms);
+
+            return dataReader;
+        }
+
+        public static Guid ConvertStringToGuid(string uuidString)
+        {
+            Guid uuid = Guid.Empty;
+            Guid.TryParse(uuidString, out uuid);
+            return uuid;
         }
         #endregion
     }

@@ -173,7 +173,8 @@ namespace davClassLibrary.Models
         {
             if (File == file) return File;
 
-            SetPropertyValue("ext", file.Extension.Replace(".", ""));
+            if(!String.IsNullOrEmpty(file.Extension))
+                SetPropertyValue("ext", file.Extension.Replace(".", ""));
             IsFile = true;
             if (UploadStatus == TableObjectUploadStatus.UpToDate)
                 UploadStatus = TableObjectUploadStatus.Updated;
@@ -214,7 +215,7 @@ namespace davClassLibrary.Models
                 foreach(var obj in table.entries)
                 {
                     // Get the proper table object
-                    string tableObjectInformation = await DavDatabase.HttpGet(DavUser.GetJWT(), "apps/object/" + obj.id);
+                    string tableObjectInformation = await DavDatabase.HttpGet(DavUser.GetJWT(), "apps/object?uuid=" + obj.uuid);
                     var tableObject = DavDatabase.DeserializeJsonToTableObject(tableObjectInformation);
 
                     // Save the table object in the database
@@ -274,6 +275,28 @@ namespace davClassLibrary.Models
             }
 
             return tableObjectData;
+        }
+
+        public static TableObject ConvertTableObjectDataToTableObject(TableObjectData tableObjectData)
+        {
+            TableObject tableObject = new TableObject
+            {
+                Id = tableObjectData.id,
+                TableId = tableObjectData.table_id,
+                Visibility = ParseIntToVisibility(tableObjectData.visibility),
+                Uuid = DavDatabase.ConvertStringToGuid(tableObjectData.uuid),
+                IsFile = tableObjectData.file
+            };
+
+            List<Property> properties = new List<Property>();
+
+            foreach(var propertyData in tableObjectData.properties)
+            {
+                properties.Add(Property.ConvertPropertyDataToProperty(propertyData));
+            }
+
+            tableObject.Properties = properties;
+            return tableObject;
         }
     }
 

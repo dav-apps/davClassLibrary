@@ -50,6 +50,19 @@ namespace davClassLibrary.Models
                 value = Value
             };
         }
+
+        public static Property ConvertPropertyDataToProperty(PropertyData propertyData)
+        {
+            Property property = new Property
+            {
+                Id = propertyData.id,
+                TableObjectId = propertyData.table_object_id,
+                Name = propertyData.name,
+                Value = propertyData.value
+            };
+
+            return property;
+        }
     }
 
     public class PropertyData
