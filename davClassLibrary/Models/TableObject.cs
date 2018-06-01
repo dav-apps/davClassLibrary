@@ -45,6 +45,7 @@ namespace davClassLibrary.Models
             Deleted = 3,
             NoUpload = 4
         }
+        private static bool syncing = false;
 
         public TableObject(){}
         
@@ -66,6 +67,19 @@ namespace davClassLibrary.Models
             UploadStatus = TableObjectUploadStatus.New;
 
             Save();
+        }
+
+        public TableObject(Guid uuid, int tableId, FileInfo file)
+        {
+            Uuid = uuid;
+            TableId = tableId;
+            Properties = new List<Property>();
+            UploadStatus = TableObjectUploadStatus.New;
+
+            IsFile = true;
+            Save();
+
+            SaveFile(file);
         }
 
         public TableObject(Guid uuid, int tableId, List<Property> properties)
@@ -129,6 +143,8 @@ namespace davClassLibrary.Models
                 foreach(var property in Properties)
                     tableObject.SetPropertyValue(property.Name, property.Value);
             }
+
+            SyncPush();
         }
 
         private void LoadProperties()
@@ -155,6 +171,9 @@ namespace davClassLibrary.Models
 
             if (UploadStatus == TableObjectUploadStatus.UpToDate)
                 UploadStatus = TableObjectUploadStatus.Updated;
+
+            Save();
+            SyncPush();
         }
 
         public string GetPropertyValue(string name)
@@ -175,6 +194,7 @@ namespace davClassLibrary.Models
                 UploadStatus = TableObjectUploadStatus.Updated;
 
             Dav.Database.DeleteProperty(property);
+            SyncPush();
         }
 
         public void RemoveAllProperties()
@@ -202,17 +222,19 @@ namespace davClassLibrary.Models
         {
             if (File == file) return File;
 
-            if(!String.IsNullOrEmpty(file.Extension))
-                SetPropertyValue("ext", file.Extension.Replace(".", ""));
             IsFile = true;
             if (UploadStatus == TableObjectUploadStatus.UpToDate)
                 UploadStatus = TableObjectUploadStatus.Updated;
-            Save();
 
             // Save the file in the data folder with the uuid as name (without extension)
             string filename = Uuid.ToString();
             var tableFolder = DavDatabase.GetTableFolder(TableId);
             File = file.CopyTo(Path.Combine(tableFolder.FullName, filename), true);
+
+            if (!String.IsNullOrEmpty(file.Extension))
+                SetPropertyValue("ext", file.Extension.Replace(".", ""));
+
+            Save();
             return File;
         }
 
@@ -222,6 +244,18 @@ namespace davClassLibrary.Models
 
             UploadStatus = newUploadStatus;
             Save();
+        }
+
+        public void Delete()
+        {
+            if(IsFile && File != null)
+            {
+                // Delete the file
+                File.Delete();
+            }
+
+            SetUploadStatus(TableObjectUploadStatus.Deleted);
+            SyncPush();
         }
 
         public static bool TableObjectsAreEqual(TableObject firstTableObject, TableObject secondTableObject)
@@ -240,6 +274,7 @@ namespace davClassLibrary.Models
 
         public static async Task Sync()
         {
+            syncing = true;
             string jwt = DavUser.GetJWT();
             if (String.IsNullOrEmpty(jwt)) return;
             
@@ -262,6 +297,7 @@ namespace davClassLibrary.Models
                 List<Guid> removedTableObjectUuids = new List<Guid>();
                 foreach (var tableObject in Dav.Database.GetAllTableObjects(table.id, true))
                     removedTableObjectUuids.Add(tableObject.Uuid);
+                bool tableObjectsOfTableUpdated = false;
 
                 // Get the objects of the table
                 foreach (var obj in table.entries)
@@ -290,6 +326,7 @@ namespace davClassLibrary.Models
 
                     if (TableObjectsAreEqual(currentTableObject, tableObject))
                         continue;
+                    tableObjectsOfTableUpdated = true;
 
                     tableObject.SaveWithProperties();
 
@@ -316,37 +353,51 @@ namespace davClassLibrary.Models
                         objectsDeleted = true;
                     }
                 }
+
+                if(tableObjectsOfTableUpdated || objectsDeleted)
+                    ProjectInterface.TriggerAction.UpdateAllOfTable(table.id);
             }
 
             if(objectsDeleted)
                 ProjectInterface.TriggerAction.UpdateAll();
+            syncing = false;
 
             // Push changes
+            await SyncPush();
+        }
+
+        public static async Task SyncPush()
+        {
+            if (syncing) return;
+            syncing = true;
+
             List<TableObject> tableObjects = Dav.Database.GetAllTableObjects(true);
-            foreach(var tableObject in tableObjects)
+            foreach (var tableObject in tableObjects)
             {
                 if (tableObject.UploadStatus == TableObjectUploadStatus.UpToDate ||
                     tableObject.UploadStatus == TableObjectUploadStatus.NoUpload) continue;
 
-                if(tableObject.UploadStatus == TableObjectUploadStatus.New)
+                if (tableObject.UploadStatus == TableObjectUploadStatus.New)
                 {
                     // Create the new object on the server
-                    if(await tableObject.CreateTableObjectOnServer())
+                    if (await tableObject.CreateTableObjectOnServer())
                         tableObject.SetUploadStatus(TableObjectUploadStatus.UpToDate);
                 }
-                else if(tableObject.UploadStatus == TableObjectUploadStatus.Updated)
+                else if (tableObject.UploadStatus == TableObjectUploadStatus.Updated)
                 {
                     // Update the object on the server
                     if (await tableObject.UpdateTableObjectOnServer())
                         tableObject.SetUploadStatus(TableObjectUploadStatus.UpToDate);
                 }
-                else if(tableObject.UploadStatus == TableObjectUploadStatus.Deleted)
+                else if (tableObject.UploadStatus == TableObjectUploadStatus.Deleted)
                 {
                     // Delete the object on the server
                     if (await tableObject.DeleteTableObjectOnServer())
                         Dav.Database.DeleteTableObject(tableObject.Uuid);
                 }
             }
+
+            syncing = false;
         }
 
         private async Task<bool> CreateTableObjectOnServer()
@@ -360,6 +411,8 @@ namespace davClassLibrary.Models
                 string ext = "";
                 string url = "apps/object?uuid=" + Uuid + "&app_id=" + Dav.AppId + "&table_id=" + TableId;
                 HttpClient httpClient = new HttpClient();
+                httpClient.Timeout = TimeSpan.FromMinutes(60);
+
                 var headers = httpClient.DefaultRequestHeaders;
                 httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(jwt);
                 if (!IsFile)
@@ -404,11 +457,7 @@ namespace davClassLibrary.Models
                 else
                 {
                     // Check for the error
-                    if (httpResponseBody.Contains("2704"))  // Field already taken: uuid
-                    {
-                        // Set the upload status to UpToDate
-                        SetUploadStatus(TableObjectUploadStatus.UpToDate);
-                    }
+                    ProcessErrorCodes(httpResponseBody);
                 }
 
                 return httpResponse.IsSuccessStatusCode;
@@ -427,10 +476,12 @@ namespace davClassLibrary.Models
 
                 string url = "apps/object/" + Uuid;
                 HttpClient httpClient = new HttpClient();
+                httpClient.Timeout = TimeSpan.FromMinutes(60);
+
                 var headers = httpClient.DefaultRequestHeaders;
                 httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(jwt);
                 if (!IsFile)
-                    httpClient.DefaultRequestHeaders.Add("Content-Type", "application/json");
+                    httpClient.DefaultRequestHeaders.Add("CONTENT_TYPE", "application/json");
                 Uri requestUri = new Uri(Dav.ApiBaseUrl + url);
 
                 HttpContent content;
@@ -444,11 +495,21 @@ namespace davClassLibrary.Models
                 else
                 {
                     // Upload the properties
-                    string json = JsonConvert.SerializeObject(Properties);
+                    string json = JsonConvert.SerializeObject(DavDatabase.ConvertPropertiesListToDictionary(Properties));
                     content = new StringContent(json);
                 }
                 // Send the request
-                return (await httpClient.PutAsync(requestUri, content)).IsSuccessStatusCode;
+                var httpResponse = await httpClient.PutAsync(requestUri, content);
+
+                if (!httpResponse.IsSuccessStatusCode)
+                {
+                    string httpResponseBody = await httpResponse.Content.ReadAsStringAsync();
+
+                    // Check the error codes
+                    ProcessErrorCodes(httpResponseBody);
+                }
+
+                return httpResponse.IsSuccessStatusCode;
             }
             
             return false;
@@ -476,6 +537,8 @@ namespace davClassLibrary.Models
                     string httpResponseBody = await httpResponse.Content.ReadAsStringAsync();
 
                     // Check the error code
+                    ProcessErrorCodes(httpResponseBody);
+
                     if (httpResponseBody.Contains("2805"))  // Resource does not exist: TableObject
                     {
                         return true;
@@ -484,6 +547,15 @@ namespace davClassLibrary.Models
             }
 
             return false;
+        }
+
+        private void ProcessErrorCodes(string errorMessage)
+        {
+            if (errorMessage.Contains("2704"))  // Field already taken: uuid
+            {
+                // Set the upload status to UpToDate
+                SetUploadStatus(TableObjectUploadStatus.UpToDate);
+            }
         }
 
         private void DownloadTableObjectFile()

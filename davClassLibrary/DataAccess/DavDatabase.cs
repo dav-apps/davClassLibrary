@@ -117,7 +117,9 @@ namespace davClassLibrary.DataAccess
         {
             TableObject tableObject = GetTableObject(uuid);
             if(tableObject != null)
+            {
                 DeleteTableObject(tableObject);
+            }
         }
 
         public void DeleteTableObject(TableObject tableObject)
