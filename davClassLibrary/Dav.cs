@@ -15,7 +15,7 @@ namespace davClassLibrary
         public const string avatarEtagKey = "avatarEtag";
 
         //public const string ApiBaseUrl = "https://dav-backend.herokuapp.com/v1/";
-        public const string ApiBaseUrl = "https://61eacf05.ngrok.io/v1/";
+        public const string ApiBaseUrl = "https://c39aa363.ngrok.io/v1/";
         public const string GetUserUrl = "auth/user";
         public static string DataPath
         {

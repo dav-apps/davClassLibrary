@@ -4,5 +4,6 @@
     {
         public static ILocalDataSettings LocalDataSettings;
         public static IRetrieveConstants RetrieveConstants;
+        public static ITriggerAction TriggerAction;
     }
 }

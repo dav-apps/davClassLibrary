@@ -63,15 +63,14 @@ namespace davClassLibrary.Models
             {
                 // User is logged in. Get the user information
                 GetUserInformation();
+
+                DownloadUserInformation();
+                TableObject.Sync();
             }
             else
             {
                 IsLoggedIn = false;
             }
-
-            DownloadUserInformation();
-
-            TableObject.Sync();
         }
 
         public async Task Login(string jwt)
@@ -79,7 +78,7 @@ namespace davClassLibrary.Models
             JWT = jwt;
             IsLoggedIn = true;
             await DownloadUserInformation();
-            // Download all data from the server
+            TableObject.Sync();
         }
 
         public void Logout()

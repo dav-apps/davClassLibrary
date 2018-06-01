@@ -4,7 +4,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -50,13 +49,15 @@ namespace davClassLibrary.DataAccess
             return tableObject.Id;
         }
 
-        private List<TableObject> GetAllTableObjects()
+        public List<TableObject> GetAllTableObjects(bool deleted)
         {
             List<TableObject> tableObjectList = new List<TableObject>();
             List<TableObject> tableObjects = database.Table<TableObject>().ToList();
 
             foreach (var tableObject in tableObjects)
             {
+                if (!deleted && tableObject.UploadStatus == TableObject.TableObjectUploadStatus.Deleted) continue;
+
                 tableObject.Load();
                 tableObjectList.Add(tableObject);
             }
@@ -64,7 +65,7 @@ namespace davClassLibrary.DataAccess
             return tableObjectList;
         }
 
-        public List<TableObject> GetAllTableObjects(int tableId)
+        public List<TableObject> GetAllTableObjects(int tableId, bool deleted)
         {
             List<TableObject> tableObjectsList = new List<TableObject>();
             List<TableObject> tableObjects = database.Table<TableObject>().ToList();
@@ -72,11 +73,12 @@ namespace davClassLibrary.DataAccess
             // Get the properties of the table objects
             foreach (var tableObject in tableObjects)
             {
-                if(tableObject.TableId == tableId)
-                {
-                    tableObject.Load();
-                    tableObjectsList.Add(tableObject);
-                }
+                if ((!deleted &&
+                    tableObject.UploadStatus == TableObject.TableObjectUploadStatus.Deleted) ||
+                    tableObject.TableId != tableId) continue;
+
+                tableObject.Load();
+                tableObjectsList.Add(tableObject);
             }
 
             return tableObjectsList;
@@ -120,16 +122,24 @@ namespace davClassLibrary.DataAccess
 
         public void DeleteTableObject(TableObject tableObject)
         {
-            database.RunInTransaction(() =>
+            if (tableObject.UploadStatus == TableObject.TableObjectUploadStatus.Deleted)
             {
-                // Delete the properties of the table object
-                tableObject.Load();
-                foreach(var property in tableObject.Properties)
+                database.RunInTransaction(() =>
                 {
-                    database.Delete(property);
-                }
-                database.Delete(tableObject);
-            });
+                    // Delete the properties of the table object
+                    tableObject.Load();
+                    foreach (var property in tableObject.Properties)
+                    {
+                        database.Delete(property);
+                    }
+                    database.Delete(tableObject);
+                });
+            }
+            else
+            {
+                // Set the upload status of the table object to Deleted
+                tableObject.SetUploadStatus(TableObject.TableObjectUploadStatus.Deleted);
+            }
         }
         #endregion
 
@@ -175,14 +185,14 @@ namespace davClassLibrary.DataAccess
 
 
         #region Static things
-        public static async Task<string> HttpGet(string jwt, string serverUrl)
+        public static async Task<string> HttpGet(string jwt, string url)
         {
             if (NetworkInterface.GetIsNetworkAvailable())
             {
                 HttpClient httpClient = new HttpClient();
                 var headers = httpClient.DefaultRequestHeaders;
-                httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(jwt);
-                Uri requestUri = new Uri(Dav.ApiBaseUrl + serverUrl);
+                headers.Authorization = new AuthenticationHeaderValue(jwt);
+                Uri requestUri = new Uri(Dav.ApiBaseUrl + url);
 
                 HttpResponseMessage httpResponse = new HttpResponseMessage();
                 string httpResponseBody = "";
@@ -207,28 +217,7 @@ namespace davClassLibrary.DataAccess
                 return null;
             }
         }
-
-        public static AppData DeserializeJsonToApp(string json)
-        {
-            var serializer = new DataContractJsonSerializer(typeof(AppData));
-            var ms = new MemoryStream(Encoding.UTF8.GetBytes(json));
-            return (AppData)serializer.ReadObject(ms);
-        }
-
-        public static TableData DeserializeJsonToTable(string json)
-        {
-            var serializer = new DataContractJsonSerializer(typeof(TableData));
-            var ms = new MemoryStream(Encoding.UTF8.GetBytes(json));
-            return (TableData)serializer.ReadObject(ms);
-        }
-
-        public static TableObjectData DeserializeJsonToTableObject(string json)
-        {
-            var serializer = new DataContractJsonSerializer(typeof(TableObjectData));
-            var ms = new MemoryStream(Encoding.UTF8.GetBytes(json));
-            return (TableObjectData)serializer.ReadObject(ms);
-        }
-
+        
         public static DirectoryInfo GetTableFolder(int tableId)
         {
             DirectoryInfo dataFolder = new DirectoryInfo(Dav.DataPath);
@@ -249,7 +238,7 @@ namespace davClassLibrary.DataAccess
             await Task.Run(() =>
             {
                 List<TableObjectData> tableObjectDataList = new List<TableObjectData>();
-                var tableObjects = Dav.Database.GetAllTableObjects();
+                var tableObjects = Dav.Database.GetAllTableObjects(false);
                 int i = 0;
 
                 foreach(var tableObject in tableObjects)
@@ -385,6 +374,29 @@ namespace davClassLibrary.DataAccess
             Guid uuid = Guid.Empty;
             Guid.TryParse(uuidString, out uuid);
             return uuid;
+        }
+
+        public static Dictionary<string, string> ConvertPropertiesListToDictionary(List<Property> properties)
+        {
+            Dictionary<string, string> dictionary = new Dictionary<string, string>();
+
+            foreach (var property in properties)
+                dictionary.Add(property.Name, property.Value);
+
+            return dictionary;
+        }
+
+        public static byte[] FileToByteArray(string fileName)
+        {
+            if (!File.Exists(fileName)) return null;
+            byte[] fileData = null;
+
+            using (FileStream fs = File.OpenRead(fileName))
+            {
+                var binaryReader = new BinaryReader(fs);
+                fileData = binaryReader.ReadBytes((int)fs.Length);
+            }
+            return fileData;
         }
         #endregion
     }
