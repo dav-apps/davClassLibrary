@@ -189,6 +189,7 @@ namespace davClassLibrary.Models
         {
             var property = Properties.Find(prop => prop.Name == name);
             if (property == null) return;
+            Properties.Remove(property);
 
             if (UploadStatus == TableObjectUploadStatus.UpToDate)
                 UploadStatus = TableObjectUploadStatus.Updated;
@@ -202,6 +203,8 @@ namespace davClassLibrary.Models
             LoadProperties();
             foreach (var property in Properties)
                 Dav.Database.DeleteProperty(property);
+
+            Properties.Clear();
 
             if (UploadStatus == TableObjectUploadStatus.UpToDate)
                 UploadStatus = TableObjectUploadStatus.Updated;
