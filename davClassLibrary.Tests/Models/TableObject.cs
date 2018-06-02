@@ -421,5 +421,142 @@ namespace davClassLibrary.Tests.Models
             Assert.AreEqual(TableObjectUploadStatus.Deleted, tableObject2.UploadStatus);
         }
         #endregion
+
+        #region TableObjectsAreEqual
+        [Test]
+        public void TableObjectsAreEqualShouldReturnTrueWhenTheTableObjectsAreEqual()
+        {
+            // Arrange
+            int tableId = 4;
+            Guid uuid = Guid.NewGuid();
+            List<Property> propertiesList = new List<Property>
+            {
+                new Property{Name = "page1", Value = "Hello World"},
+                new Property{Name = "page2", Value = "Hallo Welt"}
+            };
+            var tableObject = new davClassLibrary.Models.TableObject(uuid, tableId, propertiesList);
+
+            // Act
+            bool tableObjectsAreEqual = davClassLibrary.Models.TableObject.TableObjectsAreEqual(tableObject, tableObject);
+
+            // Assert
+            Assert.IsTrue(tableObjectsAreEqual);
+
+            var tableObject2 = davClassLibrary.Dav.Database.GetTableObject(uuid);
+            Assert.IsNotNull(tableObject2);
+
+            bool tableObjectsAreEqual2 = davClassLibrary.Models.TableObject.TableObjectsAreEqual(tableObject2, tableObject2);
+
+            Assert.IsTrue(tableObjectsAreEqual2);
+        }
+
+        [Test]
+        public void TableObjcetsAreEqualShouldReturnFalseWhenThePropertiesOfTheTableObjectsAreDifferent()
+        {
+            // Arrange
+            int tableId = 4;
+            Guid uuid = Guid.NewGuid();
+            string firstPropertyName = "page1";
+            string firstPropertyValue = "Hello World";
+            string secondPropertyName = "page2";
+            string secondPropertyValue = "Hallo Welt";
+            List<Property> propertiesList = new List<Property>
+            {
+                new Property{Name = firstPropertyName, Value = firstPropertyValue},
+                new Property{Name = secondPropertyName, Value = secondPropertyValue}
+            };
+            var tableObject = new davClassLibrary.Models.TableObject(uuid, tableId, propertiesList);
+            var tableObject2 = davClassLibrary.Dav.Database.GetTableObject(tableObject.Uuid);
+            tableObject2.RemoveProperty(firstPropertyName);
+
+            // Act
+            bool tableObjectsAreEqual = davClassLibrary.Models.TableObject.TableObjectsAreEqual(tableObject, tableObject2);
+
+            // Assert
+            Assert.IsFalse(tableObjectsAreEqual);
+        }
+
+        [Test]
+        public void TableObjectsAreEqualShouldReturnFalseWhenTheTableObjectsAreDifferent()
+        {
+            // Arrange
+            int tableId = 4;
+            var tableObject = new davClassLibrary.Models.TableObject(tableId);
+            var tableObject2 = new davClassLibrary.Models.TableObject(tableId);
+
+            // Act
+            bool tableObjectsAreEqual = davClassLibrary.Models.TableObject.TableObjectsAreEqual(tableObject, tableObject2);
+
+            // Assert
+            Assert.IsFalse(tableObjectsAreEqual);
+        }
+        #endregion
+
+        #region ToTableObjectData
+        [Test]
+        public void ToTableObjectDataShouldReturnValidTableObjectDataObject()
+        {
+            // Arrange
+            int tableId = 4;
+            Guid uuid = Guid.NewGuid();
+            string firstPropertyName = "page1";
+            string firstPropertyValue = "Hello World";
+            string secondPropertyName = "page2";
+            string secondPropertyValue = "Hallo Welt";
+            List<Property> propertiesList = new List<Property>
+            {
+                new Property{Name = firstPropertyName, Value = firstPropertyValue},
+                new Property{Name = secondPropertyName, Value = secondPropertyValue}
+            };
+            var tableObject = new davClassLibrary.Models.TableObject(uuid, tableId, propertiesList);
+
+            // Act
+            var tableObjectData = tableObject.ToTableObjectData();
+
+            // Assert
+            Assert.AreEqual(tableObject.Id, tableObjectData.id);
+            Assert.AreEqual(tableObject.TableId, tableObjectData.table_id);
+            Assert.AreEqual(0, tableObjectData.visibility);
+            Assert.AreEqual(tableObject.Uuid, tableObjectData.uuid);
+            Assert.AreEqual(tableObject.IsFile, tableObjectData.file);
+            Assert.AreEqual(firstPropertyValue, tableObjectData.properties[firstPropertyName]);
+            Assert.AreEqual(secondPropertyValue, tableObjectData.properties[secondPropertyName]);
+        }
+        #endregion
+
+        #region ConvertTableObjectDataToTableObject
+        [Test]
+        public void ConvertTableObjectDataToTableObjectShouldReturnValidTableObject()
+        {
+            // Arrange
+            int tableId = 4;
+            Guid uuid = Guid.NewGuid();
+            string firstPropertyName = "page1";
+            string firstPropertyValue = "Hello World";
+            string secondPropertyName = "page2";
+            string secondPropertyValue = "Hallo Welt";
+            List<Property> propertiesList = new List<Property>
+            {
+                new Property{Name = firstPropertyName, Value = firstPropertyValue},
+                new Property{Name = secondPropertyName, Value = secondPropertyValue}
+            };
+            var tableObject = new davClassLibrary.Models.TableObject(uuid, tableId, propertiesList);
+            var tableObjectData = tableObject.ToTableObjectData();
+
+            // Act
+            var newTableObject = davClassLibrary.Models.TableObject.ConvertTableObjectDataToTableObject(tableObjectData);
+
+            // Assert
+            Assert.AreEqual(tableObject.Id, newTableObject.Id);
+            Assert.AreEqual(tableObject.TableId, newTableObject.TableId);
+            Assert.AreEqual(tableObject.Visibility, newTableObject.Visibility);
+            Assert.AreEqual(tableObject.Uuid, newTableObject.Uuid);
+            Assert.AreEqual(tableObject.IsFile, newTableObject.IsFile);
+            Assert.AreEqual(tableObject.Properties[0].Name, newTableObject.Properties[0].Name);
+            Assert.AreEqual(tableObject.Properties[0].Value, newTableObject.Properties[0].Value);
+            Assert.AreEqual(tableObject.Properties[1].Name, newTableObject.Properties[1].Name);
+            Assert.AreEqual(tableObject.Properties[1].Value, newTableObject.Properties[1].Value);
+        }
+        #endregion
     }
 }
