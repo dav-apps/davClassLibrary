@@ -640,13 +640,16 @@ namespace davClassLibrary.Models
 
             List<Property> properties = new List<Property>();
 
-            foreach(var propertyData in tableObjectData.properties)
+            if(tableObjectData.properties != null)
             {
-                properties.Add(new Property
+                foreach (var propertyData in tableObjectData.properties)
                 {
-                    Name = propertyData.Key,
-                    Value = propertyData.Value
-                });
+                    properties.Add(new Property
+                    {
+                        Name = propertyData.Key,
+                        Value = propertyData.Value
+                    });
+                }
             }
             
             tableObject.Properties = properties;

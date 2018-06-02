@@ -18,18 +18,15 @@ namespace davClassLibrary.Tests.Models
         {
             
         }
-
+        
         [OneTimeSetUp]
         public void GlobalSetup()
         {
-            // Delete the data folder
-            Directory.Delete(Dav.GetDavDataPath(), true);
-
             ProjectInterface.LocalDataSettings = new LocalDataSettings();
             ProjectInterface.RetrieveConstants = new RetrieveConstants();
             ProjectInterface.TriggerAction = new TriggerAction();
         }
-
+        
         [OneTimeTearDown]
         public void GlobalTeardown()
         {
@@ -161,7 +158,7 @@ namespace davClassLibrary.Tests.Models
         public void SetFileShouldCopyTheFileAndSaveTheExtInTheDatabase()
         {
             // Arrange
-            int tableId = 4;
+            int tableId = 3;
             Guid uuid = Guid.NewGuid();
             FileInfo oldFile = new FileInfo(Path.Combine(Dav.ProjectDirectory, "Assets", "image.jpg"));
             FileInfo newFile = new FileInfo(Path.Combine(Dav.ProjectDirectory, "Assets", "icon.ico"));
@@ -185,7 +182,7 @@ namespace davClassLibrary.Tests.Models
         public void SetFileShouldNotWorkWhenTheTableObjectIsNotAFile()
         {
             // Arrange
-            int tableId = 4;
+            int tableId = 3;
             FileInfo file = new FileInfo(Path.Combine(Dav.ProjectDirectory, "Assets", "image.jpg"));
             var tableObject = new davClassLibrary.Models.TableObject(tableId);
 
@@ -333,7 +330,7 @@ namespace davClassLibrary.Tests.Models
         public void RemoveAllPropertiesShouldRemoveAllPropertiesAndDeleteThemFromTheDatabase()
         {
             // Arrange
-            int tableId = 4;
+            int tableId = 3;
             Guid uuid = Guid.NewGuid();
             List<Property> propertiesList = new List<Property>
             {
@@ -427,7 +424,7 @@ namespace davClassLibrary.Tests.Models
         public void TableObjectsAreEqualShouldReturnTrueWhenTheTableObjectsAreEqual()
         {
             // Arrange
-            int tableId = 4;
+            int tableId = 5;
             Guid uuid = Guid.NewGuid();
             List<Property> propertiesList = new List<Property>
             {
@@ -454,7 +451,7 @@ namespace davClassLibrary.Tests.Models
         public void TableObjcetsAreEqualShouldReturnFalseWhenThePropertiesOfTheTableObjectsAreDifferent()
         {
             // Arrange
-            int tableId = 4;
+            int tableId = 5;
             Guid uuid = Guid.NewGuid();
             string firstPropertyName = "page1";
             string firstPropertyValue = "Hello World";
@@ -480,7 +477,7 @@ namespace davClassLibrary.Tests.Models
         public void TableObjectsAreEqualShouldReturnFalseWhenTheTableObjectsAreDifferent()
         {
             // Arrange
-            int tableId = 4;
+            int tableId = 5;
             var tableObject = new davClassLibrary.Models.TableObject(tableId);
             var tableObject2 = new davClassLibrary.Models.TableObject(tableId);
 
