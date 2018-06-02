@@ -220,9 +220,9 @@ namespace davClassLibrary.Models
 
         private FileInfo SaveFile(FileInfo file)
         {
+            if (!IsFile) return null;
             if (File == file) return File;
 
-            IsFile = true;
             if (UploadStatus == TableObjectUploadStatus.UpToDate)
                 UploadStatus = TableObjectUploadStatus.Updated;
 
