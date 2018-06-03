@@ -131,30 +131,6 @@ namespace davClassLibrary.Models
             }
         }
 
-        public static DavPlan ParseIntToDavPlan(int planValue)
-        {
-            switch (planValue)
-            {
-                case 1:
-                    return DavPlan.Plus;
-                default:
-                    return DavPlan.Free;
-            }
-        }
-
-        public static int ParseDavPlanToInt(DavPlan plan)
-        {
-            switch (plan)
-            {
-                case DavPlan.Free:
-                    return 0;
-                case DavPlan.Plus:
-                    return 1;
-                default:
-                    return 0;
-            }
-        }
-
         private void DownloadAvatar(string avatarUrl)
         {
             using (var client = new WebClient())
@@ -283,6 +259,32 @@ namespace davClassLibrary.Models
         {
             ProjectInterface.LocalDataSettings.SetValue(Dav.jwtKey, jwt);
         }
+
+        #region Static methods
+        public static DavPlan ParseIntToDavPlan(int planValue)
+        {
+            switch (planValue)
+            {
+                case 1:
+                    return DavPlan.Plus;
+                default:
+                    return DavPlan.Free;
+            }
+        }
+
+        public static int ParseDavPlanToInt(DavPlan plan)
+        {
+            switch (plan)
+            {
+                case DavPlan.Free:
+                    return 0;
+                case DavPlan.Plus:
+                    return 1;
+                default:
+                    return 0;
+            }
+        }
+        #endregion
     }
 
     public class DavUserData

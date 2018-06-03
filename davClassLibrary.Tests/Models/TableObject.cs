@@ -1,5 +1,4 @@
 ﻿using davClassLibrary.Common;
-using davClassLibrary.Models;
 using davClassLibrary.Tests.Common;
 using NUnit.Framework;
 using System;
@@ -108,10 +107,10 @@ namespace davClassLibrary.Tests.Models
             // Arrange
             var tableId = 4;
             Guid uuid = Guid.NewGuid();
-            List<Property> propertiesList = new List<Property>
+            List<davClassLibrary.Models.Property> propertiesList = new List<davClassLibrary.Models.Property>
             {
-                new Property{ Name = "page1", Value = "Hallo Welt" },
-                new Property{ Name = "page2", Value = "Hello World" }
+                new davClassLibrary.Models.Property{ Name = "page1", Value = "Hallo Welt" },
+                new davClassLibrary.Models.Property{ Name = "page2", Value = "Hello World" }
             };
 
             // Act
@@ -230,9 +229,9 @@ namespace davClassLibrary.Tests.Models
             string propertyName = "page1";
             string oldPropertyValue = "Hello World";
             string newPropertyValue = "Hallo Welt";
-            List<Property> propertiesList = new List<Property>
+            List<davClassLibrary.Models.Property> propertiesList = new List<davClassLibrary.Models.Property>
             {
-                new Property{ Name = propertyName, Value = oldPropertyValue }
+                new davClassLibrary.Models.Property{ Name = propertyName, Value = oldPropertyValue }
             };
             var tableObject = new davClassLibrary.Models.TableObject(uuid, tableId, propertiesList);
 
@@ -264,9 +263,9 @@ namespace davClassLibrary.Tests.Models
             Guid uuid = Guid.NewGuid();
             string propertyName = "page1";
             string propertyValue = "Hello World";
-            List<Property> propertiesList = new List<Property>
+            List<davClassLibrary.Models.Property> propertiesList = new List<davClassLibrary.Models.Property>
             {
-                new Property{ Name = propertyName, Value = propertyValue }
+                new davClassLibrary.Models.Property{ Name = propertyName, Value = propertyValue }
             };
             var tableObject = new davClassLibrary.Models.TableObject(uuid, tableId, propertiesList);
 
@@ -305,9 +304,9 @@ namespace davClassLibrary.Tests.Models
             Guid uuid = Guid.NewGuid();
             string propertyName = "page1";
             string propertyValue = "Hello World";
-            List<Property> propertiesList = new List<Property>
+            List<davClassLibrary.Models.Property> propertiesList = new List<davClassLibrary.Models.Property>
             {
-                new Property{ Name = propertyName, Value = propertyValue }
+                new davClassLibrary.Models.Property{ Name = propertyName, Value = propertyValue }
             };
             var tableObject = new davClassLibrary.Models.TableObject(uuid, tableId, propertiesList);
 
@@ -332,10 +331,10 @@ namespace davClassLibrary.Tests.Models
             // Arrange
             int tableId = 3;
             Guid uuid = Guid.NewGuid();
-            List<Property> propertiesList = new List<Property>
+            List<davClassLibrary.Models.Property> propertiesList = new List<davClassLibrary.Models.Property>
             {
-                new Property{Name = "page1", Value = "Hello World"},
-                new Property{Name = "page2", Value = "Hallo Welt"}
+                new davClassLibrary.Models.Property{Name = "page1", Value = "Hello World"},
+                new davClassLibrary.Models.Property{Name = "page2", Value = "Hallo Welt"}
             };
             var tableObject = new davClassLibrary.Models.TableObject(uuid, tableId, propertiesList);
 
@@ -380,10 +379,10 @@ namespace davClassLibrary.Tests.Models
             // Arrange
             int tableId = 4;
             Guid uuid = Guid.NewGuid();
-            List<Property> propertiesList = new List<Property>
+            List<davClassLibrary.Models.Property> propertiesList = new List<davClassLibrary.Models.Property>
             {
-                new Property{Name = "page1", Value = "Hello World"},
-                new Property{Name = "page2", Value = "Hallo Welt"}
+                new davClassLibrary.Models.Property{Name = "page1", Value = "Hello World"},
+                new davClassLibrary.Models.Property{Name = "page2", Value = "Hallo Welt"}
             };
             var tableObject = new davClassLibrary.Models.TableObject(uuid, tableId, propertiesList);
 
@@ -426,10 +425,10 @@ namespace davClassLibrary.Tests.Models
             // Arrange
             int tableId = 5;
             Guid uuid = Guid.NewGuid();
-            List<Property> propertiesList = new List<Property>
+            List<davClassLibrary.Models.Property> propertiesList = new List<davClassLibrary.Models.Property>
             {
-                new Property{Name = "page1", Value = "Hello World"},
-                new Property{Name = "page2", Value = "Hallo Welt"}
+                new davClassLibrary.Models.Property{Name = "page1", Value = "Hello World"},
+                new davClassLibrary.Models.Property{Name = "page2", Value = "Hallo Welt"}
             };
             var tableObject = new davClassLibrary.Models.TableObject(uuid, tableId, propertiesList);
 
@@ -457,10 +456,10 @@ namespace davClassLibrary.Tests.Models
             string firstPropertyValue = "Hello World";
             string secondPropertyName = "page2";
             string secondPropertyValue = "Hallo Welt";
-            List<Property> propertiesList = new List<Property>
+            List<davClassLibrary.Models.Property> propertiesList = new List<davClassLibrary.Models.Property>
             {
-                new Property{Name = firstPropertyName, Value = firstPropertyValue},
-                new Property{Name = secondPropertyName, Value = secondPropertyValue}
+                new davClassLibrary.Models.Property{Name = firstPropertyName, Value = firstPropertyValue},
+                new davClassLibrary.Models.Property{Name = secondPropertyName, Value = secondPropertyValue}
             };
             var tableObject = new davClassLibrary.Models.TableObject(uuid, tableId, propertiesList);
             var tableObject2 = davClassLibrary.Dav.Database.GetTableObject(tableObject.Uuid);
@@ -500,10 +499,10 @@ namespace davClassLibrary.Tests.Models
             string firstPropertyValue = "Hello World";
             string secondPropertyName = "page2";
             string secondPropertyValue = "Hallo Welt";
-            List<Property> propertiesList = new List<Property>
+            List<davClassLibrary.Models.Property> propertiesList = new List<davClassLibrary.Models.Property>
             {
-                new Property{Name = firstPropertyName, Value = firstPropertyValue},
-                new Property{Name = secondPropertyName, Value = secondPropertyValue}
+                new davClassLibrary.Models.Property{Name = firstPropertyName, Value = firstPropertyValue},
+                new davClassLibrary.Models.Property{Name = secondPropertyName, Value = secondPropertyValue}
             };
             var tableObject = new davClassLibrary.Models.TableObject(uuid, tableId, propertiesList);
 
@@ -532,16 +531,16 @@ namespace davClassLibrary.Tests.Models
             string firstPropertyValue = "Hello World";
             string secondPropertyName = "page2";
             string secondPropertyValue = "Hallo Welt";
-            List<Property> propertiesList = new List<Property>
+            List<davClassLibrary.Models.Property> propertiesList = new List<davClassLibrary.Models.Property>
             {
-                new Property{Name = firstPropertyName, Value = firstPropertyValue},
-                new Property{Name = secondPropertyName, Value = secondPropertyValue}
+                new davClassLibrary.Models.Property{Name = firstPropertyName, Value = firstPropertyValue},
+                new davClassLibrary.Models.Property{Name = secondPropertyName, Value = secondPropertyValue}
             };
             var tableObject = new davClassLibrary.Models.TableObject(uuid, tableId, propertiesList);
             var tableObjectData = tableObject.ToTableObjectData();
 
             // Act
-            var newTableObject = davClassLibrary.Models.TableObject.ConvertTableObjectDataToTableObject(tableObjectData);
+            var newTableObject = ConvertTableObjectDataToTableObject(tableObjectData);
 
             // Assert
             Assert.AreEqual(tableObject.Id, newTableObject.Id);
