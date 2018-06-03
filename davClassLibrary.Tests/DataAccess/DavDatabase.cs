@@ -198,5 +198,236 @@ namespace davClassLibrary.Tests.DataAccess
             Assert.AreEqual(tableObjectsCount, allTableObjects.Count);
         }
         #endregion
+
+        #region GetTableObject
+        [Test]
+        public void GetTableObjectShouldReturnTheTableObject()
+        {
+            // Arrange
+            Guid uuid = Guid.NewGuid();
+            int tableId = 4;
+            var tableObject = new davClassLibrary.Models.TableObject(uuid, tableId);
+
+            // Act
+            var tableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(uuid);
+
+            // Assert
+            Assert.AreEqual(tableObject.Id, tableObjectFromDatabase.Id);
+            Assert.AreEqual(tableObject.TableId, tableObjectFromDatabase.TableId);
+            Assert.AreEqual(tableObject.Uuid, tableObjectFromDatabase.Uuid);
+            Assert.AreEqual(tableObject.UploadStatus, tableObjectFromDatabase.UploadStatus);
+        }
+
+        [Test]
+        public void GetTableObjectShouldReturnNullWhenTheTableObjectDoesNotExist()
+        {
+            // Arrange
+            Guid uuid = Guid.NewGuid();
+
+            // Act
+            var tableObject = davClassLibrary.Dav.Database.GetTableObject(uuid);
+
+            // Assert
+            Assert.IsNull(tableObject);
+        }
+        #endregion
+
+        #region GetPropertiesOfTableObject
+        [Test]
+        public void GetPropertiesOfTableObjectShouldReturnAllPropertiesOfTheTableObject()
+        {
+            // Arrange
+            Guid uuid = Guid.NewGuid();
+            int tableId = 3;
+            string firstPropertyName = "page1";
+            string secondPropertyName = "page2";
+            string firstPropertyValue = "Hello World";
+            string secondPropertyValue = "Hallo Welt";
+            List<Property> properties = new List<Property>
+            {
+                new Property{ Name = firstPropertyName, Value = firstPropertyValue },
+                new Property{ Name = secondPropertyName, Value = secondPropertyValue }
+            };
+            var tableObject = new davClassLibrary.Models.TableObject(uuid, tableId, properties);
+
+            // Act
+            var propertiesList = davClassLibrary.Dav.Database.GetPropertiesOfTableObject(tableObject.Id);
+
+            // Assert
+            Assert.AreEqual(firstPropertyName, propertiesList[0].Name);
+            Assert.AreEqual(firstPropertyValue, propertiesList[0].Value);
+            Assert.AreEqual(secondPropertyName, propertiesList[1].Name);
+            Assert.AreEqual(secondPropertyValue, propertiesList[1].Value);
+        }
+        #endregion
+
+        #region TableObjectExists
+        [Test]
+        public void TableObjectExistsShouldReturnTrueIfTheTableObjectExists()
+        {
+            // Arrange
+            int tableId = 5;
+            var tableObject = new davClassLibrary.Models.TableObject(tableId);
+
+            // Act
+            bool tableObjectExists = davClassLibrary.Dav.Database.TableObjectExists(tableObject.Uuid);
+
+            // Assert
+            Assert.IsTrue(tableObjectExists);
+        }
+
+        [Test]
+        public void TableObjectExistsShouldReturnFalseIfTheTableObjectDoesNotExist()
+        {
+            // Arrange
+            Guid uuid = Guid.NewGuid();
+
+            // Act
+            bool tableObjectExists = davClassLibrary.Dav.Database.TableObjectExists(uuid);
+
+            // Assert
+            Assert.IsFalse(tableObjectExists);
+        }
+        #endregion
+
+        #region UpdateTableObject
+        [Test]
+        public void UpdateTableObjectShouldUpdateTheTableObjectInTheDatabase()
+        {
+            // Arrange
+            Guid uuid = Guid.NewGuid();
+            int tableId = 5;
+            int oldVisibilityInt = 1;
+            int newVisibilityInt = 2;
+            TableObjectVisibility newVisibility = TableObjectVisibility.Public;
+            var tableObjectData = new davClassLibrary.Models.TableObjectData
+            {
+                uuid = uuid,
+                table_id = tableId,
+                visibility = oldVisibilityInt
+            };
+            var tableObject = davClassLibrary.Models.TableObject.ConvertTableObjectDataToTableObject(tableObjectData);
+
+            // Save the tableObject in the db and create a new table object with the same uuid but different values
+            davClassLibrary.Dav.Database.CreateTableObject(tableObject);
+
+            var newTableObjectData = new davClassLibrary.Models.TableObjectData
+            {
+                uuid = uuid,
+                id = tableObject.Id,
+                table_id = tableId,
+                visibility = newVisibilityInt
+            };
+            var newTableObject = davClassLibrary.Models.TableObject.ConvertTableObjectDataToTableObject(newTableObjectData);
+
+            // Act
+            davClassLibrary.Dav.Database.UpdateTableObject(newTableObject);
+
+            // Assert
+            var tableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(uuid);
+            Assert.AreEqual(tableId, tableObjectFromDatabase.TableId);
+            Assert.AreEqual(newVisibility, tableObjectFromDatabase.Visibility);
+            Assert.AreEqual(tableObject.Id, tableObjectFromDatabase.Id);
+        }
+        #endregion
+
+        #region DeleteTableObject(Guid uuid)
+        [Test]
+        public void DeleteTableObjectWithUuidShouldSetTheUploadStatusToDeleted()
+        {
+            // Arrange
+            int tableId = 4;
+            Guid uuid = Guid.NewGuid();
+            var tableObject = new TableObject(uuid, tableId);
+
+            // Act
+            davClassLibrary.Dav.Database.DeleteTableObject(uuid);
+
+            // Assert
+            var tableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(uuid);
+            Assert.AreEqual(TableObjectUploadStatus.Deleted, tableObjectFromDatabase.UploadStatus);
+            Assert.AreEqual(tableObject.Id, tableObjectFromDatabase.Id);
+        }
+
+        [Test]
+        public static void DeleteTableObjectWithUuidShouldDeleteTheTableObjectAndItsPropertiesIfTheUploadStatusIsDeleted()
+        {
+            // Arrange
+            int tableId = 6;
+            Guid uuid = Guid.NewGuid();
+            List<Property> propertiesList = new List<Property>
+            {
+                new Property{Name = "page1", Value = "Good day"},
+                new Property{Name = "page2", Value = "Guten Tag"}
+            };
+            var tableObject = new TableObject(uuid, tableId, propertiesList);
+            tableObject.SetUploadStatus(TableObjectUploadStatus.Deleted);
+
+            int firstPropertyId = tableObject.Properties[0].Id;
+            int secondPropertyId = tableObject.Properties[1].Id;
+
+            // Act
+            davClassLibrary.Dav.Database.DeleteTableObject(uuid);
+
+            // Assert
+            var tableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(uuid);
+            Assert.IsNull(tableObjectFromDatabase);
+
+            var firstPropertyFromDatabase = davClassLibrary.Dav.Database.GetProperty(firstPropertyId);
+            Assert.IsNull(firstPropertyFromDatabase);
+
+            var secondPropertyFromDatabase = davClassLibrary.Dav.Database.GetProperty(secondPropertyId);
+            Assert.IsNull(secondPropertyFromDatabase);
+        }
+        #endregion
+
+        #region DeleteTableObject(TableObject tableObject)
+        [Test]
+        public void DeleteTableObjectWithTableObjectShouldSetTheUploadStatusToDeleted()
+        {
+            // Arrange
+            int tableId = 4;
+            Guid uuid = Guid.NewGuid();
+            var tableObject = new TableObject(uuid, tableId);
+
+            // Act
+            davClassLibrary.Dav.Database.DeleteTableObject(tableObject);
+
+            // Assert
+            var tableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(uuid);
+            Assert.AreEqual(TableObjectUploadStatus.Deleted, tableObjectFromDatabase.UploadStatus);
+            Assert.AreEqual(tableObject.Id, tableObjectFromDatabase.Id);
+        }
+
+        public void DeleteTableObjectWithTableObjectShouldDeleteTheTableObjectAndItsPropertiesIfTheUploadStatusIsDeleted()
+        {
+            // Arrange
+            int tableId = 6;
+            Guid uuid = Guid.NewGuid();
+            List<Property> propertiesList = new List<Property>
+            {
+                new Property{Name = "page1", Value = "Good day"},
+                new Property{Name = "page2", Value = "Guten Tag"}
+            };
+            var tableObject = new TableObject(uuid, tableId, propertiesList);
+            tableObject.SetUploadStatus(TableObjectUploadStatus.Deleted);
+
+            int firstPropertyId = tableObject.Properties[0].Id;
+            int secondPropertyId = tableObject.Properties[1].Id;
+
+            // Act
+            davClassLibrary.Dav.Database.DeleteTableObject(tableObject);
+
+            // Assert
+            var tableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(uuid);
+            Assert.IsNull(tableObjectFromDatabase);
+
+            var firstPropertyFromDatabase = davClassLibrary.Dav.Database.GetProperty(firstPropertyId);
+            Assert.IsNull(firstPropertyFromDatabase);
+
+            var secondPropertyFromDatabase = davClassLibrary.Dav.Database.GetProperty(secondPropertyId);
+            Assert.IsNull(secondPropertyFromDatabase);
+        }
+        #endregion
     }
 }
