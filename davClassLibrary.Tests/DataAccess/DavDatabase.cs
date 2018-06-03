@@ -329,6 +329,22 @@ namespace davClassLibrary.Tests.DataAccess
             Assert.AreEqual(newVisibility, tableObjectFromDatabase.Visibility);
             Assert.AreEqual(tableObject.Id, tableObjectFromDatabase.Id);
         }
+
+        [Test]
+        public void UpdateTableObjectShouldNotThrowAnExceptionWhenTheTableObjectDoesNotExist()
+        {
+            // Arrange
+            var tableObjectData = new TableObjectData
+            {
+                id = -3,
+                table_id = -2,
+                uuid = Guid.NewGuid()
+            };
+            var tableObject = TableObject.ConvertTableObjectDataToTableObject(tableObjectData);
+
+            // Act
+            davClassLibrary.Dav.Database.UpdateTableObject(tableObject);
+        }
         #endregion
 
         #region DeleteTableObject(Guid uuid)
@@ -427,6 +443,181 @@ namespace davClassLibrary.Tests.DataAccess
 
             var secondPropertyFromDatabase = davClassLibrary.Dav.Database.GetProperty(secondPropertyId);
             Assert.IsNull(secondPropertyFromDatabase);
+        }
+        #endregion
+
+        #region CreateProperty
+        [Test]
+        public void CreatePropertyShouldSaveThePropertyInTheDatabaseAndReturnThePropertyId()
+        {
+            // Arrange
+            SQLiteConnection database = new SQLiteConnection(databasePath);
+            var property = new Property { Name = "page1", Value = "Test", TableObjectId = -1 };
+
+            // Act
+            int id = davClassLibrary.Dav.Database.CreateProperty(property);
+
+            // Assert
+            var propertyFromDatabase = database.Get<Property>(id);
+            Assert.AreEqual(property.TableObjectId, propertyFromDatabase.TableObjectId);
+            Assert.AreEqual(property.Name, propertyFromDatabase.Name);
+            Assert.AreEqual(property.Value, propertyFromDatabase.Value);
+        }
+        #endregion
+
+        #region GetProperty
+        [Test]
+        public void GetPropertyShouldReturnThePropertyFromTheDatabase()
+        {
+            // Arrange
+            SQLiteConnection database = new SQLiteConnection(databasePath);
+            var property = new Property { Name = "page1", Value = "Test", TableObjectId = -1 };
+            property.Id = davClassLibrary.Dav.Database.CreateProperty(property);
+
+            // Act
+            var propertyFromDatabase = davClassLibrary.Dav.Database.GetProperty(property.Id);
+
+            // Assert
+            Assert.AreEqual(property.Id, propertyFromDatabase.Id);
+            Assert.AreEqual(property.TableObjectId, propertyFromDatabase.TableObjectId);
+            Assert.AreEqual(property.Name, propertyFromDatabase.Name);
+            Assert.AreEqual(property.Value, propertyFromDatabase.Value);
+        }
+
+        [Test]
+        public void GetPropertyShouldReturnNullIfThePropertyDoesNotExist()
+        {
+            // Arrange
+            int propertyId = -13;
+
+            // Act
+            var property = davClassLibrary.Dav.Database.GetProperty(propertyId);
+
+            // Assert
+            Assert.IsNull(property);
+        }
+        #endregion
+
+        #region PropertyExists
+        [Test]
+        public void PropertyExistsShouldReturnTrueIfThePropertyExists()
+        {
+            // Arrange
+            var property = new Property { Name = "page1", Value = "Guten Tag", TableObjectId = -2 };
+            property.Id = davClassLibrary.Dav.Database.CreateProperty(property);
+
+            // Act
+            bool propertyExists = davClassLibrary.Dav.Database.PropertyExists(property.Id);
+
+            // Assert
+            Assert.IsTrue(propertyExists);
+        }
+
+        [Test]
+        public void PropertyExistsShouldReturnFalseIfThePropertyDoesNotExist()
+        {
+            // Arrange
+            int propertyId = -13;
+
+            // Act
+            bool propertyExists = davClassLibrary.Dav.Database.PropertyExists(propertyId);
+
+            // Assert
+            Assert.IsFalse(propertyExists);
+        }
+        #endregion
+
+        #region UpdateProperty
+        [Test]
+        public void UpdatePropertyShouldUpdateThePropertyInTheDatabase()
+        {
+            // Arrange
+            SQLiteConnection database = new SQLiteConnection(databasePath);
+            string oldPropertyName = "oldCity";
+            string newPropertyName = "newCity";
+            string oldPropertyValue = "Petropavlovsk-Kamshatski";
+            string newPropertyValue = "Dniepropetrovsk";
+            int tableObjectId = -2;
+            // Create a property, save it and then create a new property with the same id to update it
+            var oldProperty = new Property { Name = oldPropertyName, Value = oldPropertyValue, TableObjectId = tableObjectId };
+            oldProperty.Id = davClassLibrary.Dav.Database.CreateProperty(oldProperty);
+            var newProperty = new Property { Id = oldProperty.Id, Name = newPropertyName, Value = newPropertyValue, TableObjectId = tableObjectId };
+
+            // Act
+            davClassLibrary.Dav.Database.UpdateProperty(newProperty);
+
+            // Assert
+            var propertyFromDatabase = database.Get<Property>(oldProperty.Id);
+            Assert.AreEqual(newProperty.Id, propertyFromDatabase.Id);
+            Assert.AreEqual(tableObjectId, propertyFromDatabase.TableObjectId);
+            Assert.AreEqual(newPropertyName, propertyFromDatabase.Name);
+            Assert.AreEqual(newPropertyValue, propertyFromDatabase.Value);
+        }
+
+        [Test]
+        public void UpdatePropertyShouldNotThrowAnExceptionWhenThePropertyDoesNotExist()
+        {
+            // Arrange
+            var property = new Property { Id = -2, Name = "bla", Value = "blabla", TableObjectId = -2 };
+
+            // Act
+            davClassLibrary.Dav.Database.UpdateProperty(property);
+        }
+        #endregion
+
+        #region DeleteProperty(int id)
+        [Test]
+        public void DeletePropertyWithIdShouldDeleteThePropertyFromTheDatabase()
+        {
+            // Arrange
+            SQLiteConnection database = new SQLiteConnection(databasePath);
+            var property = new Property { Name = "bla", Value = "blabla", TableObjectId = -2 };
+            property.Id = davClassLibrary.Dav.Database.CreateProperty(property);
+
+            // Act
+            davClassLibrary.Dav.Database.DeleteProperty(property.Id);
+
+            // Assert
+            var propertyFromDatabase = database.Query<Property>("SELECT * FROM Property WHERE Id = " + property.Id);
+            Assert.AreEqual(0, propertyFromDatabase.Count);
+        }
+
+        [Test]
+        public void DeletePropertyWithIdShouldNotThrowAnExceptionIfThePropertyDoesNotExist()
+        {
+            // Arrange
+            int propertyId = -13;
+
+            // Act
+            davClassLibrary.Dav.Database.DeleteProperty(propertyId);
+        }
+        #endregion
+
+        #region DeleteProperty(Property property)
+        [Test]
+        public void DeletePropertyWithPropertyShouldDeleteThePropertyFromTheDatabase()
+        {
+            // Arrange
+            SQLiteConnection database = new SQLiteConnection(databasePath);
+            var property = new Property { Name = "bla", Value = "blabla", TableObjectId = -2 };
+            property.Id = davClassLibrary.Dav.Database.CreateProperty(property);
+
+            // Act
+            davClassLibrary.Dav.Database.DeleteProperty(property);
+
+            // Assert
+            var propertyFromDatabase = database.Query<Property>("SELECT * FROM Property WHERE Id = " + property.Id);
+            Assert.AreEqual(0, propertyFromDatabase.Count);
+        }
+
+        [Test]
+        public void DeletePropertyWithPropertyShouldNotThrowAnExceptionIfThePropertyDoesNotExist()
+        {
+            // Arrange
+            var property = new Property { Name = "blabla", Value = "test", Id = -2, TableObjectId = -1 };
+
+            // Act
+            davClassLibrary.Dav.Database.DeleteProperty(property);
         }
         #endregion
     }
