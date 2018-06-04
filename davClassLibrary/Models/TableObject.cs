@@ -47,6 +47,7 @@ namespace davClassLibrary.Models
         private static bool syncing = false;
         private static List<Guid> fileDownloads = new List<Guid>();
         private static Dictionary<Guid, WebClient> fileDownloaders = new Dictionary<Guid, WebClient>();
+        private static bool syncAgain = false;
 
         public TableObject(){}
         
@@ -340,84 +341,85 @@ namespace davClassLibrary.Models
 
             // Get app
             string appInformation = await DavDatabase.HttpGet(DavUser.GetJWT(), "apps/app/" + Dav.AppId);
-            if (appInformation == null) return;
-
-            // Create app object
-            var app = JsonConvert.DeserializeObject<AppData>(appInformation);
-            bool objectsDeleted = false;
-
-            // Get tables of the app
-            foreach (var tableData in app.tables)
+            if (appInformation != null)
             {
-                string tableInformation = await DavDatabase.HttpGet(jwt, "apps/table/" + tableData.id);
-                var table = JsonConvert.DeserializeObject<TableData>(tableInformation);
+                // Create app object
+                var app = JsonConvert.DeserializeObject<AppData>(appInformation);
+                bool objectsDeleted = false;
 
-                List<Guid> removedTableObjectUuids = new List<Guid>();
-                foreach (var tableObject in Dav.Database.GetAllTableObjects(table.id, true))
-                    removedTableObjectUuids.Add(tableObject.Uuid);
-                bool tableObjectsOfTableUpdated = false;
-
-                // Get the objects of the table
-                foreach (var obj in table.entries)
+                // Get tables of the app
+                foreach (var tableData in app.tables)
                 {
-                    // Get the proper table object
-                    string tableObjectInformation = await DavDatabase.HttpGet(DavUser.GetJWT(), "apps/object/" + obj.uuid);
-                    var tableObjectData = JsonConvert.DeserializeObject<TableObjectData>(tableObjectInformation);
-                    var tableObject = ConvertTableObjectDataToTableObject(tableObjectData);
-                    removedTableObjectUuids.Remove(tableObject.Uuid);
-                    var currentTableObject = Dav.Database.GetTableObject(tableObject.Uuid);
+                    string tableInformation = await DavDatabase.HttpGet(jwt, "apps/table/" + tableData.id);
+                    var table = JsonConvert.DeserializeObject<TableData>(tableInformation);
 
-                    bool downloadFile = tableObject.IsFile;
-                    if (tableObject.IsFile)
+                    List<Guid> removedTableObjectUuids = new List<Guid>();
+                    foreach (var tableObject in Dav.Database.GetAllTableObjects(table.id, true))
+                        removedTableObjectUuids.Add(tableObject.Uuid);
+                    bool tableObjectsOfTableUpdated = false;
+
+                    // Get the objects of the table
+                    foreach (var obj in table.entries)
                     {
-                        if (tableObject.FileDownloaded())
+                        // Get the proper table object
+                        string tableObjectInformation = await DavDatabase.HttpGet(DavUser.GetJWT(), "apps/object/" + obj.uuid);
+                        var tableObjectData = JsonConvert.DeserializeObject<TableObjectData>(tableObjectInformation);
+                        var tableObject = ConvertTableObjectDataToTableObject(tableObjectData);
+                        removedTableObjectUuids.Remove(tableObject.Uuid);
+                        var currentTableObject = Dav.Database.GetTableObject(tableObject.Uuid);
+
+                        bool downloadFile = tableObject.IsFile;
+                        if (tableObject.IsFile)
                         {
-                            // Get the etag of the file and check if it changed
-                            if (Dav.Database.TableObjectExists(tableObject.Uuid))
+                            if (tableObject.FileDownloaded())
                             {
-                                downloadFile = !Equals(currentTableObject.GetPropertyValue("etag"), tableObject.GetPropertyValue("etag"));
+                                // Get the etag of the file and check if it changed
+                                if (Dav.Database.TableObjectExists(tableObject.Uuid))
+                                {
+                                    downloadFile = !Equals(currentTableObject.GetPropertyValue("etag"), tableObject.GetPropertyValue("etag"));
+                                }
                             }
+                        }
+
+                        tableObject.UploadStatus = TableObjectUploadStatus.UpToDate;
+
+                        // If the tableObject is a file, download the file
+                        if (downloadFile)
+                        {
+                            fileDownloads.Add(tableObject.Uuid);
+                        }
+
+                        if (TableObjectsAreEqual(currentTableObject, tableObject))
+                            continue;
+                        tableObjectsOfTableUpdated = true;
+
+                        tableObject.SaveWithProperties();
+
+                        ProjectInterface.TriggerAction.UpdateTableObject(tableObject.Uuid);
+                    }
+
+                    // RemovedTableObjects now includes all objects that were deleted on the server but not locally
+                    // Delete those objects locally
+                    foreach (var objUuid in removedTableObjectUuids)
+                    {
+                        var obj = Dav.Database.GetTableObject(objUuid);
+                        if (obj == null) continue;
+
+                        if (obj.UploadStatus != TableObjectUploadStatus.New &&
+                            obj.UploadStatus != TableObjectUploadStatus.NoUpload)
+                        {
+                            Dav.Database.DeleteTableObject(obj);
+                            objectsDeleted = true;
                         }
                     }
 
-                    tableObject.UploadStatus = TableObjectUploadStatus.UpToDate;
-
-                    // If the tableObject is a file, download the file
-                    if (downloadFile)
-                    {
-                        fileDownloads.Add(tableObject.Uuid);
-                    }
-
-                    if (TableObjectsAreEqual(currentTableObject, tableObject))
-                        continue;
-                    tableObjectsOfTableUpdated = true;
-
-                    tableObject.SaveWithProperties();
-
-                    ProjectInterface.TriggerAction.UpdateTableObject(tableObject.Uuid);
+                    if (tableObjectsOfTableUpdated || objectsDeleted)
+                        ProjectInterface.TriggerAction.UpdateAllOfTable(table.id);
                 }
 
-                // RemovedTableObjects now includes all objects that were deleted on the server but not locally
-                // Delete those objects locally
-                foreach(var objUuid in removedTableObjectUuids)
-                {
-                    var obj = Dav.Database.GetTableObject(objUuid);
-                    if (obj == null) continue;
-
-                    if(obj.UploadStatus != TableObjectUploadStatus.New && 
-                        obj.UploadStatus != TableObjectUploadStatus.NoUpload)
-                    {
-                        Dav.Database.DeleteTableObject(obj);
-                        objectsDeleted = true;
-                    }
-                }
-
-                if(tableObjectsOfTableUpdated || objectsDeleted)
-                    ProjectInterface.TriggerAction.UpdateAllOfTable(table.id);
+                if (objectsDeleted)
+                    ProjectInterface.TriggerAction.UpdateAll();
             }
-
-            if(objectsDeleted)
-                ProjectInterface.TriggerAction.UpdateAll();
             syncing = false;
 
             // Push changes
@@ -427,7 +429,12 @@ namespace davClassLibrary.Models
 
         public static async Task SyncPush()
         {
-            if (syncing) return;
+            if (syncing)
+            {
+                syncAgain = true;
+                return;
+            }
+
             syncing = true;
 
             List<TableObject> tableObjects = Dav.Database.GetAllTableObjects(true);
@@ -457,6 +464,12 @@ namespace davClassLibrary.Models
             }
 
             syncing = false;
+
+            if(syncAgain)
+            {
+                syncAgain = false;
+                await SyncPush();
+            }
         }
 
         private async Task<bool> CreateTableObjectOnServer()
