@@ -222,9 +222,13 @@ namespace davClassLibrary.DataAccess
         
         public static DirectoryInfo GetTableFolder(int tableId)
         {
-            DirectoryInfo dataFolder = new DirectoryInfo(Dav.DataPath);
-            string tableFolderPath = Path.Combine(dataFolder.FullName, tableId.ToString());
+            string tableFolderPath = Path.Combine(Dav.DataPath, tableId.ToString());
+            return Directory.CreateDirectory(tableFolderPath);
+        }
 
+        public static DirectoryInfo GetTempTableFolder(int tableId)
+        {
+            string tableFolderPath = Path.Combine(Path.GetTempPath(), "dav", tableId.ToString());
             return Directory.CreateDirectory(tableFolderPath);
         }
 

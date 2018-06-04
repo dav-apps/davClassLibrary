@@ -5,7 +5,6 @@ using Newtonsoft.Json;
 using SQLite;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -46,6 +45,8 @@ namespace davClassLibrary.Models
             NoUpload = 4
         }
         private static bool syncing = false;
+        private static List<Guid> fileDownloads = new List<Guid>();
+        private static Dictionary<Guid, WebClient> fileDownloaders = new Dictionary<Guid, WebClient>();
 
         public TableObject(){}
         
@@ -103,10 +104,64 @@ namespace davClassLibrary.Models
             SaveFile(file);
         }
 
-        private bool FileDownloaded()
+        public FileInfo GetFile()
         {
-            string path = Path.Combine(DavDatabase.GetTableFolder(TableId).FullName, Uuid.ToString());
-            return System.IO.File.Exists(path);
+            // Check if the file was downloaded
+            if (!IsFile) return null;
+            if(File == null)
+            {
+                if (FileDownloaded())
+                {
+                    // Get the file
+                    string path = Path.Combine(Dav.DataPath, TableId.ToString(), Uuid.ToString());
+                    return new FileInfo(path);
+                }
+                else
+                {
+                    // Download the file
+                    DownloadTableObjectFile();
+                    return File;
+                }
+            }
+            else
+            {
+                return File;
+            }
+        }
+
+        public Uri GetFileUri()
+        {
+            if (!IsFile) return null;
+            string jwt = DavUser.GetJWT();
+            if (String.IsNullOrEmpty(jwt)) return null;
+
+            return new Uri(Dav.ApiBaseUrl + "apps/object/" + Uuid + "?file=true&jwt=" + jwt);
+        }
+
+        public async Task<MemoryStream> GetFileStream()
+        {
+            if (!IsFile) return null;
+            string jwt = DavUser.GetJWT();
+            if (String.IsNullOrEmpty(jwt)) return null;
+
+            string url = Dav.ApiBaseUrl + "apps/object/" + Uuid + "?file=true&jwt=" + jwt;
+
+            WebClient client = new WebClient();
+            var stream = await client.OpenReadTaskAsync(url);
+
+            MemoryStream streamCopy = new MemoryStream();
+            await stream.CopyToAsync(streamCopy);
+            return streamCopy;
+        }
+
+        public bool FileDownloaded()
+        {
+            return System.IO.File.Exists(GetFilePath());
+        }
+
+        private string GetFilePath()
+        {
+            return Path.Combine(DavDatabase.GetTableFolder(TableId).FullName, Uuid.ToString());
         }
 
         public void Load()
@@ -280,8 +335,8 @@ namespace davClassLibrary.Models
             syncing = true;
             string jwt = DavUser.GetJWT();
             if (String.IsNullOrEmpty(jwt)) return;
-            
-            List<TableObject> tableObjectsList = new List<TableObject>();
+            fileDownloads.Clear();
+            fileDownloaders.Clear();
 
             // Get app
             string appInformation = await DavDatabase.HttpGet(DavUser.GetJWT(), "apps/app/" + Dav.AppId);
@@ -327,17 +382,17 @@ namespace davClassLibrary.Models
 
                     tableObject.UploadStatus = TableObjectUploadStatus.UpToDate;
 
+                    // If the tableObject is a file, download the file
+                    if (downloadFile)
+                    {
+                        fileDownloads.Add(tableObject.Uuid);
+                    }
+
                     if (TableObjectsAreEqual(currentTableObject, tableObject))
                         continue;
                     tableObjectsOfTableUpdated = true;
 
                     tableObject.SaveWithProperties();
-
-                    // If the tableObject is a file, download the file
-                    if (downloadFile)
-                    {
-                        tableObject.DownloadTableObjectFile();
-                    }
 
                     ProjectInterface.TriggerAction.UpdateTableObject(tableObject.Uuid);
                 }
@@ -367,6 +422,7 @@ namespace davClassLibrary.Models
 
             // Push changes
             await SyncPush();
+            DownloadFiles();
         }
 
         public static async Task SyncPush()
@@ -561,23 +617,61 @@ namespace davClassLibrary.Models
             }
         }
 
-        private void DownloadTableObjectFile()
+        private static void DownloadFiles()
+        {
+            foreach (var uuid in fileDownloads)
+            {
+                // Download the file
+                var tableObject = Dav.Database.GetTableObject(uuid);
+
+                if (tableObject != null)
+                    tableObject.DownloadTableObjectFile();
+            }
+        }
+
+        public void DownloadTableObjectFile()
         {
             if (!IsFile) return;
             string jwt = DavUser.GetJWT();
             if (String.IsNullOrEmpty(jwt)) return;
 
+            // Check if the file is already downloading
+            if (fileDownloaders.ContainsKey(Uuid))
+                return;
+
             string url = Dav.ApiBaseUrl + "apps/object/" + Uuid + "?file=true";
             WebClient client = new WebClient();
             client.Headers.Add(HttpRequestHeader.Authorization, jwt);
-            client.DownloadProgressChanged += Client_DownloadProgressChanged;
-            string path = Path.Combine(DavDatabase.GetTableFolder(TableId).FullName, Uuid.ToString());
-            client.DownloadFileAsync(new Uri(url), path);
+            client.DownloadFileCompleted += Client_DownloadFileCompleted;
+
+            DirectoryInfo tempTableFolder = DavDatabase.GetTempTableFolder(TableId);
+            string tempFilePath = Path.Combine(tempTableFolder.FullName, Uuid.ToString());
+
+            client.DownloadFileAsync(new Uri(url), tempFilePath);
+            fileDownloaders.Add(Uuid, client);
         }
 
-        private void Client_DownloadProgressChanged(object sender, DownloadProgressChangedEventArgs e)
+        private void Client_DownloadFileCompleted(object sender, System.ComponentModel.AsyncCompletedEventArgs e)
         {
-            Debug.WriteLine(e.ProgressPercentage);
+            if (e.Cancelled) return;
+
+            DirectoryInfo tempTableFolder = DavDatabase.GetTempTableFolder(TableId);
+            DirectoryInfo tableFolder = DavDatabase.GetTableFolder(TableId);
+
+            string tempFilePath = Path.Combine(tempTableFolder.FullName, Uuid.ToString());
+            string filePath = Path.Combine(tableFolder.FullName, Uuid.ToString());
+
+            // Delete the old file if it exists
+            FileInfo oldFile = new FileInfo(filePath);
+            if (oldFile.Exists)
+                oldFile.Delete();
+
+            // Move the new file into the folder of the table
+            FileInfo file = new FileInfo(tempFilePath);
+            file.MoveTo(filePath);
+
+            fileDownloaders.Remove(Uuid);
+            ProjectInterface.TriggerAction.UpdateTableObject(Uuid);
         }
 
         private static TableObjectVisibility ParseIntToVisibility(int visibility)
