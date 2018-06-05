@@ -405,12 +405,18 @@ namespace davClassLibrary.Models
                         var obj = Dav.Database.GetTableObject(objUuid);
                         if (obj == null) continue;
 
-                        if (obj.UploadStatus != TableObjectUploadStatus.New &&
-                            obj.UploadStatus != TableObjectUploadStatus.NoUpload)
+                        if (obj.UploadStatus == TableObjectUploadStatus.New && obj.IsFile)
                         {
-                            Dav.Database.DeleteTableObject(obj);
-                            objectsDeleted = true;
+                            if (obj.FileDownloaded())
+                                continue;
                         }
+                        else if (obj.UploadStatus == TableObjectUploadStatus.New ||
+                                obj.UploadStatus == TableObjectUploadStatus.NoUpload || 
+                                obj.UploadStatus == TableObjectUploadStatus.Deleted)
+                            continue;
+
+                        Dav.Database.DeleteTableObject(obj);
+                        objectsDeleted = true;
                     }
 
                     if (tableObjectsOfTableUpdated || objectsDeleted)
@@ -529,7 +535,11 @@ namespace davClassLibrary.Models
                 else
                 {
                     // Check for the error
-                    ProcessErrorCodes(httpResponseBody);
+                    if (httpResponseBody.Contains("2704"))  // Field already taken: uuid
+                    {
+                        // Set the upload status to UpToDate
+                        SetUploadStatus(TableObjectUploadStatus.UpToDate);
+                    }
                 }
 
                 return httpResponse.IsSuccessStatusCode;
@@ -578,7 +588,7 @@ namespace davClassLibrary.Models
                     string httpResponseBody = await httpResponse.Content.ReadAsStringAsync();
 
                     // Check the error codes
-                    ProcessErrorCodes(httpResponseBody);
+
                 }
 
                 return httpResponse.IsSuccessStatusCode;
@@ -609,9 +619,10 @@ namespace davClassLibrary.Models
                     string httpResponseBody = await httpResponse.Content.ReadAsStringAsync();
 
                     // Check the error code
-                    ProcessErrorCodes(httpResponseBody);
-
                     if (httpResponseBody.Contains("2805"))  // Resource does not exist: TableObject
+                    {
+                        return true;
+                    }else if (httpResponseBody.Contains("1102"))    // Action not allowed
                     {
                         return true;
                     }
@@ -619,15 +630,6 @@ namespace davClassLibrary.Models
             }
 
             return false;
-        }
-
-        private void ProcessErrorCodes(string errorMessage)
-        {
-            if (errorMessage.Contains("2704"))  // Field already taken: uuid
-            {
-                // Set the upload status to UpToDate
-                SetUploadStatus(TableObjectUploadStatus.UpToDate);
-            }
         }
 
         private static void DownloadFiles()
