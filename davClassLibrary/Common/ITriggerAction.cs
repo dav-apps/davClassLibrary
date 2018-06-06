@@ -1,4 +1,4 @@
-﻿using System;
+﻿using davClassLibrary.Models;
 
 namespace davClassLibrary.Common
 {
@@ -6,6 +6,6 @@ namespace davClassLibrary.Common
     {
         void UpdateAll();
         void UpdateAllOfTable(int tableId);
-        void UpdateTableObject(Guid uuid);
+        void UpdateTableObject(TableObject tableObject, bool fileDownloaded);
     }
 }

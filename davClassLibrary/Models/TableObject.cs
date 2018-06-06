@@ -345,18 +345,17 @@ namespace davClassLibrary.Models
             {
                 // Create app object
                 var app = JsonConvert.DeserializeObject<AppData>(appInformation);
-                bool objectsDeleted = false;
 
                 // Get tables of the app
                 foreach (var tableData in app.tables)
                 {
                     string tableInformation = await DavDatabase.HttpGet(jwt, "apps/table/" + tableData.id);
                     var table = JsonConvert.DeserializeObject<TableData>(tableInformation);
+                    bool objectsDeleted = false;
 
                     List<Guid> removedTableObjectUuids = new List<Guid>();
                     foreach (var tableObject in Dav.Database.GetAllTableObjects(table.id, true))
                         removedTableObjectUuids.Add(tableObject.Uuid);
-                    bool tableObjectsOfTableUpdated = false;
 
                     // Get the objects of the table
                     foreach (var obj in table.entries)
@@ -391,11 +390,10 @@ namespace davClassLibrary.Models
 
                         if (TableObjectsAreEqual(currentTableObject, tableObject))
                             continue;
-                        tableObjectsOfTableUpdated = true;
 
                         tableObject.SaveWithProperties();
 
-                        ProjectInterface.TriggerAction.UpdateTableObject(tableObject.Uuid);
+                        ProjectInterface.TriggerAction.UpdateTableObject(tableObject, false);
                     }
 
                     // RemovedTableObjects now includes all objects that were deleted on the server but not locally
@@ -419,12 +417,9 @@ namespace davClassLibrary.Models
                         objectsDeleted = true;
                     }
 
-                    if (tableObjectsOfTableUpdated || objectsDeleted)
+                    if (objectsDeleted)
                         ProjectInterface.TriggerAction.UpdateAllOfTable(table.id);
                 }
-
-                if (objectsDeleted)
-                    ProjectInterface.TriggerAction.UpdateAll();
             }
             syncing = false;
 
@@ -443,7 +438,7 @@ namespace davClassLibrary.Models
 
             syncing = true;
 
-            List<TableObject> tableObjects = Dav.Database.GetAllTableObjects(true);
+            List<TableObject> tableObjects = Dav.Database.GetAllTableObjects(true).OrderByDescending(obj => obj.Id).ToList();
             foreach (var tableObject in tableObjects)
             {
                 if (tableObject.UploadStatus == TableObjectUploadStatus.UpToDate ||
@@ -686,7 +681,7 @@ namespace davClassLibrary.Models
             file.MoveTo(filePath);
 
             fileDownloaders.Remove(Uuid);
-            ProjectInterface.TriggerAction.UpdateTableObject(Uuid);
+            ProjectInterface.TriggerAction.UpdateTableObject(this, true);
         }
 
         private static TableObjectVisibility ParseIntToVisibility(int visibility)
