@@ -1,5 +1,6 @@
 ﻿using System;
 using davClassLibrary.Common;
+using davClassLibrary.Models;
 
 namespace davClassLibrary.Tests.Common
 {
@@ -15,7 +16,7 @@ namespace davClassLibrary.Tests.Common
             throw new NotImplementedException();
         }
 
-        public void UpdateTableObject(Guid uuid)
+        public void UpdateTableObject(TableObject tableObject, bool fileDownloaded)
         {
             throw new NotImplementedException();
         }
