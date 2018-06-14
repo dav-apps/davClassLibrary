@@ -16,6 +16,6 @@ namespace davClassLibrary.Models
         public int id { get; set; }
         public int app_id { get; set; }
         public string name { get; set; }
-        public List<TableObjectData> entries { get; set; }
+        public List<TableObjectData> table_objects { get; set; }
     }
 }
