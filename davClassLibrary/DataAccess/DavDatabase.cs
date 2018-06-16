@@ -187,7 +187,7 @@ namespace davClassLibrary.DataAccess
 
 
         #region Static things
-        public static async Task<string> HttpGet(string jwt, string url)
+        public static async Task<KeyValuePair<bool, string>> HttpGet(string jwt, string url)
         {
             if (NetworkInterface.GetIsNetworkAvailable())
             {
@@ -205,18 +205,18 @@ namespace davClassLibrary.DataAccess
 
                 if (httpResponse.IsSuccessStatusCode)
                 {
-                    return httpResponseBody;
+                    return new KeyValuePair<bool, string>(true, httpResponseBody);
                 }
                 else
                 {
-                    // Return error message / Throw exception
-                    return null;
+                    // Return error message
+                    return new KeyValuePair<bool, string>(false, "There was an error");
                 }
             }
             else
             {
-                // Return error message / Throw exception
-                return null;
+                // Return error message
+                return new KeyValuePair<bool, string>(false, "No internet connection");
             }
         }
         

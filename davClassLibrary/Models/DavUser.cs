@@ -1,12 +1,12 @@
 ﻿using davClassLibrary.Common;
 using davClassLibrary.DataAccess;
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Runtime.Serialization.Json;
 using System.Text;
 using System.Threading.Tasks;
-using Windows.UI.Xaml.Media.Imaging;
 
 namespace davClassLibrary.Models
 {
@@ -37,7 +37,7 @@ namespace davClassLibrary.Models
             get { return GetPlan(); }
             set { SetPlan(value); }
         }
-        public BitmapImage Avatar { get; set; }
+        public FileInfo Avatar { get; set; }
         public string AvatarEtag
         {
             get { return GetAvatarEtag(); }
@@ -59,7 +59,7 @@ namespace davClassLibrary.Models
         public DavUser()
         {
             // Get the user information from the local settings
-            if(ProjectInterface.LocalDataSettings.GetValue(Dav.jwtKey) != null)
+            if(!String.IsNullOrEmpty(ProjectInterface.LocalDataSettings.GetValue(Dav.jwtKey)))
             {
                 // User is logged in. Get the user information
                 GetUserInformation();
@@ -77,8 +77,14 @@ namespace davClassLibrary.Models
         {
             JWT = jwt;
             IsLoggedIn = true;
-            await DownloadUserInformation();
-            TableObject.Sync();
+            if(await DownloadUserInformation())
+            {
+                TableObject.Sync();
+            }
+            else
+            {
+                Logout();
+            }
         }
 
         public void Logout()
@@ -97,17 +103,17 @@ namespace davClassLibrary.Models
             DeleteAvatar();
         }
 
-        private async Task DownloadUserInformation()
+        private async Task<bool> DownloadUserInformation()
         {
             if (IsLoggedIn)
             {
-                string userInformation = await DavDatabase.HttpGet(JWT, Dav.GetUserUrl);
+                var getResult = await DavDatabase.HttpGet(JWT, Dav.GetUserUrl);
                 
-                if(!String.IsNullOrEmpty(userInformation))
+                if(getResult.Key)
                 {
                     // Deserialize the json and create a user object
                     var serializer = new DataContractJsonSerializer(typeof(DavUserData));
-                    var ms = new MemoryStream(Encoding.UTF8.GetBytes(userInformation));
+                    var ms = new MemoryStream(Encoding.UTF8.GetBytes(getResult.Value));
                     var dataReader = (DavUserData)serializer.ReadObject(ms);
 
                     Email = dataReader.email;
@@ -121,21 +127,29 @@ namespace davClassLibrary.Models
                     {
                         // Download the new avatar
                         DownloadAvatar(dataReader.avatar);
-                        Avatar = new BitmapImage(new Uri(Dav.DataPath + "/avatar.png"));
                     }
+
+                    Avatar = new FileInfo(Path.Combine(Dav.DataPath, "avatar.png"));
                     AvatarEtag = newAvatarEtag;
 
                     // Save new values in local settings
                     SetUserInformation();
+                    return true;
+                }
+                else
+                {
+                    Debug.WriteLine(getResult.Value);
+                    return false;
                 }
             }
+            return false;
         }
 
         private void DownloadAvatar(string avatarUrl)
         {
             using (var client = new WebClient())
             {
-                client.DownloadFile(avatarUrl, Dav.DataPath + "/avatar.png");
+                client.DownloadFile(avatarUrl, Path.Combine(Dav.DataPath, "avatar.png"));
             }
         }
 
@@ -208,10 +222,10 @@ namespace davClassLibrary.Models
             return ProjectInterface.LocalDataSettings.GetValue(Dav.avatarEtagKey);
         }
 
-        private BitmapImage GetAvatar()
+        private FileInfo GetAvatar()
         {
             string avatarPath = Path.Combine(Dav.DataPath, "avatar.png");
-            return File.Exists(avatarPath) ? new BitmapImage(new Uri(avatarPath)) : null;
+            return File.Exists(avatarPath) ? new FileInfo(avatarPath) : null;
         }
 
         private void SetUserInformation()
@@ -255,7 +269,7 @@ namespace davClassLibrary.Models
             ProjectInterface.LocalDataSettings.SetValue(Dav.avatarEtagKey, avatarEtag);
         }
 
-        private void SetJWT(string jwt)
+        public static void SetJWT(string jwt)
         {
             ProjectInterface.LocalDataSettings.SetValue(Dav.jwtKey, jwt);
         }

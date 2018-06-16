@@ -1,18 +1,22 @@
 ﻿using davClassLibrary.Common;
-using System;
+using System.Collections.Generic;
 
 namespace davClassLibrary.Tests.Common
 {
     public class LocalDataSettings : ILocalDataSettings
     {
+        private Dictionary<string, string> dataStore = new Dictionary<string, string>();
+
         public string GetValue(string key)
         {
-            throw new NotImplementedException();
+            string value = null;
+            dataStore.TryGetValue(key, out value);
+            return value;
         }
 
         public void SetValue(string key, string value)
         {
-            throw new NotImplementedException();
+            dataStore[key] = value;
         }
     }
 }
