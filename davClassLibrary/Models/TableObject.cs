@@ -336,100 +336,74 @@ namespace davClassLibrary.Models
 
         public static async Task Sync()
         {
+            if (syncing) return;
+
             syncing = true;
             string jwt = DavUser.GetJWT();
             if (String.IsNullOrEmpty(jwt)) return;
             fileDownloads.Clear();
             fileDownloaders.Clear();
 
-            // Get app
-            var appGetResult = await DavDatabase.HttpGet(DavUser.GetJWT(), "apps/app/" + Dav.AppId);
-            if (appGetResult.Key)
+            // Get the specified tables
+            var tableIds = ProjectInterface.RetrieveConstants.GetTableIds();
+            foreach (var tableId in tableIds)
             {
-                // Create app object
-                var app = JsonConvert.DeserializeObject<AppData>(appGetResult.Value);
+                var tableGetResult = await DavDatabase.HttpGet(jwt, "apps/table/" + tableId);
+                if (!tableGetResult.Key) continue;
 
-                // Get tables of the app
-                foreach (var tableData in app.tables)
+                var table = JsonConvert.DeserializeObject<TableData>(tableGetResult.Value);
+                bool objectsDeleted = false;
+
+                List<Guid> removedTableObjectUuids = new List<Guid>();
+                foreach (var tableObject in Dav.Database.GetAllTableObjects(table.id, true))
+                    removedTableObjectUuids.Add(tableObject.Uuid);
+
+                // Get the objects of the table
+                foreach (var obj in table.table_objects)
                 {
-                    var tableGetResult = await DavDatabase.HttpGet(jwt, "apps/table/" + tableData.id);
-                    if (!tableGetResult.Key) continue;
+                    removedTableObjectUuids.Remove(obj.uuid);
 
-                    var table = JsonConvert.DeserializeObject<TableData>(tableGetResult.Value);
-                    bool objectsDeleted = false;
+                    /*
+                     *  Ist obj lokal gespeichert?
+                     *      ja: Stimmt Etag überein?
+                     *          ja: Ist es eine Datei?
+                     *              ja: Ist die Datei heruntergeladen?
+                     *                  ja: continue!
+                     *                  nein: Herunterladen!
+                     *              nein: continue!
+                     *          nein: GET table object! Ist es eine Datei?
+                     *              ja: Herunterladen!
+                     *              nein: Save Table object!
+                     *      nein: GET tableObject! Ist es eine Datei?
+                     *          ja: Herunterladen!
+                     *          nein: Save Table object!
+                     * 
+                     * (Bei Herunterladen: Etag und etag der Datei erst speichern, wenn die Datei heruntergeladen wurde)
+                     * 
+                    */
 
-                    List<Guid> removedTableObjectUuids = new List<Guid>();
-                    foreach (var tableObject in Dav.Database.GetAllTableObjects(table.id, true))
-                        removedTableObjectUuids.Add(tableObject.Uuid);
-
-                    // Get the objects of the table
-                    foreach (var obj in table.table_objects)
+                    // Is obj in the database?
+                    var currentTableObject = Dav.Database.GetTableObject(obj.uuid);
+                    if (currentTableObject != null)
                     {
-                        removedTableObjectUuids.Remove(obj.uuid);
-
-                        /*
-                         *  Ist obj lokal gespeichert?
-                         *      ja: Stimmt Etag überein?
-                         *          ja: Ist es eine Datei?
-                         *              ja: Ist die Datei heruntergeladen?
-                         *                  ja: continue!
-                         *                  nein: Herunterladen!
-                         *              nein: continue!
-                         *          nein: GET table object! Ist es eine Datei?
-                         *              ja: Herunterladen!
-                         *              nein: Save Table object!
-                         *      nein: GET tableObject! Ist es eine Datei?
-                         *          ja: Herunterladen!
-                         *          nein: Save Table object!
-                         * 
-                         * (Bei Herunterladen: Etag und etag der Datei erst speichern, wenn die Datei heruntergeladen wurde)
-                         * 
-                        */
-
-                        // Is obj in the database?
-                        var currentTableObject = Dav.Database.GetTableObject(obj.uuid);
-                        if(currentTableObject != null)
+                        // Is the etag correct?
+                        if (Equals(obj.etag, currentTableObject.Etag))
                         {
-                            // Is the etag correct?
-                            if(Equals(obj.etag, currentTableObject.Etag))
+                            // Is it a file?
+                            if (currentTableObject.IsFile)
                             {
-                                // Is it a file?
-                                if (currentTableObject.IsFile)
-                                {
-                                    // Was the file downloaded?
-                                    if (!currentTableObject.FileDownloaded())
-                                    {
-                                        // Download the file
-                                        fileDownloads.Add(currentTableObject);
-                                    }
-                                }
-                            }
-                            else
-                            {
-                                // GET the table object
-                                var tableObject = await DownloadTableObject(currentTableObject.Uuid);
-
-                                if (tableObject == null) continue;
-
-                                // Is it a file?
-                                if (tableObject.IsFile)
+                                // Was the file downloaded?
+                                if (!currentTableObject.FileDownloaded())
                                 {
                                     // Download the file
-                                    fileDownloads.Add(tableObject);
-                                }
-                                else
-                                {
-                                    // Save the table object
-                                    tableObject.UploadStatus = TableObjectUploadStatus.UpToDate;
-                                    tableObject.SaveWithProperties();
-                                    ProjectInterface.TriggerAction.UpdateTableObject(tableObject, false);
+                                    fileDownloads.Add(currentTableObject);
                                 }
                             }
                         }
                         else
                         {
                             // GET the table object
-                            var tableObject = await DownloadTableObject(obj.uuid);
+                            var tableObject = await DownloadTableObject(currentTableObject.Uuid);
 
                             if (tableObject == null) continue;
 
@@ -438,12 +412,6 @@ namespace davClassLibrary.Models
                             {
                                 // Download the file
                                 fileDownloads.Add(tableObject);
-
-                                // Save the table object without properties and etag
-                                tableObject.Etag = "";
-                                tableObject.Save();
-                                tableObject.SetUploadStatus(TableObjectUploadStatus.UpToDate);
-                                ProjectInterface.TriggerAction.UpdateTableObject(tableObject, false);
                             }
                             else
                             {
@@ -454,32 +422,60 @@ namespace davClassLibrary.Models
                             }
                         }
                     }
-
-                    // RemovedTableObjects now includes all objects that were deleted on the server but not locally
-                    // Delete those objects locally
-                    foreach (var objUuid in removedTableObjectUuids)
+                    else
                     {
-                        var obj = Dav.Database.GetTableObject(objUuid);
-                        if (obj == null) continue;
+                        // GET the table object
+                        var tableObject = await DownloadTableObject(obj.uuid);
 
-                        if (obj.UploadStatus == TableObjectUploadStatus.New && obj.IsFile)
+                        if (tableObject == null) continue;
+
+                        // Is it a file?
+                        if (tableObject.IsFile)
                         {
-                            if (obj.FileDownloaded())
-                                continue;
+                            // Download the file
+                            fileDownloads.Add(tableObject);
+
+                            // Save the table object without properties and etag
+                            tableObject.Etag = "";
+                            tableObject.Save();
+                            tableObject.SetUploadStatus(TableObjectUploadStatus.UpToDate);
+                            ProjectInterface.TriggerAction.UpdateTableObject(tableObject, false);
                         }
-                        else if (obj.UploadStatus == TableObjectUploadStatus.New ||
-                                obj.UploadStatus == TableObjectUploadStatus.NoUpload || 
-                                obj.UploadStatus == TableObjectUploadStatus.Deleted)
-                            continue;
-
-                        Dav.Database.DeleteTableObject(obj);
-                        objectsDeleted = true;
+                        else
+                        {
+                            // Save the table object
+                            tableObject.UploadStatus = TableObjectUploadStatus.UpToDate;
+                            tableObject.SaveWithProperties();
+                            ProjectInterface.TriggerAction.UpdateTableObject(tableObject, false);
+                        }
                     }
-
-                    if (objectsDeleted)
-                        ProjectInterface.TriggerAction.UpdateAllOfTable(table.id);
                 }
+
+                // RemovedTableObjects now includes all objects that were deleted on the server but not locally
+                // Delete those objects locally
+                foreach (var objUuid in removedTableObjectUuids)
+                {
+                    var obj = Dav.Database.GetTableObject(objUuid);
+                    if (obj == null) continue;
+
+                    if (obj.UploadStatus == TableObjectUploadStatus.New && obj.IsFile)
+                    {
+                        if (obj.FileDownloaded())
+                            continue;
+                    }
+                    else if (obj.UploadStatus == TableObjectUploadStatus.New ||
+                            obj.UploadStatus == TableObjectUploadStatus.NoUpload ||
+                            obj.UploadStatus == TableObjectUploadStatus.Deleted)
+                        continue;
+
+                    Dav.Database.DeleteTableObject(obj);
+                    objectsDeleted = true;
+                }
+
+                if (objectsDeleted)
+                    ProjectInterface.TriggerAction.UpdateAllOfTable(table.id);
             }
+
             syncing = false;
 
             // Push changes
@@ -824,7 +820,7 @@ namespace davClassLibrary.Models
             ProjectInterface.TriggerAction.UpdateTableObject(this, true);
         }
 
-        private static TableObjectVisibility ParseIntToVisibility(int visibility)
+        public static TableObjectVisibility ParseIntToVisibility(int visibility)
         {
             switch (visibility)
             {
@@ -837,7 +833,7 @@ namespace davClassLibrary.Models
             }
         }
 
-        private static int ParseVisibilityToInt(TableObjectVisibility visibility)
+        public static int ParseVisibilityToInt(TableObjectVisibility visibility)
         {
             switch (visibility)
             {

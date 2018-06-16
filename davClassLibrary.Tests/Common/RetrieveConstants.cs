@@ -1,7 +1,5 @@
 ﻿using davClassLibrary.Common;
-using davClassLibrary.Models;
-using System.IO;
-using System.Reflection;
+using System.Collections.Generic;
 
 namespace davClassLibrary.Tests.Common
 {
@@ -9,17 +7,22 @@ namespace davClassLibrary.Tests.Common
     {
         public string GetApiKey()
         {
-            throw new System.NotImplementedException();
+            return Dav.ApiKey;
         }
 
         public int GetAppId()
         {
-            throw new System.NotImplementedException();
+            return Dav.AppId;
         }
 
         public string GetDataPath()
         {
             return Dav.GetDavDataPath();
+        }
+
+        public List<int> GetTableIds()
+        {
+            return Dav.TableIds;
         }
     }
 }

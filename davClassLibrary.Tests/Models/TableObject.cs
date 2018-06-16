@@ -4,11 +4,12 @@ using NUnit.Framework;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading.Tasks;
 using static davClassLibrary.Models.TableObject;
 
 namespace davClassLibrary.Tests.Models
 {
-    [TestFixture]
+    [TestFixture][SingleThreaded]
     public class TableObject
     {
         #region Setup
@@ -482,6 +483,38 @@ namespace davClassLibrary.Tests.Models
             Assert.AreEqual(tableObject.Properties[0].Value, newTableObject.Properties[0].Value);
             Assert.AreEqual(tableObject.Properties[1].Name, newTableObject.Properties[1].Name);
             Assert.AreEqual(tableObject.Properties[1].Value, newTableObject.Properties[1].Value);
+        }
+        #endregion
+
+        #region Sync
+        [Test]
+        public async Task SyncShouldDownloadAllTableObjects()
+        {
+            // Arrange
+            ProjectInterface.LocalDataSettings.SetValue(davClassLibrary.Dav.jwtKey, Dav.Jwt);
+
+            // Act
+            await davClassLibrary.Models.TableObject.Sync();
+
+            // Assert
+            var firstTableObject = davClassLibrary.Dav.Database.GetTableObject(Dav.TestDataFirstTableObject.uuid);
+            var secondTableObject = davClassLibrary.Dav.Database.GetTableObject(Dav.TestDataSecondTableObject.uuid);
+
+            Assert.NotNull(firstTableObject);
+            Assert.NotNull(secondTableObject);
+            Assert.AreEqual(Dav.TestDataFirstTableObject.uuid, firstTableObject.Uuid);
+            Assert.AreEqual(Dav.TestDataFirstTableObject.table_id, firstTableObject.TableId);
+            Assert.AreEqual(Dav.TestDataFirstTableObject.visibility, davClassLibrary.Models.TableObject.ParseVisibilityToInt(firstTableObject.Visibility));
+            Assert.IsFalse(Dav.TestDataFirstTableObject.file);
+            Assert.AreEqual(Dav.TestDataFirstTableObject.properties[Dav.TestDataFirstPropertyName], firstTableObject.GetPropertyValue(Dav.TestDataFirstPropertyName));
+            Assert.AreEqual(Dav.TestDataFirstTableObject.properties[Dav.TestDataSecondPropertyName], firstTableObject.GetPropertyValue(Dav.TestDataSecondPropertyName));
+
+            Assert.AreEqual(Dav.TestDataSecondTableObject.uuid, secondTableObject.Uuid);
+            Assert.AreEqual(Dav.TestDataSecondTableObject.table_id, secondTableObject.TableId);
+            Assert.AreEqual(Dav.TestDataSecondTableObject.visibility, davClassLibrary.Models.TableObject.ParseVisibilityToInt(secondTableObject.Visibility));
+            Assert.IsFalse(Dav.TestDataSecondTableObject.file);
+            Assert.AreEqual(Dav.TestDataSecondTableObject.properties[Dav.TestDataFirstPropertyName], secondTableObject.GetPropertyValue(Dav.TestDataFirstPropertyName));
+            Assert.AreEqual(Dav.TestDataSecondTableObject.properties[Dav.TestDataSecondPropertyName], secondTableObject.GetPropertyValue(Dav.TestDataSecondPropertyName));
         }
         #endregion
     }

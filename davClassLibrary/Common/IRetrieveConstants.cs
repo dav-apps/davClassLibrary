@@ -1,4 +1,4 @@
-﻿using System.Threading.Tasks;
+﻿using System.Collections.Generic;
 
 namespace davClassLibrary.Common
 {
@@ -7,5 +7,6 @@ namespace davClassLibrary.Common
         string GetDataPath();
         string GetApiKey();
         int GetAppId();
+        List<int> GetTableIds();
     }
 }
