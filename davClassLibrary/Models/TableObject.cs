@@ -230,7 +230,7 @@ namespace davClassLibrary.Models
                 Properties.Add(new Property(Id, name, value));
             }
 
-            if (UploadStatus == TableObjectUploadStatus.UpToDate)
+            if (UploadStatus == TableObjectUploadStatus.UpToDate && !IsFile)
                 UploadStatus = TableObjectUploadStatus.Updated;
 
             Save();
@@ -431,6 +431,12 @@ namespace davClassLibrary.Models
                             {
                                 // Download the file
                                 fileDownloads.Add(tableObject);
+
+                                // Save the table object without properties and etag
+                                tableObject.Etag = "";
+                                tableObject.Save();
+                                tableObject.SetUploadStatus(TableObjectUploadStatus.UpToDate);
+                                ProjectInterface.TriggerAction.UpdateTableObject(tableObject, false);
                             }
                             else
                             {
@@ -580,6 +586,7 @@ namespace davClassLibrary.Models
                     // Get the properties of the response
                     TableObjectData tableObjectData = JsonConvert.DeserializeObject<TableObjectData>(httpResponseBody);
                     SetEtagOfTableObject(tableObjectData.uuid, tableObjectData.etag);
+                    Etag = tableObjectData.etag;
 
                     foreach (var property in tableObjectData.properties)
                         SetPropertyValue(property.Key, property.Value);
@@ -763,7 +770,7 @@ namespace davClassLibrary.Models
             fileDownloads.Remove(this);
 
             // Save the etags of the table object
-            SaveWithProperties();
+            SetEtagOfTableObject(Uuid, Etag);
 
             ProjectInterface.TriggerAction.UpdateTableObject(this, true);
         }
