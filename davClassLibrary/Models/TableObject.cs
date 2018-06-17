@@ -323,6 +323,17 @@ namespace davClassLibrary.Models
             SetUploadStatus(TableObjectUploadStatus.Deleted);
             SyncPush();
         }
+
+        public void DeleteImmediately()
+        {
+            if (IsFile && File != null)
+            {
+                // Delete the file
+                File.Delete();
+            }
+
+            Dav.Database.DeleteTableObjectImmediately(Uuid);
+        }
         
         private static void SetEtagOfTableObject(Guid uuid, string etag)
         {
@@ -676,7 +687,12 @@ namespace davClassLibrary.Models
                     if (!httpResponse.IsSuccessStatusCode)
                     {
                         // Check error codes
-                        // TODO
+                        if (httpResponseBody.Contains("2805"))      // Resource does not exist: TableObject
+                        {
+                            // Delete the table object locally
+                            SetUploadStatus(TableObjectUploadStatus.Deleted);
+                            Delete();
+                        }
 
                         return null;
                     }

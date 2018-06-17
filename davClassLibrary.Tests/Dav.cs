@@ -11,6 +11,8 @@ namespace davClassLibrary.Tests
     {
         public const string ProjectDirectory = @"C:\Users\dav20\source\repos\davClassLibrary\davClassLibrary.Tests";
         public const int AppId = 12;
+        public const int TestDataTableId = 23;
+        public const int TestFileTableId = 24;
         public const string ApiKey = "MhKSDyedSw8WXfLk2hkXzmElsiVStD7C8JU3KNGp";
         public const string Jwt = "eyJhbGciOiJIUzI1NiJ9.eyJlbWFpbCI6ImRhdmNsYXNzbGlicmFyeXRlc3RAZGF2LWFwcHMudGVjaCIsInVzZXJuYW1lIjoiZGF2Q2xhc3NMaWJyYXJ5VGVzdFVzZXIiLCJ1c2VyX2lkIjoxMiwiZGV2X2lkIjoyLCJleHAiOjM3NTI5MTgzODQxfQ.lO-iq5UHk25wnysbrEw1PirgGBhz-rFqrK6iRGkcFnU";
         public const string TestUserEmail = "davclasslibrarytest@dav-apps.tech";

@@ -366,7 +366,7 @@ namespace davClassLibrary.Tests.DataAccess
         }
 
         [Test]
-        public static void DeleteTableObjectWithUuidShouldDeleteTheTableObjectAndItsPropertiesIfTheUploadStatusIsDeleted()
+        public void DeleteTableObjectWithUuidShouldDeleteTheTableObjectAndItsPropertiesIfTheUploadStatusIsDeleted()
         {
             // Arrange
             int tableId = 6;
@@ -433,6 +433,70 @@ namespace davClassLibrary.Tests.DataAccess
 
             // Act
             davClassLibrary.Dav.Database.DeleteTableObject(tableObject);
+
+            // Assert
+            var tableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(uuid);
+            Assert.IsNull(tableObjectFromDatabase);
+
+            var firstPropertyFromDatabase = davClassLibrary.Dav.Database.GetProperty(firstPropertyId);
+            Assert.IsNull(firstPropertyFromDatabase);
+
+            var secondPropertyFromDatabase = davClassLibrary.Dav.Database.GetProperty(secondPropertyId);
+            Assert.IsNull(secondPropertyFromDatabase);
+        }
+        #endregion
+
+        #region DeleteTableObjectImmediately(Guid uuid)
+        [Test]
+        public void DeleteTableObjectImmediatelyWithUuidShouldDeleteTheTableObjectAndItsPropertiesImmediately()
+        {
+            // Arrange
+            int tableId = 4;
+            Guid uuid = Guid.NewGuid();
+            var properties = new List<Property>
+            {
+                new Property{ Name = "test", Value = "test" },
+                new Property {Name = "bla", Value = "bla" }
+            };
+            var tableObject = new TableObject(uuid, tableId, properties);
+
+            int firstPropertyId = tableObject.Properties[0].Id;
+            int secondPropertyId = tableObject.Properties[1].Id;
+
+            // Act
+            davClassLibrary.Dav.Database.DeleteTableObjectImmediately(uuid);
+
+            // Assert
+            var tableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(uuid);
+            Assert.IsNull(tableObjectFromDatabase);
+
+            var firstPropertyFromDatabase = davClassLibrary.Dav.Database.GetProperty(firstPropertyId);
+            Assert.IsNull(firstPropertyFromDatabase);
+
+            var secondPropertyFromDatabase = davClassLibrary.Dav.Database.GetProperty(secondPropertyId);
+            Assert.IsNull(secondPropertyFromDatabase);
+        }
+        #endregion
+
+        #region DeleteTableObjectImmediately(TableObject tableObject)
+        [Test]
+        public void DeleteTableObjectImmediatelyWithTableObjectShouldDeleteTheTableObjectAndItsPropertiesImmediately()
+        {
+            // Arrange
+            int tableId = 6;
+            Guid uuid = Guid.NewGuid();
+            List<Property> propertiesList = new List<Property>
+            {
+                new Property{Name = "page1", Value = "Good day"},
+                new Property{Name = "page2", Value = "Guten Tag"}
+            };
+            var tableObject = new TableObject(uuid, tableId, propertiesList);
+
+            int firstPropertyId = tableObject.Properties[0].Id;
+            int secondPropertyId = tableObject.Properties[1].Id;
+
+            // Act
+            davClassLibrary.Dav.Database.DeleteTableObjectImmediately(tableObject);
 
             // Assert
             var tableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(uuid);

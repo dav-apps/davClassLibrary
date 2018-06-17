@@ -126,22 +126,36 @@ namespace davClassLibrary.DataAccess
         {
             if (tableObject.UploadStatus == TableObject.TableObjectUploadStatus.Deleted)
             {
-                database.RunInTransaction(() =>
-                {
-                    // Delete the properties of the table object
-                    tableObject.Load();
-                    foreach (var property in tableObject.Properties)
-                    {
-                        database.Delete(property);
-                    }
-                    database.Delete(tableObject);
-                });
+                DeleteTableObjectImmediately(tableObject);
             }
             else
             {
                 // Set the upload status of the table object to Deleted
                 tableObject.SetUploadStatus(TableObject.TableObjectUploadStatus.Deleted);
             }
+        }
+
+        public void DeleteTableObjectImmediately(Guid uuid)
+        {
+            TableObject tableObject = GetTableObject(uuid);
+            if (tableObject != null)
+            {
+                DeleteTableObjectImmediately(tableObject);
+            }
+        }
+
+        public void DeleteTableObjectImmediately(TableObject tableObject)
+        {
+            database.RunInTransaction(() =>
+            {
+                // Delete the properties of the table object
+                tableObject.Load();
+                foreach (var property in tableObject.Properties)
+                {
+                    database.Delete(property);
+                }
+                database.Delete(tableObject);
+            });
         }
         #endregion
 
