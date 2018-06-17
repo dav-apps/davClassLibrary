@@ -18,6 +18,10 @@ namespace davClassLibrary.Tests
         public const DavPlan TestUserPlan = DavPlan.Free;
         public const string TestDataFirstPropertyName = "page1";
         public const string TestDataSecondPropertyName = "page2";
+        public const string TestDataFirstTableObjectFirstPropertyValue = "Hello World";
+        public const string TestDataFirstTableObjectSecondPropertyValue = "Hallo Welt";
+        public const string TestDataSecondTableObjectFirstPropertyValue = "Table";
+        public const string TestDataSecondTableObjectSecondPropertyValue = "Tabelle";
         public static List<int> TableIds = new List<int>{ 23, 24 };
 
         public static TableObjectData TestDataFirstTableObject = new TableObjectData {
@@ -25,8 +29,8 @@ namespace davClassLibrary.Tests
             uuid = new Guid("642e6407-f357-4e03-b9c2-82f754931161"),
             properties = new Dictionary<string, string>
             {
-                { "page1", "Hello World" },
-                { "page2", "Hallo Welt" }
+                { TestDataFirstPropertyName, TestDataFirstTableObjectFirstPropertyValue },
+                { TestDataSecondPropertyName, TestDataFirstTableObjectSecondPropertyValue }
             }
         };
         public static TableObjectData TestDataSecondTableObject = new TableObjectData
@@ -35,8 +39,8 @@ namespace davClassLibrary.Tests
             uuid = new Guid("8d29f002-9511-407b-8289-5ebdcb5a5559"),
             properties = new Dictionary<string, string>
             {
-                { "page1", "Table" },
-                { "page2", "Tabelle" }
+                { TestDataFirstPropertyName, TestDataSecondTableObjectFirstPropertyValue },
+                { TestDataSecondPropertyName, TestDataSecondTableObjectSecondPropertyValue }
             }
         };
 

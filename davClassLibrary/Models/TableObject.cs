@@ -12,6 +12,7 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.NetworkInformation;
+using System.Text;
 using System.Threading.Tasks;
 using System.Timers;
 
@@ -502,14 +503,24 @@ namespace davClassLibrary.Models
                 if (tableObject.UploadStatus == TableObjectUploadStatus.New)
                 {
                     // Create the new object on the server
-                    if (await tableObject.CreateTableObjectOnServer())
-                        tableObject.SetUploadStatus(TableObjectUploadStatus.UpToDate);
+                    var etag = await tableObject.CreateTableObjectOnServer();
+                    if (!String.IsNullOrEmpty(etag))
+                    {
+                        tableObject.Etag = etag;
+                        tableObject.UploadStatus = TableObjectUploadStatus.UpToDate;
+                        tableObject.Save();
+                    }
                 }
                 else if (tableObject.UploadStatus == TableObjectUploadStatus.Updated)
                 {
                     // Update the object on the server
-                    if (await tableObject.UpdateTableObjectOnServer())
-                        tableObject.SetUploadStatus(TableObjectUploadStatus.UpToDate);
+                    var etag = await tableObject.UpdateTableObjectOnServer();
+                    if (!String.IsNullOrEmpty(etag))
+                    {
+                        tableObject.Etag = etag;
+                        tableObject.UploadStatus = TableObjectUploadStatus.UpToDate;
+                        tableObject.Save();
+                    }
                 }
                 else if (tableObject.UploadStatus == TableObjectUploadStatus.Deleted)
                 {
@@ -544,15 +555,15 @@ namespace davClassLibrary.Models
             }
         }
 
-        private async Task<bool> CreateTableObjectOnServer()
+        private async Task<string> CreateTableObjectOnServer()
         {
             try
             {
                 if (NetworkInterface.GetIsNetworkAvailable())
                 {
-                    if (IsFile && File == null) return false;
+                    if (IsFile && File == null) return null;
                     string jwt = DavUser.GetJWT();
-                    if (String.IsNullOrEmpty(jwt)) return false;
+                    if (String.IsNullOrEmpty(jwt)) return null;
 
                     string ext = "";
                     string url = "apps/object?uuid=" + Uuid + "&app_id=" + Dav.AppId + "&table_id=" + TableId;
@@ -561,9 +572,7 @@ namespace davClassLibrary.Models
 
                     var headers = httpClient.DefaultRequestHeaders;
                     httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(jwt);
-                    if (!IsFile)
-                        httpClient.DefaultRequestHeaders.Add("CONTENT_TYPE", "application/json");
-                    else
+                    if (IsFile)
                     {
                         ext = GetPropertyValue("ext");
                         httpClient.DefaultRequestHeaders.Add("CONTENT_TYPE", MimeTypeMap.GetMimeType(ext));
@@ -576,7 +585,7 @@ namespace davClassLibrary.Models
                         // Upload the file
                         byte[] bytesFile = DavDatabase.FileToByteArray(File.FullName);
                         content = new ByteArrayContent(bytesFile);
-                        if (bytesFile == null) return false;
+                        if (bytesFile == null) return null;
 
                         if (!String.IsNullOrEmpty(ext))
                             url += "&ext=" + ext;
@@ -585,7 +594,7 @@ namespace davClassLibrary.Models
                     {
                         // Upload the properties
                         string json = JsonConvert.SerializeObject(DavDatabase.ConvertPropertiesListToDictionary(Properties));
-                        content = new StringContent(json);
+                        content = new StringContent(json, Encoding.UTF8, "application/json");
                     }
 
                     Uri requestUri = new Uri(Dav.ApiBaseUrl + url);
@@ -598,11 +607,12 @@ namespace davClassLibrary.Models
                     {
                         // Get the properties of the response
                         TableObjectData tableObjectData = JsonConvert.DeserializeObject<TableObjectData>(httpResponseBody);
-                        SetEtagOfTableObject(tableObjectData.uuid, tableObjectData.etag);
                         Etag = tableObjectData.etag;
 
                         foreach (var property in tableObjectData.properties)
                             SetPropertyValue(property.Key, property.Value);
+
+                        return tableObjectData.etag;
                     }
                     else
                     {
@@ -612,38 +622,35 @@ namespace davClassLibrary.Models
                             // Set the upload status to UpToDate
                             SetUploadStatus(TableObjectUploadStatus.UpToDate);
                         }
-                    }
 
-                    return httpResponse.IsSuccessStatusCode;
+                        return null;
+                    }
                 }
             }
             catch(Exception e)
             {
                 Debug.WriteLine(e.Message);
-                return false;
+                return null;
             }
             
-            return false;
+            return null;
         }
 
-        private async Task<bool> UpdateTableObjectOnServer()
+        private async Task<string> UpdateTableObjectOnServer()
         {
             try
             {
                 if (NetworkInterface.GetIsNetworkAvailable())
                 {
-                    if (IsFile && File == null) return false;
+                    if (IsFile && File == null) return null;
                     string jwt = DavUser.GetJWT();
-                    if (String.IsNullOrEmpty(jwt)) return false;
+                    if (String.IsNullOrEmpty(jwt)) return null;
 
                     string url = "apps/object/" + Uuid;
                     HttpClient httpClient = new HttpClient();
                     httpClient.Timeout = TimeSpan.FromMinutes(60);
-
-                    var headers = httpClient.DefaultRequestHeaders;
+                    
                     httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(jwt);
-                    if (!IsFile)
-                        httpClient.DefaultRequestHeaders.Add("CONTENT_TYPE", "application/json");
                     Uri requestUri = new Uri(Dav.ApiBaseUrl + url);
 
                     HttpContent content;
@@ -652,14 +659,14 @@ namespace davClassLibrary.Models
                     {
                         // Upload the file
                         byte[] bytesFile = DavDatabase.FileToByteArray(File.FullName);
-                        if (bytesFile == null) return false;
+                        if (bytesFile == null) return null;
                         content = new ByteArrayContent(bytesFile);
                     }
                     else
                     {
                         // Upload the properties
                         string json = JsonConvert.SerializeObject(DavDatabase.ConvertPropertiesListToDictionary(Properties));
-                        content = new StringContent(json);
+                        content = new StringContent(json, Encoding.UTF8, "application/json");
                     }
                     // Send the request
                     var httpResponse = await httpClient.PutAsync(requestUri, content);
@@ -669,24 +676,24 @@ namespace davClassLibrary.Models
                     if (!httpResponse.IsSuccessStatusCode)
                     {
                         // Check error codes
+                        // TODO
 
+                        return null;
                     }
                     else
                     {
                         TableObjectData tableObjectData = JsonConvert.DeserializeObject<TableObjectData>(httpResponseBody);
-                        SetEtagOfTableObject(tableObjectData.uuid, tableObjectData.etag);
+                        return tableObjectData.etag;
                     }
-
-                    return httpResponse.IsSuccessStatusCode;
                 }
             }
             catch(Exception e)
             {
                 Debug.WriteLine(e.Message);
-                return false;
+                return null;
             }
-            
-            return false;
+
+            return null;
         }
 
         private async Task<bool> DeleteTableObjectOnServer()

@@ -1,9 +1,12 @@
 ﻿using davClassLibrary.Common;
 using davClassLibrary.Tests.Common;
+using Newtonsoft.Json;
 using NUnit.Framework;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Threading.Tasks;
 using static davClassLibrary.Models.TableObject;
 
@@ -487,7 +490,7 @@ namespace davClassLibrary.Tests.Models
         #endregion
 
         #region Sync
-        [Test]
+        [Test, Order(1)]
         public async Task SyncShouldDownloadAllTableObjects()
         {
             // Arrange
@@ -517,5 +520,63 @@ namespace davClassLibrary.Tests.Models
             Assert.AreEqual(Dav.TestDataSecondTableObject.properties[Dav.TestDataSecondPropertyName], secondTableObject.GetPropertyValue(Dav.TestDataSecondPropertyName));
         }
         #endregion
+
+        #region PushSync
+        [Test, Order(2)]
+        public async Task SyncShouldUploadUpdatedTableObjects()
+        {
+            // Arrange
+            var tableObject = davClassLibrary.Dav.Database.GetTableObject(Dav.TestDataFirstTableObject.uuid);
+            var property = tableObject.Properties[0];
+            string propertyName = property.Name;
+            property.Value = "Petropavlovsk-Kamshatski";
+            davClassLibrary.Dav.Database.UpdateProperty(property);
+            tableObject.SetUploadStatus(TableObjectUploadStatus.Updated);
+
+            // Act
+            await davClassLibrary.Models.TableObject.SyncPush();
+
+            // Assert
+            var response = await HttpGet("apps/object/" + tableObject.Uuid);
+            var tableObjectFromServer = JsonConvert.DeserializeObject<davClassLibrary.Models.TableObjectData>(response);
+            var tableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(tableObject.Uuid);
+
+            Assert.AreEqual(tableObjectFromServer.properties[propertyName], property.Value);
+            Assert.AreEqual(TableObjectUploadStatus.UpToDate, tableObjectFromDatabase.UploadStatus);
+            Assert.AreEqual(tableObjectFromDatabase.GetPropertyValue(propertyName), tableObjectFromServer.properties[propertyName]);
+
+            // Revert changes
+            // Arrange 2
+            tableObject = davClassLibrary.Dav.Database.GetTableObject(Dav.TestDataFirstTableObject.uuid);
+            property.Value = Dav.TestDataFirstTableObjectFirstPropertyValue;
+            davClassLibrary.Dav.Database.UpdateProperty(property);
+            tableObject.SetUploadStatus(TableObjectUploadStatus.Updated);
+
+            // Act 2
+            await davClassLibrary.Models.TableObject.SyncPush();
+
+            // Assert 2
+            var response2 = await HttpGet("apps/object/" + tableObject.Uuid);
+            var tableObjectFromServer2 = JsonConvert.DeserializeObject<davClassLibrary.Models.TableObjectData>(response2);
+            var tableObjectFromDatabase2 = davClassLibrary.Dav.Database.GetTableObject(tableObject.Uuid);
+
+            Assert.AreEqual(tableObjectFromServer2.properties[propertyName], property.Value);
+            Assert.AreEqual(TableObjectUploadStatus.UpToDate, tableObjectFromDatabase2.UploadStatus);
+            Assert.AreEqual(tableObjectFromDatabase2.GetPropertyValue(propertyName), tableObjectFromServer2.properties[propertyName]);
+        }
+        #endregion
+
+        private static async Task<string> HttpGet(string url)
+        {
+            HttpClient httpClient = new HttpClient();
+            var headers = httpClient.DefaultRequestHeaders;
+            headers.Authorization = new AuthenticationHeaderValue(Dav.Jwt);
+            Uri requestUri = new Uri(davClassLibrary.Dav.ApiBaseUrl + url);
+
+            //Send the GET request
+            HttpResponseMessage httpResponse = new HttpResponseMessage();
+            httpResponse = await httpClient.GetAsync(requestUri);
+            return await httpResponse.Content.ReadAsStringAsync();
+        }
     }
 }
