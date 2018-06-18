@@ -11,7 +11,7 @@ using static davClassLibrary.Models.TableObject;
 
 namespace davClassLibrary.Tests.DataAccess
 {
-    [TestFixture]
+    [TestFixture][SingleThreaded]
     public class DavDatabase
     {
         private const string databaseName = "dav.db";
@@ -856,6 +856,96 @@ namespace davClassLibrary.Tests.DataAccess
             // Tidy up
             exportFolder.Delete(true);
             tableObject.DeleteImmediately();
+        }
+        #endregion
+
+        #region ImportData
+        [Test]
+        public async Task ImportDataShouldCopyAllTableObjectsIntoTheDatabase()
+        {
+            // Arrange
+            string exportFolderName = "export";
+            ProjectInterface.LocalDataSettings.SetValue(davClassLibrary.Dav.jwtKey, Dav.Jwt);
+            await davClassLibrary.Models.TableObject.Sync();
+
+            var progress = new Progress<int>();
+            var exportFolder = Directory.CreateDirectory(Path.Combine(Dav.GetDavDataPath(), exportFolderName));
+            await davClassLibrary.DataAccess.DavDatabase.ExportData(exportFolder, progress);
+            progress = new Progress<int>();
+
+            // Clear the database
+            ProjectInterface.LocalDataSettings.SetValue(davClassLibrary.Dav.jwtKey, null);
+            var firstTableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(Dav.TestDataFirstTableObject.uuid);
+            var secondTableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(Dav.TestDataSecondTableObject.uuid);
+            firstTableObjectFromDatabase.DeleteImmediately();
+            secondTableObjectFromDatabase.DeleteImmediately();
+
+            // Act
+            davClassLibrary.DataAccess.DavDatabase.ImportData(exportFolder, progress);
+
+            // Assert
+            firstTableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(Dav.TestDataFirstTableObject.uuid);
+            secondTableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(Dav.TestDataSecondTableObject.uuid);
+            Assert.IsNotNull(firstTableObjectFromDatabase);
+            Assert.IsNotNull(secondTableObjectFromDatabase);
+
+            Assert.AreEqual(Dav.TestDataFirstTableObject.table_id, firstTableObjectFromDatabase.TableId);
+            Assert.AreEqual(Dav.TestDataFirstTableObject.visibility, davClassLibrary.Models.TableObject.ParseVisibilityToInt(firstTableObjectFromDatabase.Visibility));
+            Assert.AreEqual(Dav.TestDataFirstTableObject.uuid, firstTableObjectFromDatabase.Uuid);
+            Assert.AreEqual(Dav.TestDataFirstTableObject.file, firstTableObjectFromDatabase.IsFile);
+            Assert.AreEqual(Dav.TestDataFirstTableObject.properties[Dav.TestDataFirstPropertyName], firstTableObjectFromDatabase.GetPropertyValue(Dav.TestDataFirstPropertyName));
+            Assert.AreEqual(Dav.TestDataFirstTableObject.properties[Dav.TestDataSecondPropertyName], firstTableObjectFromDatabase.GetPropertyValue(Dav.TestDataSecondPropertyName));
+
+            Assert.AreEqual(Dav.TestDataSecondTableObject.table_id, secondTableObjectFromDatabase.TableId);
+            Assert.AreEqual(Dav.TestDataSecondTableObject.visibility, davClassLibrary.Models.TableObject.ParseVisibilityToInt(secondTableObjectFromDatabase.Visibility));
+            Assert.AreEqual(Dav.TestDataSecondTableObject.uuid, secondTableObjectFromDatabase.Uuid);
+            Assert.AreEqual(Dav.TestDataSecondTableObject.file, secondTableObjectFromDatabase.IsFile);
+            Assert.AreEqual(Dav.TestDataSecondTableObject.properties[Dav.TestDataFirstPropertyName], secondTableObjectFromDatabase.GetPropertyValue(Dav.TestDataFirstPropertyName));
+            Assert.AreEqual(Dav.TestDataSecondTableObject.properties[Dav.TestDataSecondPropertyName], secondTableObjectFromDatabase.GetPropertyValue(Dav.TestDataSecondPropertyName));
+
+            // Tidy up
+            exportFolder.Delete(true);
+            firstTableObjectFromDatabase.DeleteImmediately();
+            secondTableObjectFromDatabase.DeleteImmediately();
+        }
+
+        [Test]
+        public async Task ImportDataShouldCopyAllTableObjectFiles()
+        {
+            // Arrange
+            ProjectInterface.LocalDataSettings.SetValue(davClassLibrary.Dav.jwtKey, null);
+            var uuid = Guid.NewGuid();
+            string exportFolderName = "export";
+            FileInfo file = new FileInfo(Path.Combine(Dav.ProjectDirectory, "Assets", "image.jpg"));
+            var tableObject = new davClassLibrary.Models.TableObject(uuid, Dav.TestFileTableId, file);
+            FileAssert.Exists(Path.Combine(Dav.GetDavDataPath(), Dav.TestFileTableId.ToString(), uuid.ToString()));
+
+            var progress = new Progress<int>();
+            var exportFolder = Directory.CreateDirectory(Path.Combine(Dav.GetDavDataPath(), exportFolderName));
+            await davClassLibrary.DataAccess.DavDatabase.ExportData(exportFolder, progress);
+            progress = new Progress<int>();
+
+            // Clear the database
+            ProjectInterface.LocalDataSettings.SetValue(davClassLibrary.Dav.jwtKey, null);
+            var tableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(uuid);
+            tableObjectFromDatabase.DeleteImmediately();
+            FileAssert.DoesNotExist(Path.Combine(Dav.GetDavDataPath(), Dav.TestFileTableId.ToString(), uuid.ToString()));
+
+            // Act
+            davClassLibrary.DataAccess.DavDatabase.ImportData(exportFolder, progress);
+
+            // Assert
+            tableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(uuid);
+            Assert.IsNotNull(tableObjectFromDatabase);
+            FileAssert.Exists(Path.Combine(Dav.GetDavDataPath(), Dav.TestFileTableId.ToString(), uuid.ToString()));
+            Assert.AreEqual(tableObject.TableId, tableObjectFromDatabase.TableId);
+            Assert.AreEqual(tableObject.Visibility, tableObjectFromDatabase.Visibility);
+            Assert.AreEqual(tableObject.Uuid, tableObjectFromDatabase.Uuid);
+            Assert.AreEqual(tableObject.IsFile, tableObjectFromDatabase.IsFile);
+
+            // Tidy up
+            exportFolder.Delete(true);
+            tableObjectFromDatabase.DeleteImmediately();
         }
         #endregion
     }
