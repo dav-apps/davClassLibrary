@@ -73,6 +73,9 @@ namespace davClassLibrary.Tests.DataAccess
             Assert.AreEqual(uuid, tableObjectFromDatabase.Uuid);
             Assert.IsFalse(tableObjectFromDatabase.IsFile);
             Assert.AreEqual(visibility, tableObjectFromDatabase.Visibility);
+
+            // Tidy up
+            tableObjectFromDatabase.DeleteImmediately();
         }
         #endregion
 
@@ -120,6 +123,9 @@ namespace davClassLibrary.Tests.DataAccess
             Assert.AreEqual(tableObjectFromDatabase.Id, secondPropertyFromDatabase.TableObjectId);
             Assert.AreEqual(secondPropertyName, secondPropertyFromDatabase.Name);
             Assert.AreEqual(secondPropertyValue, secondPropertyFromDatabase.Value);
+
+            // Tidy up
+            tableObjectFromDatabase.DeleteImmediately();
         }
         #endregion
 
@@ -129,13 +135,23 @@ namespace davClassLibrary.Tests.DataAccess
         {
             // Arrange
             SQLiteConnection database = new SQLiteConnection(databasePath);
+            var tableObjects = new List<davClassLibrary.Models.TableObject>
+            {
+                new davClassLibrary.Models.TableObject(Guid.NewGuid(), 13),
+                new davClassLibrary.Models.TableObject(Guid.NewGuid(), 13),
+                new davClassLibrary.Models.TableObject(Guid.NewGuid(), 12)
+            };
+            tableObjects[0].SetUploadStatus(TableObjectUploadStatus.Deleted);
 
             // Act
             var allTableObjects = davClassLibrary.Dav.Database.GetAllTableObjects(true);
 
             // Assert
-            var allTableObjectsFromDatabase = database.Query<TableObject>("SELECT * FROM TableObject;");
-            Assert.AreEqual(allTableObjectsFromDatabase.Count, allTableObjects.Count);
+            Assert.AreEqual(tableObjects.Count, allTableObjects.Count);
+
+            // Tidy up
+            foreach(var tableObject in tableObjects)
+                tableObject.DeleteImmediately();
         }
 
         [Test]
@@ -143,20 +159,23 @@ namespace davClassLibrary.Tests.DataAccess
         {
             // Arrange
             SQLiteConnection database = new SQLiteConnection(databasePath);
+            var tableObjects = new List<davClassLibrary.Models.TableObject>
+            {
+                new davClassLibrary.Models.TableObject(Guid.NewGuid(), 13),
+                new davClassLibrary.Models.TableObject(Guid.NewGuid(), 13),
+                new davClassLibrary.Models.TableObject(Guid.NewGuid(), 12)
+            };
+            tableObjects[0].SetUploadStatus(TableObjectUploadStatus.Deleted);
 
             // Act
             var allTableObjects = davClassLibrary.Dav.Database.GetAllTableObjects(false);
 
             // Assert
-            int tableObjectsCount = 0;
-            var allTableObjectsFromDatabase = database.Query<TableObject>("SELECT * FROM TableObject;");
-            foreach(var obj in allTableObjectsFromDatabase)
-            {
-                if (obj.UploadStatus != TableObjectUploadStatus.Deleted)
-                    tableObjectsCount++;
-            }
+            Assert.AreEqual(tableObjects.Count - 1, allTableObjects.Count);
 
-            Assert.AreEqual(tableObjectsCount, allTableObjects.Count);
+            // Tidy up
+            foreach (var tableObject in tableObjects)
+                tableObject.DeleteImmediately();
         }
         #endregion
 
@@ -167,13 +186,24 @@ namespace davClassLibrary.Tests.DataAccess
             // Arrange
             SQLiteConnection database = new SQLiteConnection(databasePath);
             int tableId = 4;
+            var tableObjects = new List<davClassLibrary.Models.TableObject>
+            {
+                new davClassLibrary.Models.TableObject(Guid.NewGuid(), tableId),
+                new davClassLibrary.Models.TableObject(Guid.NewGuid(), tableId),
+                new davClassLibrary.Models.TableObject(Guid.NewGuid(), tableId),
+                new davClassLibrary.Models.TableObject(Guid.NewGuid(), 3)
+            };
+            tableObjects[0].SetUploadStatus(TableObjectUploadStatus.Deleted);
 
             // Act
-            var allTableObjects = davClassLibrary.Dav.Database.GetAllTableObjects(4, true);
+            var allTableObjects = davClassLibrary.Dav.Database.GetAllTableObjects(tableId, true);
 
             // Assert
-            var allTableObjectsFromDatabase = database.Query<TableObject>("SELECT * FROM TableObject WHERE TableId = " + tableId);
-            Assert.AreEqual(allTableObjectsFromDatabase.Count, allTableObjects.Count);
+            Assert.AreEqual(tableObjects.Count - 1, allTableObjects.Count);
+
+            // Tidy up
+            foreach (var tableObject in tableObjects)
+                tableObject.DeleteImmediately();
         }
 
         [Test]
@@ -182,20 +212,24 @@ namespace davClassLibrary.Tests.DataAccess
             // Arrange
             SQLiteConnection database = new SQLiteConnection(databasePath);
             int tableId = 4;
+            var tableObjects = new List<davClassLibrary.Models.TableObject>
+            {
+                new davClassLibrary.Models.TableObject(Guid.NewGuid(), tableId),
+                new davClassLibrary.Models.TableObject(Guid.NewGuid(), tableId),
+                new davClassLibrary.Models.TableObject(Guid.NewGuid(), tableId),
+                new davClassLibrary.Models.TableObject(Guid.NewGuid(), 3),
+            };
+            tableObjects[0].SetUploadStatus(TableObjectUploadStatus.Deleted);
 
             // Act
-            var allTableObjects = davClassLibrary.Dav.Database.GetAllTableObjects(4, false);
+            var allTableObjects = davClassLibrary.Dav.Database.GetAllTableObjects(tableId, false);
 
             // Assert
-            int tableObjectsCount = 0;
-            var allTableObjectsFromDatabase = database.Query<TableObject>("SELECT * FROM TableObject WHERE TableId = " + tableId);
-            foreach(var obj in allTableObjectsFromDatabase)
-            {
-                if (obj.UploadStatus != TableObjectUploadStatus.Deleted)
-                    tableObjectsCount++;
-            }
+            Assert.AreEqual(tableObjects.Count - 2, allTableObjects.Count);
 
-            Assert.AreEqual(tableObjectsCount, allTableObjects.Count);
+            // Tidy up
+            foreach (var tableObject in tableObjects)
+                tableObject.DeleteImmediately();
         }
         #endregion
 
@@ -216,6 +250,9 @@ namespace davClassLibrary.Tests.DataAccess
             Assert.AreEqual(tableObject.TableId, tableObjectFromDatabase.TableId);
             Assert.AreEqual(tableObject.Uuid, tableObjectFromDatabase.Uuid);
             Assert.AreEqual(tableObject.UploadStatus, tableObjectFromDatabase.UploadStatus);
+
+            // Tidy up
+            tableObjectFromDatabase.DeleteImmediately();
         }
 
         [Test]
@@ -258,6 +295,9 @@ namespace davClassLibrary.Tests.DataAccess
             Assert.AreEqual(firstPropertyValue, propertiesList[0].Value);
             Assert.AreEqual(secondPropertyName, propertiesList[1].Name);
             Assert.AreEqual(secondPropertyValue, propertiesList[1].Value);
+
+            // Tidy up
+            tableObject.DeleteImmediately();
         }
         #endregion
 
@@ -274,6 +314,9 @@ namespace davClassLibrary.Tests.DataAccess
 
             // Assert
             Assert.IsTrue(tableObjectExists);
+
+            // Tidy up
+            tableObject.DeleteImmediately();
         }
 
         [Test]
@@ -328,6 +371,9 @@ namespace davClassLibrary.Tests.DataAccess
             Assert.AreEqual(tableId, tableObjectFromDatabase.TableId);
             Assert.AreEqual(newVisibility, tableObjectFromDatabase.Visibility);
             Assert.AreEqual(tableObject.Id, tableObjectFromDatabase.Id);
+
+            // Tidy up
+            tableObjectFromDatabase.DeleteImmediately();
         }
 
         [Test]
@@ -363,6 +409,9 @@ namespace davClassLibrary.Tests.DataAccess
             var tableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(uuid);
             Assert.AreEqual(TableObjectUploadStatus.Deleted, tableObjectFromDatabase.UploadStatus);
             Assert.AreEqual(tableObject.Id, tableObjectFromDatabase.Id);
+
+            // Tidy up
+            tableObjectFromDatabase.DeleteImmediately();
         }
 
         [Test]
@@ -413,8 +462,12 @@ namespace davClassLibrary.Tests.DataAccess
             var tableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(uuid);
             Assert.AreEqual(TableObjectUploadStatus.Deleted, tableObjectFromDatabase.UploadStatus);
             Assert.AreEqual(tableObject.Id, tableObjectFromDatabase.Id);
+
+            // Tidy up
+            tableObjectFromDatabase.DeleteImmediately();
         }
 
+        [Test]
         public void DeleteTableObjectWithTableObjectShouldDeleteTheTableObjectAndItsPropertiesIfTheUploadStatusIsDeleted()
         {
             // Arrange
@@ -526,6 +579,9 @@ namespace davClassLibrary.Tests.DataAccess
             Assert.AreEqual(property.TableObjectId, propertyFromDatabase.TableObjectId);
             Assert.AreEqual(property.Name, propertyFromDatabase.Name);
             Assert.AreEqual(property.Value, propertyFromDatabase.Value);
+
+            // Tidy up
+            davClassLibrary.Dav.Database.DeleteProperty(propertyFromDatabase);
         }
         #endregion
 
@@ -546,6 +602,9 @@ namespace davClassLibrary.Tests.DataAccess
             Assert.AreEqual(property.TableObjectId, propertyFromDatabase.TableObjectId);
             Assert.AreEqual(property.Name, propertyFromDatabase.Name);
             Assert.AreEqual(property.Value, propertyFromDatabase.Value);
+
+            // Tidy up
+            davClassLibrary.Dav.Database.DeleteProperty(propertyFromDatabase);
         }
 
         [Test]
@@ -575,6 +634,9 @@ namespace davClassLibrary.Tests.DataAccess
 
             // Assert
             Assert.IsTrue(propertyExists);
+
+            // Tidy up
+            davClassLibrary.Dav.Database.DeleteProperty(property);
         }
 
         [Test]
@@ -616,6 +678,9 @@ namespace davClassLibrary.Tests.DataAccess
             Assert.AreEqual(tableObjectId, propertyFromDatabase.TableObjectId);
             Assert.AreEqual(newPropertyName, propertyFromDatabase.Name);
             Assert.AreEqual(newPropertyValue, propertyFromDatabase.Value);
+
+            // Tidy up
+            davClassLibrary.Dav.Database.DeleteProperty(propertyFromDatabase);
         }
 
         [Test]

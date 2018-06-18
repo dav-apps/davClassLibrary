@@ -628,6 +628,45 @@ namespace davClassLibrary.Tests.Models
             firstTableObject.DeleteImmediately();
             secondTableObject.DeleteImmediately();
         }
+
+        [Test]
+        public async Task SyncShouldDeleteTableObjectsThatDoNotExistOnTheServer()
+        {
+            // Arrange
+            ProjectInterface.LocalDataSettings.SetValue(davClassLibrary.Dav.jwtKey, Dav.Jwt);
+            var uuid = Guid.NewGuid();
+            string firstPropertyName = "text";
+            string firstPropertyValue = "Lorem ipsum bla bla";
+            string secondPropertyName = "test";
+            string secondPropertyValue = "true";
+
+            // Create a new table object
+            var tableObject = new davClassLibrary.Models.TableObject(uuid, Dav.TestDataTableId);
+            var properties = new List<davClassLibrary.Models.Property>
+            {
+                new davClassLibrary.Models.Property(tableObject.Id, firstPropertyName, firstPropertyValue),
+                new davClassLibrary.Models.Property(tableObject.Id, secondPropertyName, secondPropertyValue)
+            };
+
+            tableObject.SetUploadStatus(TableObjectUploadStatus.UpToDate);
+
+            // Act
+            await davClassLibrary.Models.TableObject.Sync();
+
+            // Assert
+            var tableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(tableObject.Uuid);
+            Assert.IsNull(tableObjectFromDatabase);
+
+            var firstTableObjectFromServer = davClassLibrary.Dav.Database.GetTableObject(Dav.TestDataFirstTableObject.uuid);
+            var secondTableObjectFromServer = davClassLibrary.Dav.Database.GetTableObject(Dav.TestDataSecondTableObject.uuid);
+
+            Assert.IsNotNull(firstTableObjectFromServer);
+            Assert.IsNotNull(secondTableObjectFromServer);
+
+            // Tidy up
+            firstTableObjectFromServer.DeleteImmediately();
+            secondTableObjectFromServer.DeleteImmediately();
+        }
         #endregion
 
         #region SyncPush
@@ -778,6 +817,64 @@ namespace davClassLibrary.Tests.Models
             var response2 = await HttpGet("apps/object/" + tableObject.Uuid);
             Assert.IsTrue(response2.Contains("2805"));
 
+            tableObject = davClassLibrary.Dav.Database.GetTableObject(tableObject.Uuid);
+            Assert.IsNull(tableObject);
+        }
+
+        [Test]
+        public async Task SyncPushShouldDeleteUpdatedTableObjectsThatDoNotExistOnTheServer()
+        {
+            // Arrange
+            ProjectInterface.LocalDataSettings.SetValue(davClassLibrary.Dav.jwtKey, Dav.Jwt);
+            var uuid = Guid.NewGuid();
+            string firstPropertyName = "text";
+            string firstPropertyValue = "Lorem ipsum bla bla";
+            string secondPropertyName = "test";
+            string secondPropertyValue = "true";
+
+            // Create a new table object
+            var tableObject = new davClassLibrary.Models.TableObject(uuid, Dav.TestDataTableId);
+            var properties = new List<davClassLibrary.Models.Property>
+            {
+                new davClassLibrary.Models.Property(tableObject.Id, firstPropertyName, firstPropertyValue),
+                new davClassLibrary.Models.Property(tableObject.Id, secondPropertyName, secondPropertyValue)
+            };
+
+            tableObject.SetUploadStatus(TableObjectUploadStatus.Updated);
+
+            // Act
+            await davClassLibrary.Models.TableObject.SyncPush();
+
+            // Assert
+            tableObject = davClassLibrary.Dav.Database.GetTableObject(tableObject.Uuid);
+            Assert.IsNull(tableObject);
+        }
+
+        [Test]
+        public async Task SyncPushShouldDeleteDeletedTableObjectsThatDoNotExistOnTheServer()
+        {
+            // Arrange
+            ProjectInterface.LocalDataSettings.SetValue(davClassLibrary.Dav.jwtKey, Dav.Jwt);
+            var uuid = Guid.NewGuid();
+            string firstPropertyName = "text";
+            string firstPropertyValue = "Lorem ipsum bla bla";
+            string secondPropertyName = "test";
+            string secondPropertyValue = "true";
+
+            // Create a new table object
+            var tableObject = new davClassLibrary.Models.TableObject(uuid, Dav.TestDataTableId);
+            var properties = new List<davClassLibrary.Models.Property>
+            {
+                new davClassLibrary.Models.Property(tableObject.Id, firstPropertyName, firstPropertyValue),
+                new davClassLibrary.Models.Property(tableObject.Id, secondPropertyName, secondPropertyValue)
+            };
+
+            tableObject.SetUploadStatus(TableObjectUploadStatus.Deleted);
+
+            // Act
+            await davClassLibrary.Models.TableObject.SyncPush();
+
+            // Assert
             tableObject = davClassLibrary.Dav.Database.GetTableObject(tableObject.Uuid);
             Assert.IsNull(tableObject);
         }

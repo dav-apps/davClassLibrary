@@ -4,7 +4,7 @@ using NUnit.Framework;
 
 namespace davClassLibrary.Tests.Models
 {
-    [TestFixture]
+    [TestFixture][SingleThreaded]
     public class Property
     {
         #region Setup
@@ -35,6 +35,9 @@ namespace davClassLibrary.Tests.Models
             Assert.AreEqual(tableObjectId, propertyFromDatabase.TableObjectId);
             Assert.AreEqual(propertyName, propertyFromDatabase.Name);
             Assert.AreEqual(propertyValue, propertyFromDatabase.Value);
+
+            // Tidy up
+            davClassLibrary.Dav.Database.DeleteProperty(propertyFromDatabase);
         }
         #endregion
 
@@ -58,6 +61,9 @@ namespace davClassLibrary.Tests.Models
             Assert.AreEqual(newPropertyValue, propertyFromDatabase.Value);
             Assert.AreEqual(propertyName, propertyFromDatabase.Name);
             Assert.AreEqual(tableObjectId, propertyFromDatabase.TableObjectId);
+
+            // Tidy up
+            davClassLibrary.Dav.Database.DeleteProperty(property);
         }
         #endregion
 
@@ -79,6 +85,9 @@ namespace davClassLibrary.Tests.Models
             Assert.AreEqual(tableObjectId, propertyData.table_object_id);
             Assert.AreEqual(propertyName, propertyData.name);
             Assert.AreEqual(propertyValue, propertyData.value);
+
+            // Tidy up
+            davClassLibrary.Dav.Database.DeleteProperty(property);
         }
         #endregion
 

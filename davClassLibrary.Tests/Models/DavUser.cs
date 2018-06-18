@@ -56,6 +56,13 @@ namespace davClassLibrary.Tests.Models
             // Assert
             Assert.IsTrue(user.IsLoggedIn);
             Assert.AreEqual(Dav.Jwt, user.JWT);
+
+            // Tidy up
+            var firstTableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(Dav.TestDataFirstTableObject.uuid);
+            var secondTableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(Dav.TestDataSecondTableObject.uuid);
+
+            if (firstTableObjectFromDatabase != null) firstTableObjectFromDatabase.DeleteImmediately();
+            if (secondTableObjectFromDatabase != null) secondTableObjectFromDatabase.DeleteImmediately();
         }
         #endregion
 
@@ -80,6 +87,13 @@ namespace davClassLibrary.Tests.Models
 
             // Check if the avatar was downloaded
             FileAssert.Exists(user.Avatar.FullName);
+
+            // Tidy up
+            var firstTableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(Dav.TestDataFirstTableObject.uuid);
+            var secondTableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(Dav.TestDataSecondTableObject.uuid);
+
+            if (firstTableObjectFromDatabase != null) firstTableObjectFromDatabase.DeleteImmediately();
+            if (secondTableObjectFromDatabase != null) secondTableObjectFromDatabase.DeleteImmediately();
         }
 
         [Test]
@@ -155,7 +169,7 @@ namespace davClassLibrary.Tests.Models
 
         #region ParseDavPlanToInt
         [Test]
-        public void ParseDavPlanToIntShouldParseFreeTo1()
+        public void ParseDavPlanToIntShouldParseFreeTo0()
         {
             // Arrange
             var plan = davClassLibrary.Models.DavUser.DavPlan.Free;
@@ -168,7 +182,7 @@ namespace davClassLibrary.Tests.Models
         }
 
         [Test]
-        public void ParseDavPlanToIntShouldParsePlusTo0()
+        public void ParseDavPlanToIntShouldParsePlusTo1()
         {
             // Arrange
             var plan = davClassLibrary.Models.DavUser.DavPlan.Plus;
