@@ -31,7 +31,7 @@ namespace davClassLibrary.Models
         public FileInfo File { get; private set; }
         [Ignore]
         public List<Property> Properties { get; private set; }
-        public TableObjectUploadStatus UploadStatus { get; private set; }
+        public TableObjectUploadStatus UploadStatus { get; set; }
         public string Etag { get; private set; }
 
         public enum TableObjectVisibility
@@ -51,6 +51,7 @@ namespace davClassLibrary.Models
         private static bool syncing = false;
         private static List<TableObject> fileDownloads = new List<TableObject>();
         private static Dictionary<Guid, WebClient> fileDownloaders = new Dictionary<Guid, WebClient>();
+        private static Timer fileDownloadTimer;
         private static bool syncAgain = false;
         private const int downloadFilesSimultaneously = 2;
 
@@ -444,13 +445,17 @@ namespace davClassLibrary.Models
                         // Is it a file?
                         if (tableObject.IsFile)
                         {
-                            // Download the file
-                            fileDownloads.Add(tableObject);
+                            string etag = tableObject.Etag;
 
                             // Save the table object without properties and etag
                             tableObject.Etag = "";
                             tableObject.Save();
                             tableObject.SetUploadStatus(TableObjectUploadStatus.UpToDate);
+
+                            // Download the file
+                            tableObject.Etag = etag;
+                            fileDownloads.Add(tableObject);
+                            
                             ProjectInterface.TriggerAction.UpdateTableObject(tableObject, false);
                         }
                         else
@@ -480,7 +485,7 @@ namespace davClassLibrary.Models
                             obj.UploadStatus == TableObjectUploadStatus.Deleted)
                         continue;
 
-                    Dav.Database.DeleteTableObject(obj);
+                    obj.DeleteImmediately();
                     objectsDeleted = true;
                 }
 
@@ -690,8 +695,7 @@ namespace davClassLibrary.Models
                         if (httpResponseBody.Contains("2805"))      // Resource does not exist: TableObject
                         {
                             // Delete the table object locally
-                            SetUploadStatus(TableObjectUploadStatus.Deleted);
-                            Delete();
+                            DeleteImmediately();
                         }
 
                         return null;
@@ -768,14 +772,15 @@ namespace davClassLibrary.Models
         private static void DownloadFiles()
         {
             // Do not download more than downloadFilesSimultaneously files at the same time
-            var timer = new Timer();
-            timer.Elapsed += DownloadFileTimer_Elapsed;
-            timer.Interval = 5000;
-            timer.Start();
+            fileDownloadTimer = new Timer();
+            fileDownloadTimer.Elapsed += DownloadFileTimer_Elapsed;
+            fileDownloadTimer.Interval = 5000;
+            fileDownloadTimer.Start();
         }
 
         private static void DownloadFileTimer_Elapsed(object sender, ElapsedEventArgs e)
         {
+            Debug.WriteLine("Time elapsed");
             // Check if fileDownloads list is greater than downloadFilesSimultaneously
             if(fileDownloaders.Count < downloadFilesSimultaneously && 
                 fileDownloads.Count > 0)
@@ -790,6 +795,10 @@ namespace davClassLibrary.Models
                         break;
                     }
                 }
+            }else if(fileDownloads.Count == 0)
+            {
+                // Stop the timer
+                fileDownloadTimer.Stop();
             }
         }
 

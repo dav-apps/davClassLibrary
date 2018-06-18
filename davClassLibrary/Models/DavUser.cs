@@ -123,13 +123,16 @@ namespace davClassLibrary.Models
                     Plan = ParseIntToDavPlan(dataReader.plan);
                     string newAvatarEtag = dataReader.avatar_etag;
 
-                    if (!String.Equals(AvatarEtag, newAvatarEtag))
+                    string avatarFileName = "avatar.png";
+                    var avatarFilePath = Path.Combine(Dav.DataPath, avatarFileName);
+
+                    if (!String.Equals(AvatarEtag, newAvatarEtag) || !File.Exists(avatarFilePath))
                     {
                         // Download the new avatar
                         DownloadAvatar(dataReader.avatar);
                     }
 
-                    Avatar = new FileInfo(Path.Combine(Dav.DataPath, "avatar.png"));
+                    Avatar = new FileInfo(Path.Combine(Dav.DataPath, avatarFileName));
                     AvatarEtag = newAvatarEtag;
 
                     // Save new values in local settings
