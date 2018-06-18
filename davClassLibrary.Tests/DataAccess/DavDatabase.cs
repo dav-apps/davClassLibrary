@@ -6,6 +6,7 @@ using SQLite;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading.Tasks;
 using static davClassLibrary.Models.TableObject;
 
 namespace davClassLibrary.Tests.DataAccess
@@ -747,6 +748,114 @@ namespace davClassLibrary.Tests.DataAccess
 
             // Act
             davClassLibrary.Dav.Database.DeleteProperty(property);
+        }
+        #endregion
+
+        #region HttpGet
+        [Test]
+        public async Task HttpGetShouldSendGetRequestToExistingResourceAndReturnTrue()
+        {
+            // Arrange
+            var uuid = Dav.TestDataFirstTableObject.uuid;
+
+            // Act
+            var response = await davClassLibrary.DataAccess.DavDatabase.HttpGet(Dav.Jwt, "apps/object/" + uuid);
+
+            // Assert
+            Assert.IsTrue(response.Key);
+        }
+
+        [Test]
+        public async Task HttpGetShouldSendGetRequestToNotExistingResourceAndReturnFalse()
+        {
+            // Arrange
+            var uuid = Guid.NewGuid();
+
+            // Act
+            var response = await davClassLibrary.DataAccess.DavDatabase.HttpGet(Dav.Jwt, "apps/object/" + uuid);
+
+            // Assert
+            Assert.IsFalse(response.Key);
+        }
+        #endregion
+
+        #region ExportData
+        [Test]
+        public async Task ExportDataShouldCreateJsonFileWithAllTableObjects()
+        {
+            // Arrange
+            ProjectInterface.LocalDataSettings.SetValue(davClassLibrary.Dav.jwtKey, Dav.Jwt);
+            await davClassLibrary.Models.TableObject.Sync();
+
+            var progress = new Progress<int>();
+            var exportFolder = Directory.CreateDirectory(Path.Combine(Dav.GetDavDataPath(), "export"));
+
+            // Act
+            await davClassLibrary.DataAccess.DavDatabase.ExportData(exportFolder, progress);
+
+            // Assert
+            FileInfo dataFile = new FileInfo(Path.Combine(exportFolder.FullName, davClassLibrary.Dav.ExportDataFileName));
+            FileAssert.Exists(dataFile);
+
+            // Read the file and deserialize the content
+            var firstTableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(Dav.TestDataFirstTableObject.uuid);
+            var secondTableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(Dav.TestDataSecondTableObject.uuid);
+            var data = davClassLibrary.DataAccess.DavDatabase.GetDataFromFile(dataFile);
+            Assert.AreEqual(firstTableObjectFromDatabase.Id, data[0].id);
+            Assert.AreEqual(firstTableObjectFromDatabase.TableId, data[0].table_id);
+            Assert.AreEqual(davClassLibrary.Models.TableObject.ParseVisibilityToInt(firstTableObjectFromDatabase.Visibility), data[0].visibility);
+            Assert.AreEqual(firstTableObjectFromDatabase.Uuid, data[0].uuid);
+            Assert.AreEqual(firstTableObjectFromDatabase.IsFile, data[0].file);
+            Assert.AreEqual(firstTableObjectFromDatabase.GetPropertyValue(Dav.TestDataFirstPropertyName), data[0].properties[Dav.TestDataFirstPropertyName]);
+            Assert.AreEqual(firstTableObjectFromDatabase.GetPropertyValue(Dav.TestDataSecondPropertyName), data[0].properties[Dav.TestDataSecondPropertyName]);
+            Assert.AreEqual(firstTableObjectFromDatabase.Etag, data[0].etag);
+
+            Assert.AreEqual(secondTableObjectFromDatabase.Id, data[1].id);
+            Assert.AreEqual(secondTableObjectFromDatabase.TableId, data[1].table_id);
+            Assert.AreEqual(davClassLibrary.Models.TableObject.ParseVisibilityToInt(secondTableObjectFromDatabase.Visibility), data[1].visibility);
+            Assert.AreEqual(secondTableObjectFromDatabase.Uuid, data[1].uuid);
+            Assert.AreEqual(secondTableObjectFromDatabase.IsFile, data[1].file);
+            Assert.AreEqual(secondTableObjectFromDatabase.GetPropertyValue(Dav.TestDataFirstPropertyName), data[1].properties[Dav.TestDataFirstPropertyName]);
+            Assert.AreEqual(secondTableObjectFromDatabase.GetPropertyValue(Dav.TestDataSecondPropertyName), data[1].properties[Dav.TestDataSecondPropertyName]);
+            Assert.AreEqual(secondTableObjectFromDatabase.Etag, data[1].etag);
+
+            // Tidy up
+            exportFolder.Delete(true);
+            firstTableObjectFromDatabase.DeleteImmediately();
+            secondTableObjectFromDatabase.DeleteImmediately();
+        }
+
+        [Test]
+        public async Task ExportDataShouldCopyAllTableObjectFiles()
+        {
+            // Arrange
+            ProjectInterface.LocalDataSettings.SetValue(davClassLibrary.Dav.jwtKey, null);
+            var uuid = Guid.NewGuid();
+            FileInfo file = new FileInfo(Path.Combine(Dav.ProjectDirectory, "Assets", "image.jpg"));
+            var tableObject = new davClassLibrary.Models.TableObject(uuid, Dav.TestFileTableId, file);
+
+            var progress = new Progress<int>();
+            var exportFolder = Directory.CreateDirectory(Path.Combine(Dav.GetDavDataPath(), "export"));
+
+            // Act
+            await davClassLibrary.DataAccess.DavDatabase.ExportData(exportFolder, progress);
+
+            // Assert
+            FileInfo dataFile = new FileInfo(Path.Combine(exportFolder.FullName, davClassLibrary.Dav.ExportDataFileName));
+            var data = davClassLibrary.DataAccess.DavDatabase.GetDataFromFile(dataFile);
+            FileAssert.Exists(Path.Combine(exportFolder.FullName, Dav.TestFileTableId.ToString(), uuid.ToString()));
+            FileAssert.Exists(dataFile);
+
+            Assert.AreEqual(tableObject.Id, data[0].id);
+            Assert.AreEqual(tableObject.TableId, data[0].table_id);
+            Assert.AreEqual(davClassLibrary.Models.TableObject.ParseVisibilityToInt(tableObject.Visibility), data[0].visibility);
+            Assert.AreEqual(tableObject.Uuid, data[0].uuid);
+            Assert.AreEqual(tableObject.IsFile, data[0].file);
+            Assert.AreEqual(tableObject.Etag, data[0].etag);
+
+            // Tidy up
+            exportFolder.Delete(true);
+            tableObject.DeleteImmediately();
         }
         #endregion
     }
