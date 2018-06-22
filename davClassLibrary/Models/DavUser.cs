@@ -176,31 +176,31 @@ namespace davClassLibrary.Models
             Avatar = GetAvatar();
         }
 
-        private string GetEmail()
+        public static string GetEmail()
         {
             return ProjectInterface.LocalDataSettings.GetValue(Dav.emailKey);
         }
 
-        private string GetUsername()
+        public static string GetUsername()
         {
             return ProjectInterface.LocalDataSettings.GetValue(Dav.usernameKey);
         }
 
-        private long GetTotalStorage()
+        public static long GetTotalStorage()
         {
             long totalStorage = 0;
             long.TryParse(ProjectInterface.LocalDataSettings.GetValue(Dav.totalStorageKey), out totalStorage);
             return totalStorage;
         }
 
-        private long GetUsedStorage()
+        public static long GetUsedStorage()
         {
             long usedStorage = 0;
             long.TryParse(ProjectInterface.LocalDataSettings.GetValue(Dav.usedStorageKey), out usedStorage);
             return usedStorage;
         }
 
-        private DavPlan GetPlan()
+        public static DavPlan GetPlan()
         {
             var plan = ProjectInterface.LocalDataSettings.GetValue(Dav.planKey);
             if(plan != null)
@@ -220,12 +220,12 @@ namespace davClassLibrary.Models
             return ProjectInterface.LocalDataSettings.GetValue(Dav.jwtKey);
         }
 
-        private string GetAvatarEtag()
+        public static string GetAvatarEtag()
         {
             return ProjectInterface.LocalDataSettings.GetValue(Dav.avatarEtagKey);
         }
 
-        private FileInfo GetAvatar()
+        public static FileInfo GetAvatar()
         {
             string avatarPath = Path.Combine(Dav.DataPath, "avatar.png");
             return File.Exists(avatarPath) ? new FileInfo(avatarPath) : null;

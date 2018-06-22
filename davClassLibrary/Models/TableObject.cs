@@ -15,6 +15,7 @@ using System.Net.NetworkInformation;
 using System.Text;
 using System.Threading.Tasks;
 using System.Timers;
+using Windows.Networking.Connectivity;
 
 namespace davClassLibrary.Models
 {
@@ -315,7 +316,7 @@ namespace davClassLibrary.Models
 
         public void Delete()
         {
-            if(IsFile && File != null)
+            if(IsFile && File.Exists)
             {
                 // Delete the file
                 File.Delete();
@@ -508,6 +509,9 @@ namespace davClassLibrary.Models
                 return;
             }
 
+            string jwt = DavUser.GetJWT();
+            if (String.IsNullOrEmpty(jwt)) return;
+
             syncing = true;
 
             List<TableObject> tableObjects = Dav.Database.GetAllTableObjects(true)
@@ -518,6 +522,17 @@ namespace davClassLibrary.Models
             {
                 if (tableObject.UploadStatus == TableObjectUploadStatus.New)
                 {
+                    // Check if the tableObject is a file and if it can be uploaded
+                    if (tableObject.IsFile && tableObject.File != null)
+                    {
+                        var usedStorage = DavUser.GetUsedStorage();
+                        var totalStorage = DavUser.GetTotalStorage();
+                        var fileSize = tableObject.File.Length;
+
+                        if (usedStorage + fileSize > totalStorage && totalStorage != 0)
+                            continue;
+                    }
+
                     // Create the new object on the server
                     var etag = await tableObject.CreateTableObjectOnServer();
                     if (!String.IsNullOrEmpty(etag))
@@ -780,7 +795,11 @@ namespace davClassLibrary.Models
 
         private static void DownloadFileTimer_Elapsed(object sender, ElapsedEventArgs e)
         {
-            Debug.WriteLine("Time elapsed");
+            // Check the network connection
+            var connection = NetworkInformation.GetInternetConnectionProfile();
+            var networkCostType = connection.GetConnectionCost().NetworkCostType;
+            if (networkCostType != NetworkCostType.Unrestricted && networkCostType != NetworkCostType.Unknown) return;
+
             // Check if fileDownloads list is greater than downloadFilesSimultaneously
             if(fileDownloaders.Count < downloadFilesSimultaneously && 
                 fileDownloads.Count > 0)

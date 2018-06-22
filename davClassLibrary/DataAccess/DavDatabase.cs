@@ -279,7 +279,7 @@ namespace davClassLibrary.DataAccess
                 }
 
                 // Write the list of tableObjects as json
-                string dataFilePath = Path.Combine(exportFolder.FullName, "data.json");
+                string dataFilePath = Path.Combine(exportFolder.FullName, Dav.ExportDataFileName);
                 WriteFile(dataFilePath, tableObjectDataList);
 
                 // Create a zip file of the export folder and copy it into the destination folder
@@ -333,7 +333,7 @@ namespace davClassLibrary.DataAccess
 
         public static void ImportData(DirectoryInfo importFolder, IProgress<int> progress)
         {
-            string dataFilePath = Path.Combine(importFolder.FullName, "data.json");
+            string dataFilePath = Path.Combine(importFolder.FullName, Dav.ExportDataFileName);
             FileInfo dataFile = new FileInfo(dataFilePath);
             List<TableObjectData> tableObjects = GetDataFromFile(dataFile);
             int i = 0;
@@ -341,21 +341,26 @@ namespace davClassLibrary.DataAccess
             foreach(var tableObjectData in tableObjects)
             {
                 TableObject tableObject = TableObject.ConvertTableObjectDataToTableObject(tableObjectData);
-                Dav.Database.CreateTableObjectWithProperties(tableObject);
+                tableObject.UploadStatus = TableObject.TableObjectUploadStatus.New;
 
-                // If the tableObject is a file, get the file from the appropriate folder
-                if (tableObject.IsFile)
+                if (!Dav.Database.TableObjectExists(tableObject.Uuid))
                 {
-                    try
+                    Dav.Database.CreateTableObjectWithProperties(tableObject);
+
+                    // If the tableObject is a file, get the file from the appropriate folder
+                    if (tableObject.IsFile)
                     {
-                        string tablePath = Path.Combine(importFolder.FullName, tableObject.TableId.ToString());
-                        string filePath = Path.Combine(tablePath, tableObject.Uuid.ToString());
-                        FileInfo tableObjectFile = new FileInfo(filePath);
-                        tableObject.SetFile(tableObjectFile);
-                    }
-                    catch(Exception e)
-                    {
-                        Debug.WriteLine(e.Message);
+                        try
+                        {
+                            string tablePath = Path.Combine(importFolder.FullName, tableObject.TableId.ToString());
+                            string filePath = Path.Combine(tablePath, tableObject.Uuid.ToString());
+                            FileInfo tableObjectFile = new FileInfo(filePath);
+                            tableObject.SetFile(tableObjectFile);
+                        }
+                        catch (Exception e)
+                        {
+                            Debug.WriteLine(e.Message);
+                        }
                     }
                 }
 
