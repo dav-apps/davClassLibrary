@@ -420,9 +420,10 @@ namespace davClassLibrary.Tests.Models
 
         #region Delete
         [Test]
-        public void DeleteShouldSetTheUploadStatusOfTheTableObjectToDeleted()
+        public void DeleteShouldSetTheUploadStatusOfTheTableObjectToDeletedWhenTheUserIsLoggedIn()
         {
             // Arrange
+            ProjectInterface.LocalDataSettings.SetValue(davClassLibrary.Dav.jwtKey, Dav.Jwt);
             int tableId = 4;
             Guid uuid = Guid.NewGuid();
             List<davClassLibrary.Models.Property> propertiesList = new List<davClassLibrary.Models.Property>
@@ -445,9 +446,10 @@ namespace davClassLibrary.Tests.Models
         }
 
         [Test]
-        public void DeleteShouldDeleteTheFileOfATableObjectAndSetTheUploadStatusToDeleted()
+        public void DeleteShouldDeleteTheFileOfATableObjectAndSetTheUploadStatusToDeletedWhenTheUserIsLoggedIn()
         {
             // Arrange
+            ProjectInterface.LocalDataSettings.SetValue(davClassLibrary.Dav.jwtKey, Dav.Jwt);
             int tableId = 4;
             Guid uuid = Guid.NewGuid();
             FileInfo file = new FileInfo(Path.Combine(Dav.ProjectDirectory, "Assets", "icon.ico"));
@@ -467,6 +469,57 @@ namespace davClassLibrary.Tests.Models
 
             // Tidy up
             tableObject2.DeleteImmediately();
+        }
+
+        [Test]
+        public void DeleteShouldDeleteTheTableObjectImmediatelyWhenTheUserIsNotLoggedIn()
+        {
+            // Arrange
+            ProjectInterface.LocalDataSettings.SetValue(davClassLibrary.Dav.jwtKey, null);
+            int tableId = 4;
+            Guid uuid = Guid.NewGuid();
+            List<davClassLibrary.Models.Property> propertiesList = new List<davClassLibrary.Models.Property>
+            {
+                new davClassLibrary.Models.Property{Name = "page1", Value = "Hello World"},
+                new davClassLibrary.Models.Property{Name = "page2", Value = "Hallo Welt"}
+            };
+            var tableObject = new davClassLibrary.Models.TableObject(uuid, tableId, propertiesList);
+
+            int firstPropertyId = tableObject.Properties[0].Id;
+            int secondPropertyId = tableObject.Properties[1].Id;
+
+            // Act
+            tableObject.Delete();
+
+            // Assert
+            var tableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(uuid);
+            Assert.IsNull(tableObjectFromDatabase);
+
+            var firstPropertyFromDatabase = davClassLibrary.Dav.Database.GetProperty(firstPropertyId);
+            Assert.IsNull(firstPropertyFromDatabase);
+
+            var secondPropertyFromDatabase = davClassLibrary.Dav.Database.GetProperty(secondPropertyId);
+            Assert.IsNull(secondPropertyFromDatabase);
+        }
+
+        [Test]
+        public void DeleteShouldDeleteTheFileOfTheTableObjectAndDeleteTheTableObjectImmediatelyWhenTheUserIsNotLoggedIn()
+        {
+            // Arrange
+            ProjectInterface.LocalDataSettings.SetValue(davClassLibrary.Dav.jwtKey, null);
+            int tableId = 4;
+            Guid uuid = Guid.NewGuid();
+            FileInfo file = new FileInfo(Path.Combine(Dav.ProjectDirectory, "Assets", "icon.ico"));
+            var tableObject = new davClassLibrary.Models.TableObject(uuid, tableId, file);
+            string filePath = tableObject.File.FullName;
+
+            // Act
+            tableObject.Delete();
+
+            // Assert
+            Assert.IsFalse(File.Exists(filePath));
+            var tableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(uuid);
+            Assert.IsNull(tableObjectFromDatabase);
         }
         #endregion
 

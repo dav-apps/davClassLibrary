@@ -787,6 +787,11 @@ namespace davClassLibrary.Tests.DataAccess
             ProjectInterface.LocalDataSettings.SetValue(davClassLibrary.Dav.jwtKey, Dav.Jwt);
             await davClassLibrary.Models.TableObject.Sync();
 
+            // Copy image.jpg, which is the file of the uploaded table object
+            var fileTableObject = davClassLibrary.Dav.Database.GetAllTableObjects(Dav.TableIds[1], false)[0];
+            var tableFolder = Directory.CreateDirectory(Path.Combine(Dav.GetDavDataPath(), fileTableObject.TableId.ToString()));
+            File.Copy(Path.Combine(Dav.ProjectDirectory, "Assets", "image.jpg"), Path.Combine(tableFolder.FullName, fileTableObject.Uuid.ToString()), true);
+
             var progress = new Progress<int>();
             var exportFolder = Directory.CreateDirectory(Path.Combine(Dav.GetDavDataPath(), "export"));
 
@@ -823,6 +828,7 @@ namespace davClassLibrary.Tests.DataAccess
             exportFolder.Delete(true);
             firstTableObjectFromDatabase.DeleteImmediately();
             secondTableObjectFromDatabase.DeleteImmediately();
+            fileTableObject.DeleteImmediately();
         }
 
         [Test]

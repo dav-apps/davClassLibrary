@@ -316,14 +316,23 @@ namespace davClassLibrary.Models
 
         public void Delete()
         {
-            if(IsFile && File.Exists)
+            string jwt = DavUser.GetJWT();
+            if (String.IsNullOrEmpty(jwt))
             {
-                // Delete the file
-                File.Delete();
+                DeleteImmediately();
+                UploadStatus = TableObjectUploadStatus.Deleted;
             }
+            else
+            {
+                if (IsFile && File.Exists)
+                {
+                    // Delete the file
+                    File.Delete();
+                }
 
-            SetUploadStatus(TableObjectUploadStatus.Deleted);
-            SyncPush();
+                SetUploadStatus(TableObjectUploadStatus.Deleted);
+                SyncPush();
+            }
         }
 
         public void DeleteImmediately()
