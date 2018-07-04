@@ -14,8 +14,11 @@ namespace davClassLibrary
         public const string planKey = "plan";
         public const string avatarEtagKey = "avatarEtag";
 
-        public const string ApiBaseUrl = "https://dav-backend.herokuapp.com/v1/";
+        public const string ExportDataFileName = "data.json";
         public const string GetUserUrl = "auth/user";
+
+        public const string ApiBaseUrl = "https://dav-backend.herokuapp.com/v1/";
+        //public const string ApiBaseUrl = "https://920ea5c4.ngrok.io/v1/";
         public static string DataPath
         {
             get { return ProjectInterface.RetrieveConstants.GetDataPath(); }
