@@ -15,7 +15,6 @@ using System.Net.NetworkInformation;
 using System.Text;
 using System.Threading.Tasks;
 using System.Timers;
-using Windows.Networking.Connectivity;
 
 namespace davClassLibrary.Models
 {
@@ -805,9 +804,7 @@ namespace davClassLibrary.Models
         private static void DownloadFileTimer_Elapsed(object sender, ElapsedEventArgs e)
         {
             // Check the network connection
-            var connection = NetworkInformation.GetInternetConnectionProfile();
-            var networkCostType = connection.GetConnectionCost().NetworkCostType;
-            if (networkCostType != NetworkCostType.Unrestricted && networkCostType != NetworkCostType.Unknown) return;
+            if (!ProjectInterface.GeneralMethods.IsNetworkAvailable()) return;
 
             // Check if fileDownloads list is greater than downloadFilesSimultaneously
             if(fileDownloaders.Count < downloadFilesSimultaneously && 
