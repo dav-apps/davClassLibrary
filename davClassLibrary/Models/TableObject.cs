@@ -54,6 +54,7 @@ namespace davClassLibrary.Models
         private static Timer fileDownloadTimer;
         private static bool syncAgain = false;
         private const int downloadFilesSimultaneously = 2;
+        private const string extPropertyName = "ext";
 
         public TableObject(){}
         
@@ -432,6 +433,17 @@ namespace davClassLibrary.Models
                             // Is it a file?
                             if (tableObject.IsFile)
                             {
+                                // Remove all properties except ext
+                                var removingProperties = new List<Property>();
+                                foreach (var p in tableObject.Properties)
+                                    if (p.Name != extPropertyName) removingProperties.Add(p);
+
+                                foreach (var property in removingProperties)
+                                    tableObject.Properties.Remove(property);
+
+                                // Save the ext property
+                                tableObject.SaveWithProperties();
+
                                 // Download the file
                                 fileDownloads.Add(tableObject);
                             }
@@ -456,15 +468,23 @@ namespace davClassLibrary.Models
                         {
                             string etag = tableObject.Etag;
 
-                            // Save the table object without properties and etag
+                            // Remove all properties except ext
+                            var removingProperties = new List<Property>();
+                            foreach (var p in tableObject.Properties)
+                                if (p.Name != extPropertyName) removingProperties.Add(p);
+                            
+                            foreach (var property in removingProperties)
+                                tableObject.Properties.Remove(property);
+
+                            // Save the table object without properties and etag (the etag will be saved later when the file was downloaded)
                             tableObject.Etag = "";
-                            tableObject.Save();
+                            tableObject.SaveWithProperties();
                             tableObject.SetUploadStatus(TableObjectUploadStatus.UpToDate);
 
                             // Download the file
                             tableObject.Etag = etag;
                             fileDownloads.Add(tableObject);
-                            
+
                             ProjectInterface.TriggerAction.UpdateTableObject(tableObject, false);
                         }
                         else
