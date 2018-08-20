@@ -2,6 +2,11 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
+    <Version>0.2.0</Version>
+    <Company>dav Apps</Company>
+    <Authors>David Zurek</Authors>
+    <Copyright>Copyright 2018 by dav</Copyright>
+    <RepositoryUrl>https://github.com/Dav2070/davClassLibrary</RepositoryUrl>
   </PropertyGroup>
 
   <ItemGroup>
