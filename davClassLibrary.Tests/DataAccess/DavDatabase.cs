@@ -24,6 +24,7 @@ namespace davClassLibrary.Tests.DataAccess
             ProjectInterface.LocalDataSettings = new LocalDataSettings();
             ProjectInterface.RetrieveConstants = new RetrieveConstants();
             ProjectInterface.TriggerAction = new TriggerAction();
+            ProjectInterface.GeneralMethods = new GeneralMethods();
             databasePath = Path.Combine(Dav.GetDavDataPath(), databaseName);
         }
         #endregion

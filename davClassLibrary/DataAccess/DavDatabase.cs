@@ -265,7 +265,7 @@ namespace davClassLibrary.DataAccess
                 {
                     tableObjectDataList.Add(tableObject.ToTableObjectData());
 
-                    if (tableObject.IsFile)
+                    if (tableObject.IsFile && File.Exists(tableObject.File.FullName))
                     {
                         string tablePath = Path.Combine(exportFolder.FullName, tableObject.TableId.ToString());
                         Directory.CreateDirectory(tablePath);
