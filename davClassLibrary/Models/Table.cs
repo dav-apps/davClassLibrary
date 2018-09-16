@@ -1,6 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using System.Collections.Generic;
 
 namespace davClassLibrary.Models
 {
@@ -16,6 +14,7 @@ namespace davClassLibrary.Models
         public int id { get; set; }
         public int app_id { get; set; }
         public string name { get; set; }
+        public int pages { get; set; }
         public List<TableObjectData> table_objects { get; set; }
     }
 }

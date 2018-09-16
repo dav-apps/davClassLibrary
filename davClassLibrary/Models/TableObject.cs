@@ -371,68 +371,111 @@ namespace davClassLibrary.Models
             var tableIds = ProjectInterface.RetrieveConstants.GetTableIds();
             foreach (var tableId in tableIds)
             {
-                var tableGetResult = await DavDatabase.HttpGet(jwt, "apps/table/" + tableId);
-                if (!tableGetResult.Key) continue;
-
-                var table = JsonConvert.DeserializeObject<TableData>(tableGetResult.Value);
+                KeyValuePair<bool, string> tableGetResult;
+                TableData table;
                 bool objectsDeleted = false;
+                var pages = 1;
 
                 List<Guid> removedTableObjectUuids = new List<Guid>();
-                foreach (var tableObject in Dav.Database.GetAllTableObjects(table.id, true))
+                foreach (var tableObject in Dav.Database.GetAllTableObjects(tableId, true))
                     removedTableObjectUuids.Add(tableObject.Uuid);
 
-                // Get the objects of the table
-                foreach (var obj in table.table_objects)
+                for(int i = 1; i < pages + 1; i++)
                 {
-                    removedTableObjectUuids.Remove(obj.uuid);
+                    // Get the next page of the table
+                    tableGetResult = await DavDatabase.HttpGet(jwt, "apps/table/" + tableId + "?page=" + i);
+                    if (!tableGetResult.Key) continue;
 
-                    /*
-                     *  Ist obj lokal gespeichert?
-                     *      ja: Stimmt Etag überein?
-                     *          ja: Ist es eine Datei?
-                     *              ja: Ist die Datei heruntergeladen?
-                     *                  ja: continue!
-                     *                  nein: Herunterladen!
-                     *              nein: continue!
-                     *          nein: GET table object! Ist es eine Datei?
-                     *              ja: Herunterladen!
-                     *              nein: Save Table object!
-                     *      nein: GET tableObject! Ist es eine Datei?
-                     *          ja: Herunterladen!
-                     *          nein: Save Table object!
-                     * 
-                     * (Bei Herunterladen: Etag und etag der Datei erst speichern, wenn die Datei heruntergeladen wurde)
-                     * 
-                    */
+                    table = JsonConvert.DeserializeObject<TableData>(tableGetResult.Value);
+                    pages = table.pages;
 
-                    // Is obj in the database?
-                    var currentTableObject = Dav.Database.GetTableObject(obj.uuid);
-                    if (currentTableObject != null)
+                    // Get the objects of the table
+                    foreach (var obj in table.table_objects)
                     {
-                        // Is the etag correct?
-                        if (Equals(obj.etag, currentTableObject.Etag))
+                        removedTableObjectUuids.Remove(obj.uuid);
+
+                        /*
+                         *  Ist obj lokal gespeichert?
+                         *      ja: Stimmt Etag überein?
+                         *          ja: Ist es eine Datei?
+                         *              ja: Ist die Datei heruntergeladen?
+                         *                  ja: continue!
+                         *                  nein: Herunterladen!
+                         *              nein: continue!
+                         *          nein: GET table object! Ist es eine Datei?
+                         *              ja: Herunterladen!
+                         *              nein: Save Table object!
+                         *      nein: GET tableObject! Ist es eine Datei?
+                         *          ja: Herunterladen!
+                         *          nein: Save Table object!
+                         * 
+                         * (Bei Herunterladen: Etag und etag der Datei erst speichern, wenn die Datei heruntergeladen wurde)
+                         * 
+                        */
+
+                        // Is obj in the database?
+                        var currentTableObject = Dav.Database.GetTableObject(obj.uuid);
+                        if (currentTableObject != null)
                         {
-                            // Is it a file?
-                            if (currentTableObject.IsFile)
+                            // Is the etag correct?
+                            if (Equals(obj.etag, currentTableObject.Etag))
                             {
-                                // Was the file downloaded?
-                                if (!currentTableObject.FileDownloaded())
+                                // Is it a file?
+                                if (currentTableObject.IsFile)
                                 {
+                                    // Was the file downloaded?
+                                    if (!currentTableObject.FileDownloaded())
+                                    {
+                                        // Download the file
+                                        fileDownloads.Add(currentTableObject);
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                // GET the table object
+                                var tableObject = await DownloadTableObject(currentTableObject.Uuid);
+
+                                if (tableObject == null) continue;
+
+                                // Is it a file?
+                                if (tableObject.IsFile)
+                                {
+                                    // Remove all properties except ext
+                                    var removingProperties = new List<Property>();
+                                    foreach (var p in tableObject.Properties)
+                                        if (p.Name != extPropertyName) removingProperties.Add(p);
+
+                                    foreach (var property in removingProperties)
+                                        tableObject.Properties.Remove(property);
+
+                                    // Save the ext property
+                                    tableObject.SaveWithProperties();
+
                                     // Download the file
-                                    fileDownloads.Add(currentTableObject);
+                                    fileDownloads.Add(tableObject);
+                                }
+                                else
+                                {
+                                    // Save the table object
+                                    tableObject.UploadStatus = TableObjectUploadStatus.UpToDate;
+                                    tableObject.SaveWithProperties();
+                                    ProjectInterface.TriggerAction.UpdateTableObject(tableObject, false);
                                 }
                             }
                         }
                         else
                         {
                             // GET the table object
-                            var tableObject = await DownloadTableObject(currentTableObject.Uuid);
+                            var tableObject = await DownloadTableObject(obj.uuid);
 
                             if (tableObject == null) continue;
 
                             // Is it a file?
                             if (tableObject.IsFile)
                             {
+                                string etag = tableObject.Etag;
+
                                 // Remove all properties except ext
                                 var removingProperties = new List<Property>();
                                 foreach (var p in tableObject.Properties)
@@ -441,11 +484,16 @@ namespace davClassLibrary.Models
                                 foreach (var property in removingProperties)
                                     tableObject.Properties.Remove(property);
 
-                                // Save the ext property
+                                // Save the table object without properties and etag (the etag will be saved later when the file was downloaded)
+                                tableObject.Etag = "";
                                 tableObject.SaveWithProperties();
+                                tableObject.SetUploadStatus(TableObjectUploadStatus.UpToDate);
 
                                 // Download the file
+                                tableObject.Etag = etag;
                                 fileDownloads.Add(tableObject);
+
+                                ProjectInterface.TriggerAction.UpdateTableObject(tableObject, false);
                             }
                             else
                             {
@@ -454,45 +502,6 @@ namespace davClassLibrary.Models
                                 tableObject.SaveWithProperties();
                                 ProjectInterface.TriggerAction.UpdateTableObject(tableObject, false);
                             }
-                        }
-                    }
-                    else
-                    {
-                        // GET the table object
-                        var tableObject = await DownloadTableObject(obj.uuid);
-
-                        if (tableObject == null) continue;
-
-                        // Is it a file?
-                        if (tableObject.IsFile)
-                        {
-                            string etag = tableObject.Etag;
-
-                            // Remove all properties except ext
-                            var removingProperties = new List<Property>();
-                            foreach (var p in tableObject.Properties)
-                                if (p.Name != extPropertyName) removingProperties.Add(p);
-                            
-                            foreach (var property in removingProperties)
-                                tableObject.Properties.Remove(property);
-
-                            // Save the table object without properties and etag (the etag will be saved later when the file was downloaded)
-                            tableObject.Etag = "";
-                            tableObject.SaveWithProperties();
-                            tableObject.SetUploadStatus(TableObjectUploadStatus.UpToDate);
-
-                            // Download the file
-                            tableObject.Etag = etag;
-                            fileDownloads.Add(tableObject);
-
-                            ProjectInterface.TriggerAction.UpdateTableObject(tableObject, false);
-                        }
-                        else
-                        {
-                            // Save the table object
-                            tableObject.UploadStatus = TableObjectUploadStatus.UpToDate;
-                            tableObject.SaveWithProperties();
-                            ProjectInterface.TriggerAction.UpdateTableObject(tableObject, false);
                         }
                     }
                 }
@@ -519,7 +528,7 @@ namespace davClassLibrary.Models
                 }
 
                 if (objectsDeleted)
-                    ProjectInterface.TriggerAction.UpdateAllOfTable(table.id);
+                    ProjectInterface.TriggerAction.UpdateAllOfTable(tableId);
             }
 
             syncing = false;
