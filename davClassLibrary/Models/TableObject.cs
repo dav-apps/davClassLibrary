@@ -7,14 +7,12 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.NetworkInformation;
 using System.Text;
 using System.Threading.Tasks;
-using System.Timers;
 
 namespace davClassLibrary.Models
 {
@@ -32,7 +30,9 @@ namespace davClassLibrary.Models
         [Ignore]
         public List<Property> Properties { get; private set; }
         public TableObjectUploadStatus UploadStatus { get; set; }
-        public string Etag { get; private set; }
+        public string Etag { get; internal set; }
+
+        private IProgress<int> fileDownloadProgress = null;
 
         public enum TableObjectVisibility
         {
@@ -48,13 +48,6 @@ namespace davClassLibrary.Models
             Deleted = 3,
             NoUpload = 4
         }
-        private static bool syncing = false;
-        private static List<TableObject> fileDownloads = new List<TableObject>();
-        private static Dictionary<Guid, WebClient> fileDownloaders = new Dictionary<Guid, WebClient>();
-        private static Timer fileDownloadTimer;
-        private static bool syncAgain = false;
-        private const int downloadFilesSimultaneously = 2;
-        private const string extPropertyName = "ext";
 
         public TableObject(){}
         
@@ -169,7 +162,7 @@ namespace davClassLibrary.Models
         
         private string GetFilePath()
         {
-            return Path.Combine(DavDatabase.GetTableFolder(TableId).FullName, Uuid.ToString());
+            return Path.Combine(DataManager.GetTableFolder(TableId).FullName, Uuid.ToString());
         }
 
         public void Load()
@@ -178,7 +171,7 @@ namespace davClassLibrary.Models
             LoadFile();
         }
 
-        private void Save()
+        internal void Save()
         {
             // Check if the tableObject already exists
             if (!Dav.Database.TableObjectExists(Uuid))
@@ -192,7 +185,7 @@ namespace davClassLibrary.Models
             }
         }
 
-        private void SaveWithProperties()
+        internal void SaveWithProperties()
         {
             // Check if the tableObject already exists
             if (!Dav.Database.TableObjectExists(Uuid))
@@ -209,7 +202,7 @@ namespace davClassLibrary.Models
                     tableObject.SetPropertyValue(property.Name, property.Value);
             }
 
-            SyncPush();
+            DataManager.SyncPush();
         }
 
         private void LoadProperties()
@@ -238,7 +231,7 @@ namespace davClassLibrary.Models
                 UploadStatus = TableObjectUploadStatus.Updated;
 
             Save();
-            SyncPush();
+            DataManager.SyncPush();
         }
 
         public string GetPropertyValue(string name)
@@ -260,7 +253,7 @@ namespace davClassLibrary.Models
                 UploadStatus = TableObjectUploadStatus.Updated;
 
             Dav.Database.DeleteProperty(property);
-            SyncPush();
+            DataManager.SyncPush();
         }
 
         public void RemoveAllProperties()
@@ -296,7 +289,7 @@ namespace davClassLibrary.Models
 
             // Save the file in the data folder with the uuid as name (without extension)
             string filename = Uuid.ToString();
-            var tableFolder = DavDatabase.GetTableFolder(TableId);
+            var tableFolder = DataManager.GetTableFolder(TableId);
             File = file.CopyTo(Path.Combine(tableFolder.FullName, filename), true);
 
             if (!String.IsNullOrEmpty(file.Extension))
@@ -331,7 +324,7 @@ namespace davClassLibrary.Models
                 }
 
                 SetUploadStatus(TableObjectUploadStatus.Deleted);
-                SyncPush();
+                DataManager.SyncPush();
             }
         }
 
@@ -345,285 +338,117 @@ namespace davClassLibrary.Models
 
             Dav.Database.DeleteTableObjectImmediately(Uuid);
         }
-        
-        private static void SetEtagOfTableObject(Guid uuid, string etag)
-        {
-            // Get the table object
-            var tableObject = Dav.Database.GetTableObject(uuid);
-            if(tableObject != null)
-            {
-                tableObject.Etag = etag;
-                tableObject.Save();
-            }
-        }
 
-        public static async Task Sync()
+        internal void DownloadTableObjectFile()
         {
-            if (syncing) return;
-
-            syncing = true;
+            if (!IsFile) return;
             string jwt = DavUser.GetJWT();
             if (String.IsNullOrEmpty(jwt)) return;
-            fileDownloads.Clear();
-            fileDownloaders.Clear();
 
-            // Get the specified tables
-            var tableIds = ProjectInterface.RetrieveConstants.GetTableIds();
-            foreach (var tableId in tableIds)
-            {
-                KeyValuePair<bool, string> tableGetResult;
-                TableData table;
-                bool objectsDeleted = false;
-                var pages = 1;
-
-                List<Guid> removedTableObjectUuids = new List<Guid>();
-                foreach (var tableObject in Dav.Database.GetAllTableObjects(tableId, true))
-                    removedTableObjectUuids.Add(tableObject.Uuid);
-
-                for(int i = 1; i < pages + 1; i++)
-                {
-                    // Get the next page of the table
-                    tableGetResult = await DavDatabase.HttpGet(jwt, "apps/table/" + tableId + "?page=" + i);
-                    if (!tableGetResult.Key) continue;
-
-                    table = JsonConvert.DeserializeObject<TableData>(tableGetResult.Value);
-                    pages = table.pages;
-
-                    // Get the objects of the table
-                    foreach (var obj in table.table_objects)
-                    {
-                        removedTableObjectUuids.Remove(obj.uuid);
-
-                        /*
-                         *  Ist obj lokal gespeichert?
-                         *      ja: Stimmt Etag überein?
-                         *          ja: Ist es eine Datei?
-                         *              ja: Ist die Datei heruntergeladen?
-                         *                  ja: continue!
-                         *                  nein: Herunterladen!
-                         *              nein: continue!
-                         *          nein: GET table object! Ist es eine Datei?
-                         *              ja: Herunterladen!
-                         *              nein: Save Table object!
-                         *      nein: GET tableObject! Ist es eine Datei?
-                         *          ja: Herunterladen!
-                         *          nein: Save Table object!
-                         * 
-                         * (Bei Herunterladen: Etag und etag der Datei erst speichern, wenn die Datei heruntergeladen wurde)
-                         * 
-                        */
-
-                        // Is obj in the database?
-                        var currentTableObject = Dav.Database.GetTableObject(obj.uuid);
-                        if (currentTableObject != null)
-                        {
-                            // Is the etag correct?
-                            if (Equals(obj.etag, currentTableObject.Etag))
-                            {
-                                // Is it a file?
-                                if (currentTableObject.IsFile)
-                                {
-                                    // Was the file downloaded?
-                                    if (!currentTableObject.FileDownloaded())
-                                    {
-                                        // Download the file
-                                        fileDownloads.Add(currentTableObject);
-                                    }
-                                }
-                            }
-                            else
-                            {
-                                // GET the table object
-                                var tableObject = await DownloadTableObject(currentTableObject.Uuid);
-
-                                if (tableObject == null) continue;
-
-                                // Is it a file?
-                                if (tableObject.IsFile)
-                                {
-                                    // Remove all properties except ext
-                                    var removingProperties = new List<Property>();
-                                    foreach (var p in tableObject.Properties)
-                                        if (p.Name != extPropertyName) removingProperties.Add(p);
-
-                                    foreach (var property in removingProperties)
-                                        tableObject.Properties.Remove(property);
-
-                                    // Save the ext property
-                                    tableObject.SaveWithProperties();
-
-                                    // Download the file
-                                    fileDownloads.Add(tableObject);
-                                }
-                                else
-                                {
-                                    // Save the table object
-                                    tableObject.UploadStatus = TableObjectUploadStatus.UpToDate;
-                                    tableObject.SaveWithProperties();
-                                    ProjectInterface.TriggerAction.UpdateTableObject(tableObject, false);
-                                }
-                            }
-                        }
-                        else
-                        {
-                            // GET the table object
-                            var tableObject = await DownloadTableObject(obj.uuid);
-
-                            if (tableObject == null) continue;
-
-                            // Is it a file?
-                            if (tableObject.IsFile)
-                            {
-                                string etag = tableObject.Etag;
-
-                                // Remove all properties except ext
-                                var removingProperties = new List<Property>();
-                                foreach (var p in tableObject.Properties)
-                                    if (p.Name != extPropertyName) removingProperties.Add(p);
-
-                                foreach (var property in removingProperties)
-                                    tableObject.Properties.Remove(property);
-
-                                // Save the table object without properties and etag (the etag will be saved later when the file was downloaded)
-                                tableObject.Etag = "";
-                                tableObject.SaveWithProperties();
-                                tableObject.SetUploadStatus(TableObjectUploadStatus.UpToDate);
-
-                                // Download the file
-                                tableObject.Etag = etag;
-                                fileDownloads.Add(tableObject);
-
-                                ProjectInterface.TriggerAction.UpdateTableObject(tableObject, false);
-                            }
-                            else
-                            {
-                                // Save the table object
-                                tableObject.UploadStatus = TableObjectUploadStatus.UpToDate;
-                                tableObject.SaveWithProperties();
-                                ProjectInterface.TriggerAction.UpdateTableObject(tableObject, false);
-                            }
-                        }
-                    }
-                }
-
-                // RemovedTableObjects now includes all objects that were deleted on the server but not locally
-                // Delete those objects locally
-                foreach (var objUuid in removedTableObjectUuids)
-                {
-                    var obj = Dav.Database.GetTableObject(objUuid);
-                    if (obj == null) continue;
-
-                    if (obj.UploadStatus == TableObjectUploadStatus.New && obj.IsFile)
-                    {
-                        if (obj.FileDownloaded())
-                            continue;
-                    }
-                    else if (obj.UploadStatus == TableObjectUploadStatus.New ||
-                            obj.UploadStatus == TableObjectUploadStatus.NoUpload ||
-                            obj.UploadStatus == TableObjectUploadStatus.Deleted)
-                        continue;
-
-                    obj.DeleteImmediately();
-                    objectsDeleted = true;
-                }
-
-                if (objectsDeleted)
-                    ProjectInterface.TriggerAction.UpdateAllOfTable(tableId);
-            }
-
-            syncing = false;
-
-            // Push changes
-            await SyncPush();
-            DownloadFiles();
-        }
-
-        public static async Task SyncPush()
-        {
-            if (syncing)
-            {
-                syncAgain = true;
+            // Check if the file is already downloading
+            if (DataManager.fileDownloaders.ContainsKey(Uuid))
                 return;
-            }
 
-            string jwt = DavUser.GetJWT();
-            if (String.IsNullOrEmpty(jwt)) return;
+            string url = Dav.ApiBaseUrl + "apps/object/" + Uuid + "?file=true";
+            WebClient client = new WebClient();
+            client.Headers.Add(HttpRequestHeader.Authorization, jwt);
+            client.DownloadFileCompleted += Client_DownloadFileCompleted;
 
-            syncing = true;
+            DirectoryInfo tempTableFolder = DataManager.GetTempTableFolder(TableId);
+            string tempFilePath = Path.Combine(tempTableFolder.FullName, Uuid.ToString());
 
-            List<TableObject> tableObjects = Dav.Database.GetAllTableObjects(true)
-                                            .Where(obj => obj.UploadStatus != TableObjectUploadStatus.NoUpload && 
-                                                    obj.UploadStatus != TableObjectUploadStatus.UpToDate)
-                                                    .OrderByDescending(obj => obj.Id).ToList();
-            foreach (var tableObject in tableObjects)
-            {
-                if (tableObject.UploadStatus == TableObjectUploadStatus.New)
-                {
-                    // Check if the tableObject is a file and if it can be uploaded
-                    if (tableObject.IsFile && tableObject.File != null)
-                    {
-                        var usedStorage = DavUser.GetUsedStorage();
-                        var totalStorage = DavUser.GetTotalStorage();
-                        var fileSize = tableObject.File.Length;
-
-                        if (usedStorage + fileSize > totalStorage && totalStorage != 0)
-                            continue;
-                    }
-
-                    // Create the new object on the server
-                    var etag = await tableObject.CreateTableObjectOnServer();
-                    if (!String.IsNullOrEmpty(etag))
-                    {
-                        tableObject.Etag = etag;
-                        tableObject.UploadStatus = TableObjectUploadStatus.UpToDate;
-                        tableObject.Save();
-                    }
-                }
-                else if (tableObject.UploadStatus == TableObjectUploadStatus.Updated)
-                {
-                    // Update the object on the server
-                    var etag = await tableObject.UpdateTableObjectOnServer();
-                    if (!String.IsNullOrEmpty(etag))
-                    {
-                        tableObject.Etag = etag;
-                        tableObject.UploadStatus = TableObjectUploadStatus.UpToDate;
-                        tableObject.Save();
-                    }
-                }
-                else if (tableObject.UploadStatus == TableObjectUploadStatus.Deleted)
-                {
-                    // Delete the object on the server
-                    if (await tableObject.DeleteTableObjectOnServer())
-                        Dav.Database.DeleteTableObject(tableObject.Uuid);
-                }
-            }
-
-            syncing = false;
-
-            if(syncAgain)
-            {
-                syncAgain = false;
-                await SyncPush();
-            }
+            client.DownloadFileAsync(new Uri(url), tempFilePath);
+            DataManager.fileDownloaders.Add(Uuid, client);
         }
 
-        private static async Task<TableObject> DownloadTableObject(Guid uuid)
+        private void Client_DownloadFileCompleted(object sender, System.ComponentModel.AsyncCompletedEventArgs e)
         {
-            var getResult = await DavDatabase.HttpGet(DavUser.GetJWT(), "apps/object/" + uuid);
-            if (getResult.Key)
+            if (e.Cancelled || e.Error != null) return;
+            CopyDownloadedFile();
+        }
+
+        public void DownloadFile(Progress<int> progress)
+        {
+            fileDownloadProgress = progress;
+
+            if (!IsFile) fileDownloadProgress.Report(-1);
+            string jwt = DavUser.GetJWT();
+            if (string.IsNullOrEmpty(jwt)) fileDownloadProgress.Report(-1);
+
+            // Check if the file was already downloaded
+            if (File.Exists)
+                fileDownloadProgress.Report(100);
+
+            // Check if the file is in the downloads list
+            if (DataManager.fileDownloads.Exists(t => t.Uuid == Uuid))
             {
-                var tableObjectData = JsonConvert.DeserializeObject<TableObjectData>(getResult.Value);
-                tableObjectData.id = 0;
-                return ConvertTableObjectDataToTableObject(tableObjectData);
+                // Remove the file from the downloads
+                var tableObject = DataManager.fileDownloads.Find(t => t.Uuid == Uuid);
+                if(tableObject != null)
+                    DataManager.fileDownloads.Remove(tableObject);
+            }
+
+            // Check if the file is already downloading
+            var webClient = new WebClient();
+            if (DataManager.fileDownloaders.TryGetValue(Uuid, out webClient))
+            {
+                webClient.DownloadProgressChanged += DownloadFileWebClient_DownloadProgressChanged;
+                webClient.DownloadFileCompleted += DownloadFileWebClient_DownloadFileCompleted;
             }
             else
             {
-                HandleOtherErrorCodes(getResult.Value);
-                return null;
+                // Start a new download
+                webClient = new WebClient();
+                webClient.Headers.Add(HttpRequestHeader.Authorization, jwt);
+                webClient.DownloadProgressChanged += DownloadFileWebClient_DownloadProgressChanged;
+                webClient.DownloadFileCompleted += DownloadFileWebClient_DownloadFileCompleted;
+
+                string url = Dav.ApiBaseUrl + "apps/object/" + Uuid + "?file=true";
+                DirectoryInfo tempTableFolder = DataManager.GetTempTableFolder(TableId);
+                string tempFilePath = Path.Combine(tempTableFolder.FullName, Uuid.ToString());
+                webClient.DownloadFileAsync(new Uri(url), tempFilePath);
             }
         }
 
-        private async Task<string> CreateTableObjectOnServer()
+        private void DownloadFileWebClient_DownloadProgressChanged(object sender, DownloadProgressChangedEventArgs e)
+        {
+            fileDownloadProgress.Report(e.ProgressPercentage);
+        }
+
+        private void DownloadFileWebClient_DownloadFileCompleted(object sender, System.ComponentModel.AsyncCompletedEventArgs e)
+        {
+            if (e.Cancelled || e.Error != null) return;
+            CopyDownloadedFile();
+            fileDownloadProgress.Report(101);
+        }
+
+        private void CopyDownloadedFile()
+        {
+            DirectoryInfo tempTableFolder = DataManager.GetTempTableFolder(TableId);
+            DirectoryInfo tableFolder = DataManager.GetTableFolder(TableId);
+
+            string tempFilePath = Path.Combine(tempTableFolder.FullName, Uuid.ToString());
+            string filePath = Path.Combine(tableFolder.FullName, Uuid.ToString());
+
+            // Delete the old file if it exists
+            FileInfo oldFile = new FileInfo(filePath);
+            if (oldFile.Exists)
+                oldFile.Delete();
+
+            // Move the new file into the folder of the table
+            FileInfo file = new FileInfo(tempFilePath);
+            file.MoveTo(filePath);
+
+            DataManager.fileDownloaders.Remove(Uuid);
+            DataManager.fileDownloads.Remove(this);
+
+            // Save the etags of the table object
+            DataManager.SetEtagOfTableObject(Uuid, Etag);
+
+            ProjectInterface.TriggerAction.UpdateTableObject(this, true);
+        }
+
+        internal async Task<string> CreateTableObjectOnServer()
         {
             try
             {
@@ -651,7 +476,7 @@ namespace davClassLibrary.Models
                     if (IsFile)
                     {
                         // Upload the file
-                        byte[] bytesFile = DavDatabase.FileToByteArray(File.FullName);
+                        byte[] bytesFile = DataManager.FileToByteArray(File.FullName);
                         content = new ByteArrayContent(bytesFile);
                         if (bytesFile == null) return null;
 
@@ -661,7 +486,7 @@ namespace davClassLibrary.Models
                     else
                     {
                         // Upload the properties
-                        string json = JsonConvert.SerializeObject(DavDatabase.ConvertPropertiesListToDictionary(Properties));
+                        string json = JsonConvert.SerializeObject(DataManager.ConvertPropertiesListToDictionary(Properties));
                         content = new StringContent(json, Encoding.UTF8, "application/json");
                     }
 
@@ -704,7 +529,7 @@ namespace davClassLibrary.Models
             return null;
         }
 
-        private async Task<string> UpdateTableObjectOnServer()
+        internal async Task<string> UpdateTableObjectOnServer()
         {
             try
             {
@@ -726,14 +551,14 @@ namespace davClassLibrary.Models
                     if (IsFile)
                     {
                         // Upload the file
-                        byte[] bytesFile = DavDatabase.FileToByteArray(File.FullName);
+                        byte[] bytesFile = DataManager.FileToByteArray(File.FullName);
                         if (bytesFile == null) return null;
                         content = new ByteArrayContent(bytesFile);
                     }
                     else
                     {
                         // Upload the properties
-                        string json = JsonConvert.SerializeObject(DavDatabase.ConvertPropertiesListToDictionary(Properties));
+                        string json = JsonConvert.SerializeObject(DataManager.ConvertPropertiesListToDictionary(Properties));
                         content = new StringContent(json, Encoding.UTF8, "application/json");
                     }
                     // Send the request
@@ -768,7 +593,7 @@ namespace davClassLibrary.Models
             return null;
         }
 
-        private async Task<bool> DeleteTableObjectOnServer()
+        internal async Task<bool> DeleteTableObjectOnServer()
         {
             try
             {
@@ -810,100 +635,6 @@ namespace davClassLibrary.Models
             }
 
             return false;
-        }
-
-        private static void HandleOtherErrorCodes(string errorMessage)
-        {
-            if (errorMessage.Contains("1301") || errorMessage.Contains("1302") || errorMessage.Contains("1303"))
-            {
-                // JWT is invalid or has expired. Log out the user
-                DavUser.SetJWT(null);
-            }
-        }
-
-        private static void DownloadFiles()
-        {
-            // Do not download more than downloadFilesSimultaneously files at the same time
-            fileDownloadTimer = new Timer();
-            fileDownloadTimer.Elapsed += DownloadFileTimer_Elapsed;
-            fileDownloadTimer.Interval = 5000;
-            fileDownloadTimer.Start();
-        }
-
-        private static void DownloadFileTimer_Elapsed(object sender, ElapsedEventArgs e)
-        {
-            // Check the network connection
-            if (!ProjectInterface.GeneralMethods.IsNetworkAvailable()) return;
-
-            // Check if fileDownloads list is greater than downloadFilesSimultaneously
-            if(fileDownloaders.Count < downloadFilesSimultaneously && 
-                fileDownloads.Count > 0)
-            {
-                // Get a file that is still not being downloaded
-                foreach(var tableObject in fileDownloads)
-                {
-                    WebClient client;
-                    if(!fileDownloaders.TryGetValue(tableObject.Uuid, out client))
-                    {
-                        tableObject.DownloadTableObjectFile();
-                        break;
-                    }
-                }
-            }else if(fileDownloads.Count == 0)
-            {
-                // Stop the timer
-                fileDownloadTimer.Stop();
-            }
-        }
-
-        public void DownloadTableObjectFile()
-        {
-            if (!IsFile) return;
-            string jwt = DavUser.GetJWT();
-            if (String.IsNullOrEmpty(jwt)) return;
-
-            // Check if the file is already downloading
-            if (fileDownloaders.ContainsKey(Uuid))
-                return;
-
-            string url = Dav.ApiBaseUrl + "apps/object/" + Uuid + "?file=true";
-            WebClient client = new WebClient();
-            client.Headers.Add(HttpRequestHeader.Authorization, jwt);
-            client.DownloadFileCompleted += Client_DownloadFileCompleted;
-
-            DirectoryInfo tempTableFolder = DavDatabase.GetTempTableFolder(TableId);
-            string tempFilePath = Path.Combine(tempTableFolder.FullName, Uuid.ToString());
-
-            client.DownloadFileAsync(new Uri(url), tempFilePath);
-            fileDownloaders.Add(Uuid, client);
-        }
-
-        private void Client_DownloadFileCompleted(object sender, System.ComponentModel.AsyncCompletedEventArgs e)
-        {
-            if (e.Cancelled || e.Error != null) return;
-
-            DirectoryInfo tempTableFolder = DavDatabase.GetTempTableFolder(TableId);
-            DirectoryInfo tableFolder = DavDatabase.GetTableFolder(TableId);
-
-            string tempFilePath = Path.Combine(tempTableFolder.FullName, Uuid.ToString());
-            string filePath = Path.Combine(tableFolder.FullName, Uuid.ToString());
-
-            // Delete the old file if it exists
-            FileInfo oldFile = new FileInfo(filePath);
-            if (oldFile.Exists)
-                oldFile.Delete();
-
-            // Move the new file into the folder of the table
-            FileInfo file = new FileInfo(tempFilePath);
-            file.MoveTo(filePath);
-
-            fileDownloaders.Remove(Uuid);
-            fileDownloads.Remove(this);
-
-            // Save the etags of the table object
-            SetEtagOfTableObject(Uuid, Etag);
-
-            ProjectInterface.TriggerAction.UpdateTableObject(this, true);
         }
 
         public static TableObjectVisibility ParseIntToVisibility(int visibility)
