@@ -44,8 +44,8 @@ namespace davClassLibrary.DataAccess
             {
                 KeyValuePair<bool, string> tableGetResult;
                 TableData table;
-                bool objectsDeleted = false;
                 var pages = 1;
+                bool tableGetResultsOkay = true;
 
                 List<Guid> removedTableObjectUuids = new List<Guid>();
                 foreach (var tableObject in Dav.Database.GetAllTableObjects(tableId, true))
@@ -55,7 +55,11 @@ namespace davClassLibrary.DataAccess
                 {
                     // Get the next page of the table
                     tableGetResult = await HttpGet(jwt, "apps/table/" + tableId + "?page=" + i);
-                    if (!tableGetResult.Key) continue;
+                    if (!tableGetResult.Key)
+                    {
+                        tableGetResultsOkay = false;
+                        continue;
+                    }
 
                     table = JsonConvert.DeserializeObject<TableData>(tableGetResult.Value);
                     pages = table.pages;
@@ -176,6 +180,9 @@ namespace davClassLibrary.DataAccess
                         }
                     }
                 }
+
+                if (!tableGetResultsOkay) continue;
+                bool objectsDeleted = false;
 
                 // RemovedTableObjects now includes all objects that were deleted on the server but not locally
                 // Delete those objects locally

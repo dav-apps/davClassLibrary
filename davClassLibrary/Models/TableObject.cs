@@ -417,7 +417,11 @@ namespace davClassLibrary.Models
 
         private void DownloadFileWebClient_DownloadFileCompleted(object sender, System.ComponentModel.AsyncCompletedEventArgs e)
         {
-            if (e.Cancelled || e.Error != null) return;
+            if (e.Cancelled || e.Error != null)
+            {
+                fileDownloadProgress.Report(-1);
+                return;
+            }
             CopyDownloadedFile();
             fileDownloadProgress.Report(101);
         }
