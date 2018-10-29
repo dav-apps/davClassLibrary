@@ -65,7 +65,7 @@ namespace davClassLibrary.Models
                 GetUserInformation();
 
                 DownloadUserInformation();
-                TableObject.Sync();
+                DataManager.Sync();
             }
             else
             {
@@ -79,7 +79,7 @@ namespace davClassLibrary.Models
             IsLoggedIn = true;
             if(await DownloadUserInformation())
             {
-                TableObject.Sync();
+                DataManager.Sync();
             }
             else
             {
@@ -107,7 +107,7 @@ namespace davClassLibrary.Models
         {
             if (IsLoggedIn)
             {
-                var getResult = await DavDatabase.HttpGet(JWT, Dav.GetUserUrl);
+                var getResult = await DataManager.HttpGet(JWT, Dav.GetUserUrl);
                 
                 if(getResult.Key)
                 {
