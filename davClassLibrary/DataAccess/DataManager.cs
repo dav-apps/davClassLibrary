@@ -23,6 +23,7 @@ namespace davClassLibrary.DataAccess
         private static bool syncing = false;
         internal static List<TableObject> fileDownloads = new List<TableObject>();
         internal static Dictionary<Guid, WebClient> fileDownloaders = new Dictionary<Guid, WebClient>();
+        internal static Dictionary<Guid, List<IProgress<int>>> fileDownloadProgressList = new Dictionary<Guid, List<IProgress<int>>>();
         private static Timer fileDownloadTimer;
         private static bool syncAgain = false;
         private const int downloadFilesSimultaneously = 2;
@@ -340,20 +341,27 @@ namespace davClassLibrary.DataAccess
                 fileDownloads.Count > 0)
             {
                 // Get a file that is still not being downloaded
-                foreach (var tableObject in fileDownloads)
+                if (fileDownloads.First().DownloadStatus == TableObjectDownloadStatus.NotDownloaded)
                 {
-                    WebClient client;
-                    if (!fileDownloaders.TryGetValue(tableObject.Uuid, out client))
-                    {
-                        tableObject.DownloadTableObjectFile();
-                        break;
-                    }
+                    fileDownloads.First().DownloadFile(null);
                 }
             }
             else if (fileDownloads.Count == 0)
             {
                 // Stop the timer
                 fileDownloadTimer.Stop();
+            }
+        }
+
+        internal static void ReportFileDownloadProgress(Guid uuid, int value)
+        {
+            // Get the list by the uuid
+            List<IProgress<int>> progressList = new List<IProgress<int>>();
+            if (!fileDownloadProgressList.TryGetValue(uuid, out progressList)) return;
+
+            foreach(IProgress<int> progress in progressList)
+            {
+                progress.Report(value);
             }
         }
 

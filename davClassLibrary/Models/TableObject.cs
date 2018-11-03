@@ -31,8 +31,11 @@ namespace davClassLibrary.Models
         public List<Property> Properties { get; private set; }
         public TableObjectUploadStatus UploadStatus { get; set; }
         public string Etag { get; internal set; }
-
-        private IProgress<int> fileDownloadProgress = null;
+        [Ignore]
+        public TableObjectDownloadStatus DownloadStatus
+        {
+            get => GetDownloadStatus();
+        }
 
         public enum TableObjectVisibility
         {
@@ -47,6 +50,13 @@ namespace davClassLibrary.Models
             Updated = 2,
             Deleted = 3,
             NoUpload = 4
+        }
+        public enum TableObjectDownloadStatus
+        {
+            NoFileOrNotLoggedIn = 0,
+            NotDownloaded = 1,
+            Downloading = 2,
+            Downloaded = 3
         }
 
         public TableObject(){}
@@ -104,32 +114,7 @@ namespace davClassLibrary.Models
         {
             SaveFile(file);
         }
-
-        public FileInfo GetFile()
-        {
-            // Check if the file was downloaded
-            if (!IsFile) return null;
-            if(File == null)
-            {
-                if (FileDownloaded())
-                {
-                    // Get the file
-                    string path = Path.Combine(Dav.DataPath, TableId.ToString(), Uuid.ToString());
-                    return new FileInfo(path);
-                }
-                else
-                {
-                    // Download the file
-                    DownloadTableObjectFile();
-                    return File;
-                }
-            }
-            else
-            {
-                return File;
-            }
-        }
-
+        
         public Uri GetFileUri()
         {
             if (!IsFile) return null;
@@ -307,6 +292,17 @@ namespace davClassLibrary.Models
             Save();
         }
 
+        private TableObjectDownloadStatus GetDownloadStatus()
+        {
+            if (!IsFile) return TableObjectDownloadStatus.NoFileOrNotLoggedIn;
+            string jwt = DavUser.GetJWT();
+            if (String.IsNullOrEmpty(jwt)) return TableObjectDownloadStatus.NoFileOrNotLoggedIn;
+
+            if (File.Exists) return TableObjectDownloadStatus.Downloaded;
+            if (DataManager.fileDownloaders.ContainsKey(Uuid)) return TableObjectDownloadStatus.Downloading;
+            return TableObjectDownloadStatus.NotDownloaded;
+        }
+
         public void Delete()
         {
             string jwt = DavUser.GetJWT();
@@ -338,92 +334,76 @@ namespace davClassLibrary.Models
 
             Dav.Database.DeleteTableObjectImmediately(Uuid);
         }
-
-        internal void DownloadTableObjectFile()
-        {
-            if (!IsFile) return;
-            string jwt = DavUser.GetJWT();
-            if (String.IsNullOrEmpty(jwt)) return;
-
-            // Check if the file is already downloading
-            if (DataManager.fileDownloaders.ContainsKey(Uuid))
-                return;
-
-            string url = Dav.ApiBaseUrl + "apps/object/" + Uuid + "?file=true";
-            WebClient client = new WebClient();
-            client.Headers.Add(HttpRequestHeader.Authorization, jwt);
-            client.DownloadFileCompleted += Client_DownloadFileCompleted;
-
-            DirectoryInfo tempTableFolder = DataManager.GetTempTableFolder(TableId);
-            string tempFilePath = Path.Combine(tempTableFolder.FullName, Uuid.ToString());
-
-            client.DownloadFileAsync(new Uri(url), tempFilePath);
-            DataManager.fileDownloaders.Add(Uuid, client);
-        }
-
+        
         private void Client_DownloadFileCompleted(object sender, System.ComponentModel.AsyncCompletedEventArgs e)
         {
             if (e.Cancelled || e.Error != null) return;
             CopyDownloadedFile();
         }
 
-        public void DownloadFile(Progress<int> progress)
+        public void DownloadFile(IProgress<int> progress)
         {
-            fileDownloadProgress = progress;
+            if (progress != null)
+            {
+                // Add the progress to the progress list
+                if (!DataManager.fileDownloadProgressList.ContainsKey(Uuid))
+                {
+                    // Add a new list to the dictionary
+                    DataManager.fileDownloadProgressList.Add(Uuid, new List<IProgress<int>>());
+                }
 
-            if (!IsFile) fileDownloadProgress.Report(-1);
+                DataManager.fileDownloadProgressList[Uuid].Add(progress);
+            }
+                
+            if (DownloadStatus == TableObjectDownloadStatus.Downloading) return;
+
             string jwt = DavUser.GetJWT();
-            if (string.IsNullOrEmpty(jwt)) fileDownloadProgress.Report(-1);
-
-            // Check if the file was already downloaded
-            if (File.Exists)
-                fileDownloadProgress.Report(100);
-
-            // Check if the file is in the downloads list
-            if (DataManager.fileDownloads.Exists(t => t.Uuid == Uuid))
+            if (DownloadStatus == TableObjectDownloadStatus.NoFileOrNotLoggedIn || string.IsNullOrEmpty(jwt))
             {
-                // Remove the file from the downloads
-                var tableObject = DataManager.fileDownloads.Find(t => t.Uuid == Uuid);
-                if(tableObject != null)
-                    DataManager.fileDownloads.Remove(tableObject);
+                DataManager.ReportFileDownloadProgress(Uuid, -1);
+                return;
             }
 
-            // Check if the file is already downloading
-            var webClient = new WebClient();
-            if (DataManager.fileDownloaders.TryGetValue(Uuid, out webClient))
+            if(DownloadStatus == TableObjectDownloadStatus.Downloaded)
             {
-                webClient.DownloadProgressChanged += DownloadFileWebClient_DownloadProgressChanged;
-                webClient.DownloadFileCompleted += DownloadFileWebClient_DownloadFileCompleted;
+                DataManager.ReportFileDownloadProgress(Uuid, -1);
+                return;
             }
-            else
-            {
-                // Start a new download
-                webClient = new WebClient();
-                webClient.Headers.Add(HttpRequestHeader.Authorization, jwt);
-                webClient.DownloadProgressChanged += DownloadFileWebClient_DownloadProgressChanged;
-                webClient.DownloadFileCompleted += DownloadFileWebClient_DownloadFileCompleted;
 
-                string url = Dav.ApiBaseUrl + "apps/object/" + Uuid + "?file=true";
-                DirectoryInfo tempTableFolder = DataManager.GetTempTableFolder(TableId);
-                string tempFilePath = Path.Combine(tempTableFolder.FullName, Uuid.ToString());
-                webClient.DownloadFileAsync(new Uri(url), tempFilePath);
-            }
+            // DownloadStatus is NotDownloaded
+            // Start the download
+            WebClient webClient = new WebClient();
+            webClient.Headers.Add(HttpRequestHeader.Authorization, jwt);
+            webClient.DownloadProgressChanged += DownloadFileWebClient_DownloadProgressChanged;
+            webClient.DownloadFileCompleted += DownloadFileWebClient_DownloadFileCompleted;
+
+            string url = Dav.ApiBaseUrl + "apps/object/" + Uuid + "?file=true";
+            DirectoryInfo tempTableFolder = DataManager.GetTempTableFolder(TableId);
+            string tempFilePath = Path.Combine(tempTableFolder.FullName, Uuid.ToString());
+            webClient.DownloadFileAsync(new Uri(url), tempFilePath);
+
+            // Remove the tableObject from the fileDownloads and add it to the fileDownloaders
+            DataManager.fileDownloads.Remove(this);
+            DataManager.fileDownloaders.Add(Uuid, webClient);
         }
 
         private void DownloadFileWebClient_DownloadProgressChanged(object sender, DownloadProgressChangedEventArgs e)
         {
-            fileDownloadProgress.Report(e.ProgressPercentage);
+            DataManager.ReportFileDownloadProgress(Uuid, e.ProgressPercentage);
         }
 
         private void DownloadFileWebClient_DownloadFileCompleted(object sender, System.ComponentModel.AsyncCompletedEventArgs e)
         {
             if (e.Cancelled || e.Error != null)
+                DataManager.ReportFileDownloadProgress(Uuid, -1);
+            else
             {
-                fileDownloadProgress.Report(-1);
-                return;
+                CopyDownloadedFile();
+                DataManager.ReportFileDownloadProgress(Uuid, 101);
             }
-            CopyDownloadedFile();
-            fileDownloadProgress.Report(101);
+
+            // Remove the file download progress list from the dictionary
+            DataManager.fileDownloadProgressList.Remove(Uuid);
         }
 
         private void CopyDownloadedFile()
@@ -441,10 +421,10 @@ namespace davClassLibrary.Models
 
             // Move the new file into the folder of the table
             FileInfo file = new FileInfo(tempFilePath);
-            file.MoveTo(filePath);
+            if (file.Exists)
+                file.MoveTo(filePath);
 
             DataManager.fileDownloaders.Remove(Uuid);
-            DataManager.fileDownloads.Remove(this);
 
             // Save the etags of the table object
             DataManager.SetEtagOfTableObject(Uuid, Etag);
