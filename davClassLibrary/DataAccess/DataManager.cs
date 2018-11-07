@@ -302,6 +302,11 @@ namespace davClassLibrary.DataAccess
             webSocketConnection.Open(string.Format(Dav.ApiBaseUrl.Replace("http", "ws") + "cable?app_id={0}&jwt={1}", Dav.AppId, DavUser.GetJWT()));
         }
 
+        internal static void CloseWebsocketConnection()
+        {
+            webSocketConnection.Close();
+        }
+
         private static async void Connection_OnMessage(string message)
         {
             TableObjectUpdateResponse json = JsonConvert.DeserializeObject<TableObjectUpdateResponse>(message);

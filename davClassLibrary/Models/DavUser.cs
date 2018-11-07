@@ -102,6 +102,9 @@ namespace davClassLibrary.Models
 
             // Delete the avatar
             DeleteAvatar();
+
+            // Close the websocket connection
+            DataManager.CloseWebsocketConnection();
         }
 
         private async Task<bool> DownloadUserInformation()
