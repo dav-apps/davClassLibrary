@@ -298,7 +298,8 @@ namespace davClassLibrary.Models
             string jwt = DavUser.GetJWT();
             if (String.IsNullOrEmpty(jwt)) return TableObjectDownloadStatus.NoFileOrNotLoggedIn;
 
-            if (File.Exists) return TableObjectDownloadStatus.Downloaded;
+            if(File != null)
+                if (File.Exists) return TableObjectDownloadStatus.Downloaded;
             if (DataManager.fileDownloaders.ContainsKey(Uuid)) return TableObjectDownloadStatus.Downloading;
             return TableObjectDownloadStatus.NotDownloaded;
         }
