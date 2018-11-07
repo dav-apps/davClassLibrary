@@ -295,11 +295,13 @@ namespace davClassLibrary.Models
         private TableObjectDownloadStatus GetDownloadStatus()
         {
             if (!IsFile) return TableObjectDownloadStatus.NoFileOrNotLoggedIn;
-            string jwt = DavUser.GetJWT();
-            if (String.IsNullOrEmpty(jwt)) return TableObjectDownloadStatus.NoFileOrNotLoggedIn;
 
             if(File != null)
                 if (File.Exists) return TableObjectDownloadStatus.Downloaded;
+
+            string jwt = DavUser.GetJWT();
+            if (String.IsNullOrEmpty(jwt)) return TableObjectDownloadStatus.NoFileOrNotLoggedIn;
+
             if (DataManager.fileDownloaders.ContainsKey(Uuid)) return TableObjectDownloadStatus.Downloading;
             return TableObjectDownloadStatus.NotDownloaded;
         }
