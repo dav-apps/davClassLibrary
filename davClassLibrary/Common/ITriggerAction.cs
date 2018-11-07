@@ -4,8 +4,8 @@ namespace davClassLibrary.Common
 {
     public interface ITriggerAction
     {
-        void UpdateAll();
         void UpdateAllOfTable(int tableId);
         void UpdateTableObject(TableObject tableObject, bool fileDownloaded);
+        void DeleteTableObject(TableObject tableObject);
     }
 }
