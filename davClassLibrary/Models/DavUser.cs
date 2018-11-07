@@ -65,6 +65,7 @@ namespace davClassLibrary.Models
                 GetUserInformation();
 
                 DownloadUserInformation();
+                DataManager.EstablishWebsocketConnection();
                 DataManager.Sync();
             }
             else

@@ -1,6 +1,7 @@
 ﻿using davClassLibrary.Common;
 using davClassLibrary.Models;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -14,6 +15,7 @@ using System.Runtime.Serialization.Json;
 using System.Text;
 using System.Threading.Tasks;
 using System.Timers;
+using Websockets;
 using static davClassLibrary.Models.TableObject;
 
 namespace davClassLibrary.DataAccess
@@ -28,6 +30,7 @@ namespace davClassLibrary.DataAccess
         private static bool syncAgain = false;
         private const int downloadFilesSimultaneously = 2;
         private const string extPropertyName = "ext";
+        private static IWebSocketConnection webSocketConnection;
 
         internal static async Task Sync()
         {
@@ -47,6 +50,7 @@ namespace davClassLibrary.DataAccess
                 TableData table;
                 var pages = 1;
                 bool tableGetResultsOkay = true;
+                bool tableChanged = false;
 
                 List<Guid> removedTableObjectUuids = new List<Guid>();
                 foreach (var tableObject in Dav.Database.GetAllTableObjects(tableId, true))
@@ -137,6 +141,7 @@ namespace davClassLibrary.DataAccess
                                     tableObject.UploadStatus = TableObjectUploadStatus.UpToDate;
                                     tableObject.SaveWithProperties();
                                     ProjectInterface.TriggerAction.UpdateTableObject(tableObject, false);
+                                    tableChanged = true;
                                 }
                             }
                         }
@@ -170,6 +175,7 @@ namespace davClassLibrary.DataAccess
                                 fileDownloads.Add(tableObject);
 
                                 ProjectInterface.TriggerAction.UpdateTableObject(tableObject, false);
+                                tableChanged = true;
                             }
                             else
                             {
@@ -177,13 +183,13 @@ namespace davClassLibrary.DataAccess
                                 tableObject.UploadStatus = TableObjectUploadStatus.UpToDate;
                                 tableObject.SaveWithProperties();
                                 ProjectInterface.TriggerAction.UpdateTableObject(tableObject, false);
+                                tableChanged = true;
                             }
                         }
                     }
                 }
 
                 if (!tableGetResultsOkay) continue;
-                bool objectsDeleted = false;
 
                 // RemovedTableObjects now includes all objects that were deleted on the server but not locally
                 // Delete those objects locally
@@ -203,10 +209,11 @@ namespace davClassLibrary.DataAccess
                         continue;
 
                     obj.DeleteImmediately();
-                    objectsDeleted = true;
+                    ProjectInterface.TriggerAction.DeleteTableObject(obj);
+                    tableChanged = true;
                 }
 
-                if (objectsDeleted)
+                if (tableChanged)
                     ProjectInterface.TriggerAction.UpdateAllOfTable(tableId);
             }
 
@@ -283,6 +290,98 @@ namespace davClassLibrary.DataAccess
             {
                 syncAgain = false;
                 await SyncPush();
+            }
+        }
+
+        internal static void EstablishWebsocketConnection()
+        {
+            webSocketConnection = WebSocketFactory.Create();
+            webSocketConnection.OnOpened += Connection_OnOpened;
+            webSocketConnection.OnMessage += Connection_OnMessage;
+
+            webSocketConnection.Open(string.Format(Dav.ApiBaseUrl.Replace("http", "ws") + "cable?app_id={0}&jwt={1}", Dav.AppId, DavUser.GetJWT()));
+        }
+
+        private static async void Connection_OnMessage(string message)
+        {
+            TableObjectUpdateResponse json = JsonConvert.DeserializeObject<TableObjectUpdateResponse>(message);
+            
+            if(json.Type == "reject_subscription")
+            {
+                // Close the connection
+                webSocketConnection.Close();
+                return;
+            }
+
+            JObject jsonMessage = json.Message as JObject;
+            if (jsonMessage == null) return;
+            if (json.Message.GetType() != typeof(JObject)) return;
+
+            // Get the uuid
+            if (jsonMessage.ContainsKey(Dav.uuidKey) && jsonMessage.ContainsKey(Dav.changeKey))
+            {
+                Guid uuid;
+                if (!Guid.TryParse(jsonMessage[Dav.uuidKey].ToString(), out uuid)) return;
+                int change = (int)jsonMessage[Dav.changeKey];
+
+                if(change == 0 || change == 1)
+                {
+                    // Get the new or updated table object
+                    await UpdateLocalTableObject(uuid);
+                }
+                else if(change == 2)
+                {
+                    var tableObject = Dav.Database.GetTableObject(uuid);
+                    if (tableObject == null) return;
+
+                    // Delete the table object
+                    Dav.Database.DeleteTableObject(uuid);
+                    ProjectInterface.TriggerAction.DeleteTableObject(tableObject);
+                }
+            }
+        }
+
+        private static void Connection_OnOpened()
+        {
+            string channelName = "TableObjectUpdateChannel";
+
+            // Subscribe to the channel
+            string json = JsonConvert.SerializeObject(new
+            {
+                command = "subscribe",
+                identifier = "{\"channel\": \"" + channelName + "\"}"
+            });
+            webSocketConnection.Send(json);
+        }
+
+        private static async Task UpdateLocalTableObject(Guid uuid)
+        {
+            // Get the table object from the server and update it locally
+            var tableObject = await DownloadTableObject(uuid);
+            if (tableObject == null) return;
+
+            if (tableObject.IsFile)
+            {
+                // Remove all properties except ext
+                var removingProperties = new List<Property>();
+                foreach (var p in tableObject.Properties)
+                    if (p.Name != extPropertyName) removingProperties.Add(p);
+
+                foreach (var property in removingProperties)
+                    tableObject.Properties.Remove(property);
+
+                // Save the ext property
+                tableObject.SaveWithProperties();
+
+                // Download the file
+                tableObject.DownloadFile(null);
+            }
+            else
+            {
+                // Save the table object
+                tableObject.UploadStatus = TableObjectUploadStatus.UpToDate;
+                tableObject.SaveWithProperties();
+                ProjectInterface.TriggerAction.UpdateTableObject(tableObject, false);
             }
         }
 
@@ -587,5 +686,11 @@ namespace davClassLibrary.DataAccess
             }
             return fileData;
         }
+    }
+
+    internal class TableObjectUpdateResponse
+    {
+        public string Type { get; set; }
+        public object Message { get; set; }
     }
 }
