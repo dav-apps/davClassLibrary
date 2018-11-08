@@ -10,9 +10,9 @@ namespace davClassLibrary.Tests.Common
             return true;
         }
 
-        public Environment GetEnvironment()
+        public DavEnvironment GetEnvironment()
         {
-            return Environment.Test;
+            return DavEnvironment.Test;
         }
     }
 }

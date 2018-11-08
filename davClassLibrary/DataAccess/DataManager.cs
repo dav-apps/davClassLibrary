@@ -295,7 +295,7 @@ namespace davClassLibrary.DataAccess
 
         internal static void EstablishWebsocketConnection()
         {
-            if (Dav.Environment == Environment.Test) return;
+            if (Dav.Environment == DavEnvironment.Test) return;
 
             webSocketConnection = WebSocketFactory.Create();
             webSocketConnection.OnOpened += Connection_OnOpened;
@@ -702,7 +702,7 @@ namespace davClassLibrary.DataAccess
         public object Message { get; set; }
     }
 
-    public enum Environment
+    public enum DavEnvironment
     {
         Development,
         Test,
