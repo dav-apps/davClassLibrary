@@ -6,7 +6,7 @@ namespace davClassLibrary.Tests.Common
 {
     public class TriggerAction : ITriggerAction
     {
-        public void UpdateAll()
+        public void DeleteTableObject(TableObject tableObject)
         {
             
         }

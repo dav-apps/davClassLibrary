@@ -1,7 +1,5 @@
 ﻿using davClassLibrary.Common;
-using System;
-using System.Collections.Generic;
-using System.Text;
+using davClassLibrary.DataAccess;
 
 namespace davClassLibrary.Tests.Common
 {
@@ -10,6 +8,11 @@ namespace davClassLibrary.Tests.Common
         public bool IsNetworkAvailable()
         {
             return true;
+        }
+
+        public Environment GetEnvironment()
+        {
+            return Environment.Test;
         }
     }
 }

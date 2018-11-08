@@ -28,6 +28,7 @@ namespace davClassLibrary.Tests.Models
             ProjectInterface.LocalDataSettings = new LocalDataSettings();
             ProjectInterface.RetrieveConstants = new RetrieveConstants();
             ProjectInterface.TriggerAction = new TriggerAction();
+            ProjectInterface.GeneralMethods = new GeneralMethods();
         }
         
         [OneTimeTearDown]
@@ -655,7 +656,7 @@ namespace davClassLibrary.Tests.Models
             ProjectInterface.LocalDataSettings.SetValue(davClassLibrary.Dav.jwtKey, Dav.Jwt);
 
             // Act
-            await davClassLibrary.Models.TableObject.Sync();
+            await davClassLibrary.DataAccess.DataManager.Sync();
 
             // Assert
             var firstTableObject = davClassLibrary.Dav.Database.GetTableObject(Dav.TestDataFirstTableObject.uuid);
@@ -704,7 +705,7 @@ namespace davClassLibrary.Tests.Models
             tableObject.SetUploadStatus(TableObjectUploadStatus.UpToDate);
 
             // Act
-            await davClassLibrary.Models.TableObject.Sync();
+            await davClassLibrary.DataAccess.DataManager.Sync();
 
             // Assert
             var tableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(tableObject.Uuid);
@@ -742,7 +743,7 @@ namespace davClassLibrary.Tests.Models
             };
 
             // Act
-            await davClassLibrary.Models.TableObject.SyncPush();
+            await davClassLibrary.DataAccess.DataManager.SyncPush();
 
             // Assert
             var response = await HttpGet("apps/object/" + tableObject.Uuid);
@@ -767,7 +768,7 @@ namespace davClassLibrary.Tests.Models
             tableObject.SetUploadStatus(TableObjectUploadStatus.Deleted);
 
             // Act
-            await davClassLibrary.Models.TableObject.SyncPush();
+            await davClassLibrary.DataAccess.DataManager.SyncPush();
 
             // Assert
             var response2 = await HttpGet("apps/object/" + tableObject.Uuid);
@@ -781,7 +782,7 @@ namespace davClassLibrary.Tests.Models
         {
             // Arrange
             ProjectInterface.LocalDataSettings.SetValue(davClassLibrary.Dav.jwtKey, Dav.Jwt);
-            await davClassLibrary.Models.TableObject.Sync();
+            await davClassLibrary.DataAccess.DataManager.Sync();
             var tableObject = davClassLibrary.Dav.Database.GetTableObject(Dav.TestDataFirstTableObject.uuid);
             string firstEtag = tableObject.Etag;
             var property = tableObject.Properties[0];
@@ -791,7 +792,7 @@ namespace davClassLibrary.Tests.Models
             tableObject.SetUploadStatus(TableObjectUploadStatus.Updated);
 
             // Act
-            await davClassLibrary.Models.TableObject.SyncPush();
+            await davClassLibrary.DataAccess.DataManager.SyncPush();
 
             // Assert
             var response = await HttpGet("apps/object/" + tableObject.Uuid);
@@ -810,7 +811,7 @@ namespace davClassLibrary.Tests.Models
             tableObject.SetUploadStatus(TableObjectUploadStatus.Updated);
 
             // Act
-            await davClassLibrary.Models.TableObject.SyncPush();
+            await davClassLibrary.DataAccess.DataManager.SyncPush();
 
             // Assert
             var response2 = await HttpGet("apps/object/" + tableObject.Uuid);
@@ -851,7 +852,7 @@ namespace davClassLibrary.Tests.Models
             };
 
             // Upload the new table object
-            await davClassLibrary.Models.TableObject.SyncPush();
+            await davClassLibrary.DataAccess.DataManager.SyncPush();
 
             // Check if the table object was uploaded
             var response = await HttpGet("apps/object/" + tableObject.Uuid);
@@ -864,7 +865,7 @@ namespace davClassLibrary.Tests.Models
             tableObject.SetUploadStatus(TableObjectUploadStatus.Deleted);
 
             // Act
-            await davClassLibrary.Models.TableObject.SyncPush();
+            await davClassLibrary.DataAccess.DataManager.SyncPush();
 
             // Assert
             var response2 = await HttpGet("apps/object/" + tableObject.Uuid);
@@ -896,7 +897,7 @@ namespace davClassLibrary.Tests.Models
             tableObject.SetUploadStatus(TableObjectUploadStatus.Updated);
 
             // Act
-            await davClassLibrary.Models.TableObject.SyncPush();
+            await davClassLibrary.DataAccess.DataManager.SyncPush();
 
             // Assert
             tableObject = davClassLibrary.Dav.Database.GetTableObject(tableObject.Uuid);
@@ -925,7 +926,7 @@ namespace davClassLibrary.Tests.Models
             tableObject.SetUploadStatus(TableObjectUploadStatus.Deleted);
 
             // Act
-            await davClassLibrary.Models.TableObject.SyncPush();
+            await davClassLibrary.DataAccess.DataManager.SyncPush();
 
             // Assert
             tableObject = davClassLibrary.Dav.Database.GetTableObject(tableObject.Uuid);

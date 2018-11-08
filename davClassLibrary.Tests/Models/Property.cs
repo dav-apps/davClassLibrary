@@ -14,6 +14,7 @@ namespace davClassLibrary.Tests.Models
             ProjectInterface.LocalDataSettings = new LocalDataSettings();
             ProjectInterface.RetrieveConstants = new RetrieveConstants();
             ProjectInterface.TriggerAction = new TriggerAction();
+            ProjectInterface.GeneralMethods = new GeneralMethods();
         }
         #endregion
 
