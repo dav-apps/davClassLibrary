@@ -760,7 +760,7 @@ namespace davClassLibrary.Tests.DataAccess
             var uuid = Dav.TestDataFirstTableObject.uuid;
 
             // Act
-            var response = await davClassLibrary.DataAccess.DavDatabase.HttpGet(Dav.Jwt, "apps/object/" + uuid);
+            var response = await davClassLibrary.DataAccess.DataManager.HttpGet(Dav.Jwt, "apps/object/" + uuid);
 
             // Assert
             Assert.IsTrue(response.Key);
@@ -773,7 +773,7 @@ namespace davClassLibrary.Tests.DataAccess
             var uuid = Guid.NewGuid();
 
             // Act
-            var response = await davClassLibrary.DataAccess.DavDatabase.HttpGet(Dav.Jwt, "apps/object/" + uuid);
+            var response = await davClassLibrary.DataAccess.DataManager.HttpGet(Dav.Jwt, "apps/object/" + uuid);
 
             // Assert
             Assert.IsFalse(response.Key);
@@ -786,7 +786,7 @@ namespace davClassLibrary.Tests.DataAccess
         {
             // Arrange
             ProjectInterface.LocalDataSettings.SetValue(davClassLibrary.Dav.jwtKey, Dav.Jwt);
-            await davClassLibrary.Models.TableObject.Sync();
+            await davClassLibrary.DataAccess.DataManager.Sync();
 
             // Copy image.jpg, which is the file of the uploaded table object
             var fileTableObject = davClassLibrary.Dav.Database.GetAllTableObjects(Dav.TableIds[1], false)[0];
@@ -797,7 +797,7 @@ namespace davClassLibrary.Tests.DataAccess
             var exportFolder = Directory.CreateDirectory(Path.Combine(Dav.GetDavDataPath(), "export"));
 
             // Act
-            await davClassLibrary.DataAccess.DavDatabase.ExportData(exportFolder, progress);
+            await davClassLibrary.DataAccess.DataManager.ExportData(exportFolder, progress);
 
             // Assert
             FileInfo dataFile = new FileInfo(Path.Combine(exportFolder.FullName, davClassLibrary.Dav.ExportDataFileName));
@@ -806,7 +806,7 @@ namespace davClassLibrary.Tests.DataAccess
             // Read the file and deserialize the content
             var firstTableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(Dav.TestDataFirstTableObject.uuid);
             var secondTableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(Dav.TestDataSecondTableObject.uuid);
-            var data = davClassLibrary.DataAccess.DavDatabase.GetDataFromFile(dataFile);
+            var data = davClassLibrary.DataAccess.DataManager.GetDataFromFile(dataFile);
             Assert.AreEqual(firstTableObjectFromDatabase.Id, data[0].id);
             Assert.AreEqual(firstTableObjectFromDatabase.TableId, data[0].table_id);
             Assert.AreEqual(davClassLibrary.Models.TableObject.ParseVisibilityToInt(firstTableObjectFromDatabase.Visibility), data[0].visibility);
@@ -845,11 +845,11 @@ namespace davClassLibrary.Tests.DataAccess
             var exportFolder = Directory.CreateDirectory(Path.Combine(Dav.GetDavDataPath(), "export"));
 
             // Act
-            await davClassLibrary.DataAccess.DavDatabase.ExportData(exportFolder, progress);
+            await davClassLibrary.DataAccess.DataManager.ExportData(exportFolder, progress);
 
             // Assert
             FileInfo dataFile = new FileInfo(Path.Combine(exportFolder.FullName, davClassLibrary.Dav.ExportDataFileName));
-            var data = davClassLibrary.DataAccess.DavDatabase.GetDataFromFile(dataFile);
+            var data = davClassLibrary.DataAccess.DataManager.GetDataFromFile(dataFile);
             FileAssert.Exists(Path.Combine(exportFolder.FullName, Dav.TestFileTableId.ToString(), uuid.ToString()));
             FileAssert.Exists(dataFile);
 
@@ -873,11 +873,11 @@ namespace davClassLibrary.Tests.DataAccess
             // Arrange
             string exportFolderName = "export";
             ProjectInterface.LocalDataSettings.SetValue(davClassLibrary.Dav.jwtKey, Dav.Jwt);
-            await davClassLibrary.Models.TableObject.Sync();
+            await davClassLibrary.DataAccess.DataManager.Sync();
 
             var progress = new Progress<int>();
             var exportFolder = Directory.CreateDirectory(Path.Combine(Dav.GetDavDataPath(), exportFolderName));
-            await davClassLibrary.DataAccess.DavDatabase.ExportData(exportFolder, progress);
+            await davClassLibrary.DataAccess.DataManager.ExportData(exportFolder, progress);
             progress = new Progress<int>();
 
             // Clear the database
@@ -888,7 +888,7 @@ namespace davClassLibrary.Tests.DataAccess
             secondTableObjectFromDatabase.DeleteImmediately();
 
             // Act
-            davClassLibrary.DataAccess.DavDatabase.ImportData(exportFolder, progress);
+            davClassLibrary.DataAccess.DataManager.ImportData(exportFolder, progress);
 
             // Assert
             firstTableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(Dav.TestDataFirstTableObject.uuid);
@@ -929,7 +929,7 @@ namespace davClassLibrary.Tests.DataAccess
 
             var progress = new Progress<int>();
             var exportFolder = Directory.CreateDirectory(Path.Combine(Dav.GetDavDataPath(), exportFolderName));
-            await davClassLibrary.DataAccess.DavDatabase.ExportData(exportFolder, progress);
+            await davClassLibrary.DataAccess.DataManager.ExportData(exportFolder, progress);
             progress = new Progress<int>();
 
             // Clear the database
@@ -939,7 +939,7 @@ namespace davClassLibrary.Tests.DataAccess
             FileAssert.DoesNotExist(Path.Combine(Dav.GetDavDataPath(), Dav.TestFileTableId.ToString(), uuid.ToString()));
 
             // Act
-            davClassLibrary.DataAccess.DavDatabase.ImportData(exportFolder, progress);
+            davClassLibrary.DataAccess.DataManager.ImportData(exportFolder, progress);
 
             // Assert
             tableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(uuid);
