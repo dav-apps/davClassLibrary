@@ -20,8 +20,9 @@ namespace davClassLibrary
         public const string ExportDataFileName = "data.json";
         public const string GetUserUrl = "auth/user";
 
-        //public const string ApiBaseUrl = "https://dav-backend-staging.herokuapp.com/v1/";
-        public const string ApiBaseUrl = "https://6aaf7f24.ngrok.io/v1/";
+        private const string ApiBaseUrlProduction = "https://dav-backend-staging.herokuapp.com/v1/";
+        private const string ApiBaseUrlDevelopment = "https://33920996.ngrok.io/v1/";
+        public static string ApiBaseUrl => Environment == DavEnvironment.Production ? ApiBaseUrlProduction : ApiBaseUrlDevelopment;
         public static string DataPath
         {
             get { return ProjectInterface.RetrieveConstants.GetDataPath(); }
@@ -34,7 +35,7 @@ namespace davClassLibrary
         {
             get { return ProjectInterface.RetrieveConstants.GetAppId(); }
         }
-        public static Environment Environment
+        public static DavEnvironment Environment
         {
             get { return ProjectInterface.GeneralMethods.GetEnvironment(); }
         }
