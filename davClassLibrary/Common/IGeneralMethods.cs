@@ -1,7 +1,10 @@
-﻿namespace davClassLibrary.Common
+﻿using davClassLibrary.DataAccess;
+
+namespace davClassLibrary.Common
 {
     public interface IGeneralMethods
     {
         bool IsNetworkAvailable();
+        Environment GetEnvironment();
     }
 }

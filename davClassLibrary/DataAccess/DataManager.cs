@@ -32,7 +32,7 @@ namespace davClassLibrary.DataAccess
         private const string extPropertyName = "ext";
         private static IWebSocketConnection webSocketConnection;
 
-        internal static async Task Sync()
+        public static async Task Sync()
         {
             if (syncing) return;
 
@@ -224,7 +224,7 @@ namespace davClassLibrary.DataAccess
             DownloadFiles();
         }
 
-        internal static async Task SyncPush()
+        public static async Task SyncPush()
         {
             if (syncing)
             {
@@ -295,6 +295,8 @@ namespace davClassLibrary.DataAccess
 
         internal static void EstablishWebsocketConnection()
         {
+            if (Dav.Environment == Environment.Test) return;
+
             webSocketConnection = WebSocketFactory.Create();
             webSocketConnection.OnOpened += Connection_OnOpened;
             webSocketConnection.OnMessage += Connection_OnMessage;
@@ -304,7 +306,8 @@ namespace davClassLibrary.DataAccess
 
         internal static void CloseWebsocketConnection()
         {
-            webSocketConnection.Close();
+            if(webSocketConnection != null)
+                webSocketConnection.Close();
         }
 
         private static async void Connection_OnMessage(string message)
@@ -469,7 +472,7 @@ namespace davClassLibrary.DataAccess
             }
         }
 
-        internal static async Task<KeyValuePair<bool, string>> HttpGet(string jwt, string url)
+        public static async Task<KeyValuePair<bool, string>> HttpGet(string jwt, string url)
         {
             if (NetworkInterface.GetIsNetworkAvailable())
             {
@@ -650,7 +653,7 @@ namespace davClassLibrary.DataAccess
             File.WriteAllText(path, data);
         }
 
-        internal static List<TableObjectData> GetDataFromFile(FileInfo dataFile)
+        public static List<TableObjectData> GetDataFromFile(FileInfo dataFile)
         {
             string data = File.ReadAllText(dataFile.FullName);
 
@@ -697,5 +700,12 @@ namespace davClassLibrary.DataAccess
     {
         public string Type { get; set; }
         public object Message { get; set; }
+    }
+
+    public enum Environment
+    {
+        Development,
+        Test,
+        Production
     }
 }
