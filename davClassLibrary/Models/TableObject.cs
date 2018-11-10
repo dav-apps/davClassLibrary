@@ -452,16 +452,15 @@ namespace davClassLibrary.Models
 
                     var headers = httpClient.DefaultRequestHeaders;
                     httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(jwt);
-                    if (IsFile)
-                    {
-                        ext = GetPropertyValue("ext");
-                        httpClient.DefaultRequestHeaders.Add("CONTENT_TYPE", MimeTypeMap.GetMimeType(ext));
-                    }
 
                     HttpContent content;
 
                     if (IsFile)
                     {
+                        // Set the Content-Type header
+                        ext = GetPropertyValue("ext");
+                        httpClient.DefaultRequestHeaders.Add("CONTENT_TYPE", MimeTypeMap.GetMimeType(ext));
+
                         // Upload the file
                         byte[] bytesFile = DataManager.FileToByteArray(File.FullName);
                         content = new ByteArrayContent(bytesFile);
@@ -526,6 +525,7 @@ namespace davClassLibrary.Models
                     string jwt = DavUser.GetJWT();
                     if (String.IsNullOrEmpty(jwt)) return null;
 
+                    string ext = "";
                     string url = "apps/object/" + Uuid;
                     HttpClient httpClient = new HttpClient();
                     httpClient.Timeout = TimeSpan.FromMinutes(60);
@@ -537,6 +537,10 @@ namespace davClassLibrary.Models
 
                     if (IsFile)
                     {
+                        // Set the Content-Type header
+                        ext = GetPropertyValue("ext");
+                        httpClient.DefaultRequestHeaders.Add("CONTENT_TYPE", MimeTypeMap.GetMimeType(ext));
+
                         // Upload the file
                         byte[] bytesFile = DataManager.FileToByteArray(File.FullName);
                         if (bytesFile == null) return null;
