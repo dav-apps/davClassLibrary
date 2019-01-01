@@ -62,16 +62,15 @@ namespace davClassLibrary.Models
             if(!String.IsNullOrEmpty(ProjectInterface.LocalDataSettings.GetValue(Dav.jwtKey)))
             {
                 // User is logged in. Get the user information
-                GetUserInformation();
+                IsLoggedIn = true;
+                Avatar = GetAvatar();
 
                 DownloadUserInformation();
                 DataManager.EstablishWebsocketConnection();
                 DataManager.Sync();
             }
             else
-            {
                 IsLoggedIn = false;
-            }
         }
 
         public async Task Login(string jwt)
@@ -136,11 +135,9 @@ namespace davClassLibrary.Models
                         DownloadAvatar(dataReader.avatar);
                     }
 
-                    Avatar = new FileInfo(Path.Combine(Dav.DataPath, avatarFileName));
+                    Avatar = new FileInfo(avatarFilePath);
                     AvatarEtag = newAvatarEtag;
 
-                    // Save new values in local settings
-                    SetUserInformation();
                     return true;
                 }
                 else
@@ -165,19 +162,6 @@ namespace davClassLibrary.Models
             string path = Path.Combine(Dav.DataPath, "avatar.png");
             if(File.Exists(path))
                 File.Delete(path);
-        }
-
-        private void GetUserInformation()
-        {
-            IsLoggedIn = true;
-            Email = GetEmail();
-            Username = GetUsername();
-            TotalStorage = GetTotalStorage();
-            UsedStorage = GetUsedStorage();
-            Plan = GetPlan();
-            JWT = GetJWT();
-            AvatarEtag = GetAvatarEtag();
-            Avatar = GetAvatar();
         }
 
         public static string GetEmail()
@@ -234,18 +218,7 @@ namespace davClassLibrary.Models
             string avatarPath = Path.Combine(Dav.DataPath, "avatar.png");
             return File.Exists(avatarPath) ? new FileInfo(avatarPath) : null;
         }
-
-        private void SetUserInformation()
-        {
-            SetEmail(Email);
-            SetUsername(Username);
-            SetTotalStorage(TotalStorage);
-            SetUsedStorage(UsedStorage);
-            SetPlan(Plan);
-            SetAvatarEtag(AvatarEtag);
-            SetJWT(JWT);
-        }
-
+        
         private void SetEmail(string email)
         {
             ProjectInterface.LocalDataSettings.SetValue(Dav.emailKey, email);
