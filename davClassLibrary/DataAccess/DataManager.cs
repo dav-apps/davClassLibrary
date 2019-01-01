@@ -117,6 +117,7 @@ namespace davClassLibrary.DataAccess
                                 var tableObject = await DownloadTableObject(currentTableObject.Uuid);
 
                                 if (tableObject == null) continue;
+                                tableObject.UploadStatus = TableObjectUploadStatus.UpToDate;
 
                                 // Is it a file?
                                 if (tableObject.IsFile)
@@ -138,7 +139,6 @@ namespace davClassLibrary.DataAccess
                                 else
                                 {
                                     // Save the table object
-                                    tableObject.UploadStatus = TableObjectUploadStatus.UpToDate;
                                     tableObject.SaveWithProperties();
                                     ProjectInterface.TriggerAction.UpdateTableObject(tableObject, false);
                                     tableChanged = true;
@@ -257,7 +257,7 @@ namespace davClassLibrary.DataAccess
                     }
 
                     // Create the new object on the server
-                    var etag = await tableObject.CreateTableObjectOnServer();
+                    var etag = await tableObject.CreateOnServer();
                     if (!String.IsNullOrEmpty(etag))
                     {
                         tableObject.Etag = etag;
@@ -268,7 +268,7 @@ namespace davClassLibrary.DataAccess
                 else if (tableObject.UploadStatus == TableObjectUploadStatus.Updated)
                 {
                     // Update the object on the server
-                    var etag = await tableObject.UpdateTableObjectOnServer();
+                    var etag = await tableObject.UpdateOnServer();
                     if (!String.IsNullOrEmpty(etag))
                     {
                         tableObject.Etag = etag;
@@ -279,7 +279,7 @@ namespace davClassLibrary.DataAccess
                 else if (tableObject.UploadStatus == TableObjectUploadStatus.Deleted)
                 {
                     // Delete the object on the server
-                    if (await tableObject.DeleteTableObjectOnServer())
+                    if (await tableObject.DeleteOnServer())
                         Dav.Database.DeleteTableObject(tableObject.Uuid);
                 }
             }
@@ -415,12 +415,12 @@ namespace davClassLibrary.DataAccess
             }
             else
             {
-                HandleOtherErrorCodes(getResult.Value);
+                HandleErrorCodes(getResult.Value);
                 return null;
             }
         }
 
-        private static void HandleOtherErrorCodes(string errorMessage)
+        private static void HandleErrorCodes(string errorMessage)
         {
             if (errorMessage.Contains("1301") || errorMessage.Contains("1302") || errorMessage.Contains("1303"))
             {
