@@ -8,5 +8,6 @@ namespace davClassLibrary.Common
         string GetApiKey();
         int GetAppId();
         List<int> GetTableIds();
+        List<int> GetParallelTableIds();
     }
 }

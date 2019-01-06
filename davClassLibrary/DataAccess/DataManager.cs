@@ -22,7 +22,7 @@ namespace davClassLibrary.DataAccess
 {
     public static class DataManager
     {
-        private static bool syncing = false;
+        private static bool isSyncing = false;
         internal static List<TableObject> fileDownloads = new List<TableObject>();
         internal static Dictionary<Guid, WebClient> fileDownloaders = new Dictionary<Guid, WebClient>();
         internal static Dictionary<Guid, List<IProgress<int>>> fileDownloadProgressList = new Dictionary<Guid, List<IProgress<int>>>();
@@ -34,129 +34,122 @@ namespace davClassLibrary.DataAccess
 
         public static async Task Sync()
         {
-            if (syncing) return;
+            if (isSyncing) return;
 
-            syncing = true;
+            isSyncing = true;
             string jwt = DavUser.GetJWT();
             if (String.IsNullOrEmpty(jwt)) return;
             fileDownloads.Clear();
             fileDownloaders.Clear();
 
-            // Get the specified tables
+            // Holds the table ids, e.g. 1, 2, 3, 4
             var tableIds = ProjectInterface.RetrieveConstants.GetTableIds();
+            // Holds the parallel table ids, e.g. 2, 3
+            var parallelTableIds = ProjectInterface.RetrieveConstants.GetParallelTableIds();
+            // Holds the order of the table ids, sorted by the pages and the parallel pages, e.g. 1, 2, 3, 2, 3, 4
+            var sortedTableIds = new List<int>();
+            // Holds the pages of the table; in the format <tableId, pages>
+            var tablePages = new Dictionary<int, int>();
+            // Holds the last downloaded page; in the format <tableId, pages>
+            var currentTablePages = new Dictionary<int, int>();
+            // Holds the latest table result; in the format <tableId, tableData>
+            var tableResults = new Dictionary<int, TableData>();
+            // Holds the uuids of the table objects that were removed on the server but not locally; in the format <tableId, List<Guid>>
+            var removedTableObjectUuids = new Dictionary<int, List<Guid>>();
+            // Is true if all http calls of the specified table are successful; in the format <tableId, bool>
+            var tableGetResultsOkay = new Dictionary<int, bool>();
+
+            if (tableIds == null || parallelTableIds == null)
+                return;
+
+            // Populate removedTableObjectUuids
             foreach (var tableId in tableIds)
             {
-                KeyValuePair<bool, string> tableGetResult;
-                TableData table;
-                var pages = 1;
-                bool tableGetResultsOkay = true;
+                removedTableObjectUuids[tableId] = new List<Guid>();
+
+                foreach(var tableObject in Dav.Database.GetAllTableObjects(tableId, true))
+                    removedTableObjectUuids[tableId].Add(tableObject.Uuid);
+            }
+
+            // Get the first page of each table and generate the sorted tableIds list
+            foreach(var tableId in tableIds)
+            {
+                // Get the first page of the table
+                var tableGetResult = await HttpGet(jwt, String.Format("apps/table/{0}?page=1", tableId));
+
+                tableGetResultsOkay[tableId] = tableGetResult.Key;
+                if (!tableGetResult.Key) continue;
+
+                // Save the result
+                var table = JsonConvert.DeserializeObject<TableData>(tableGetResult.Value);
+                tableResults[tableId] = table;
+                tablePages[tableId] = tableResults[tableId].pages;
+                currentTablePages[tableId] = 1;
+            }
+
+            sortedTableIds = SortTableIds(tableIds, parallelTableIds, tablePages);
+
+            // Process the table results
+            foreach (var tableId in sortedTableIds)
+            {
+                var tableObjects = tableResults[tableId].table_objects;
                 bool tableChanged = false;
 
-                List<Guid> removedTableObjectUuids = new List<Guid>();
-                foreach (var tableObject in Dav.Database.GetAllTableObjects(tableId, true))
-                    removedTableObjectUuids.Add(tableObject.Uuid);
+                if (!tableGetResultsOkay[tableId]) continue;
 
-                for (int i = 1; i < pages + 1; i++)
+                // Get the objects of the table
+                foreach (var obj in tableObjects)
                 {
-                    // Get the next page of the table
-                    tableGetResult = await HttpGet(jwt, "apps/table/" + tableId + "?page=" + i);
-                    if (!tableGetResult.Key)
+                    removedTableObjectUuids[tableId].Remove(obj.uuid);
+
+                    /*
+                     *  Ist obj lokal gespeichert?
+                     *      ja: Stimmt Etag überein?
+                     *          ja: Ist es eine Datei?
+                     *              ja: Ist die Datei heruntergeladen?
+                     *                  ja: continue!
+                     *                  nein: Herunterladen!
+                     *              nein: continue!
+                     *          nein: GET table object! Ist es eine Datei?
+                     *              ja: Herunterladen!
+                     *              nein: Save Table object!
+                     *      nein: GET tableObject! Ist es eine Datei?
+                     *          ja: Herunterladen!
+                     *          nein: Save Table object!
+                     * 
+                     * (Bei Herunterladen: Etag und etag der Datei erst speichern, wenn die Datei heruntergeladen wurde)
+                     * 
+                    */
+
+                    // Is obj in the database?
+                    var currentTableObject = Dav.Database.GetTableObject(obj.uuid);
+                    if (currentTableObject != null)
                     {
-                        tableGetResultsOkay = false;
-                        continue;
-                    }
-
-                    table = JsonConvert.DeserializeObject<TableData>(tableGetResult.Value);
-                    pages = table.pages;
-
-                    // Get the objects of the table
-                    foreach (var obj in table.table_objects)
-                    {
-                        removedTableObjectUuids.Remove(obj.uuid);
-
-                        /*
-                         *  Ist obj lokal gespeichert?
-                         *      ja: Stimmt Etag überein?
-                         *          ja: Ist es eine Datei?
-                         *              ja: Ist die Datei heruntergeladen?
-                         *                  ja: continue!
-                         *                  nein: Herunterladen!
-                         *              nein: continue!
-                         *          nein: GET table object! Ist es eine Datei?
-                         *              ja: Herunterladen!
-                         *              nein: Save Table object!
-                         *      nein: GET tableObject! Ist es eine Datei?
-                         *          ja: Herunterladen!
-                         *          nein: Save Table object!
-                         * 
-                         * (Bei Herunterladen: Etag und etag der Datei erst speichern, wenn die Datei heruntergeladen wurde)
-                         * 
-                        */
-
-                        // Is obj in the database?
-                        var currentTableObject = Dav.Database.GetTableObject(obj.uuid);
-                        if (currentTableObject != null)
+                        // Is the etag correct?
+                        if (Equals(obj.etag, currentTableObject.Etag))
                         {
-                            // Is the etag correct?
-                            if (Equals(obj.etag, currentTableObject.Etag))
+                            // Is it a file?
+                            if (currentTableObject.IsFile)
                             {
-                                // Is it a file?
-                                if (currentTableObject.IsFile)
+                                // Was the file downloaded?
+                                if (!currentTableObject.FileDownloaded())
                                 {
-                                    // Was the file downloaded?
-                                    if (!currentTableObject.FileDownloaded())
-                                    {
-                                        // Download the file
-                                        fileDownloads.Add(currentTableObject);
-                                    }
-                                }
-                            }
-                            else
-                            {
-                                // GET the table object
-                                var tableObject = await DownloadTableObject(currentTableObject.Uuid);
-
-                                if (tableObject == null) continue;
-                                tableObject.UploadStatus = TableObjectUploadStatus.UpToDate;
-
-                                // Is it a file?
-                                if (tableObject.IsFile)
-                                {
-                                    // Remove all properties except ext
-                                    var removingProperties = new List<Property>();
-                                    foreach (var p in tableObject.Properties)
-                                        if (p.Name != extPropertyName) removingProperties.Add(p);
-
-                                    foreach (var property in removingProperties)
-                                        tableObject.Properties.Remove(property);
-
-                                    // Save the ext property
-                                    tableObject.SaveWithProperties();
-
                                     // Download the file
-                                    fileDownloads.Add(tableObject);
-                                }
-                                else
-                                {
-                                    // Save the table object
-                                    tableObject.SaveWithProperties();
-                                    ProjectInterface.TriggerAction.UpdateTableObject(tableObject, false);
-                                    tableChanged = true;
+                                    fileDownloads.Add(currentTableObject);
                                 }
                             }
                         }
                         else
                         {
                             // GET the table object
-                            var tableObject = await DownloadTableObject(obj.uuid);
+                            var tableObject = await DownloadTableObject(currentTableObject.Uuid);
 
                             if (tableObject == null) continue;
+                            tableObject.UploadStatus = TableObjectUploadStatus.UpToDate;
 
                             // Is it a file?
                             if (tableObject.IsFile)
                             {
-                                string etag = tableObject.Etag;
-
                                 // Remove all properties except ext
                                 var removingProperties = new List<Property>();
                                 foreach (var p in tableObject.Properties)
@@ -165,35 +158,92 @@ namespace davClassLibrary.DataAccess
                                 foreach (var property in removingProperties)
                                     tableObject.Properties.Remove(property);
 
-                                // Save the table object without properties and etag (the etag will be saved later when the file was downloaded)
-                                tableObject.Etag = "";
+                                // Save the ext property
                                 tableObject.SaveWithProperties();
-                                tableObject.SetUploadStatus(TableObjectUploadStatus.UpToDate);
 
                                 // Download the file
-                                tableObject.Etag = etag;
                                 fileDownloads.Add(tableObject);
-
-                                ProjectInterface.TriggerAction.UpdateTableObject(tableObject, false);
-                                tableChanged = true;
                             }
                             else
                             {
                                 // Save the table object
-                                tableObject.UploadStatus = TableObjectUploadStatus.UpToDate;
                                 tableObject.SaveWithProperties();
                                 ProjectInterface.TriggerAction.UpdateTableObject(tableObject, false);
                                 tableChanged = true;
                             }
                         }
                     }
+                    else
+                    {
+                        // GET the table object
+                        var tableObject = await DownloadTableObject(obj.uuid);
+
+                        if (tableObject == null) continue;
+
+                        // Is it a file?
+                        if (tableObject.IsFile)
+                        {
+                            string etag = tableObject.Etag;
+
+                            // Remove all properties except ext
+                            var removingProperties = new List<Property>();
+                            foreach (var p in tableObject.Properties)
+                                if (p.Name != extPropertyName) removingProperties.Add(p);
+
+                            foreach (var property in removingProperties)
+                                tableObject.Properties.Remove(property);
+
+                            // Save the table object without properties and etag (the etag will be saved later when the file was downloaded)
+                            tableObject.Etag = "";
+                            tableObject.SaveWithProperties();
+                            tableObject.SetUploadStatus(TableObjectUploadStatus.UpToDate);
+
+                            // Download the file
+                            tableObject.Etag = etag;
+                            fileDownloads.Add(tableObject);
+
+                            ProjectInterface.TriggerAction.UpdateTableObject(tableObject, false);
+                            tableChanged = true;
+                        }
+                        else
+                        {
+                            // Save the table object
+                            tableObject.UploadStatus = TableObjectUploadStatus.UpToDate;
+                            tableObject.SaveWithProperties();
+                            ProjectInterface.TriggerAction.UpdateTableObject(tableObject, false);
+                            tableChanged = true;
+                        }
+                    }
                 }
 
-                if (!tableGetResultsOkay) continue;
+                if (tableChanged)
+                    ProjectInterface.TriggerAction.UpdateAllOfTable(tableId);
 
-                // RemovedTableObjects now includes all objects that were deleted on the server but not locally
-                // Delete those objects locally
-                foreach (var objUuid in removedTableObjectUuids)
+                // Check if there is a next page
+                currentTablePages[tableId]++;
+                if (currentTablePages[tableId] > tablePages[tableId])
+                    continue;
+
+                // Get the data of the next page
+                var tableGetResult = await HttpGet(jwt, String.Format("apps/table/{0}?page={1}", tableId, currentTablePages[tableId]));
+                if (!tableGetResult.Key)
+                {
+                    tableGetResultsOkay[tableId] = false;
+                    continue;
+                }
+                
+                tableResults[tableId] = JsonConvert.DeserializeObject<TableData>(tableGetResult.Value);
+            }
+
+            // RemovedTableObjects now includes all objects that were deleted on the server but not locally
+            // Delete those objects locally
+            foreach(var tableId in tableIds)
+            {
+                if (!tableGetResultsOkay[tableId]) continue;
+                var removedTableObjects = removedTableObjectUuids[tableId];
+                var tableChanged = false;
+
+                foreach (var objUuid in removedTableObjects)
                 {
                     var obj = Dav.Database.GetTableObject(objUuid);
                     if (obj == null) continue;
@@ -217,7 +267,7 @@ namespace davClassLibrary.DataAccess
                     ProjectInterface.TriggerAction.UpdateAllOfTable(tableId);
             }
 
-            syncing = false;
+            isSyncing = false;
 
             // Push changes
             await SyncPush();
@@ -226,7 +276,7 @@ namespace davClassLibrary.DataAccess
 
         public static async Task SyncPush()
         {
-            if (syncing)
+            if (isSyncing)
             {
                 syncAgain = true;
                 return;
@@ -235,7 +285,7 @@ namespace davClassLibrary.DataAccess
             string jwt = DavUser.GetJWT();
             if (String.IsNullOrEmpty(jwt)) return;
 
-            syncing = true;
+            isSyncing = true;
 
             List<TableObject> tableObjects = Dav.Database.GetAllTableObjects(true)
                                             .Where(obj => obj.UploadStatus != TableObjectUploadStatus.NoUpload &&
@@ -284,7 +334,7 @@ namespace davClassLibrary.DataAccess
                 }
             }
 
-            syncing = false;
+            isSyncing = false;
 
             if (syncAgain)
             {
@@ -360,6 +410,101 @@ namespace davClassLibrary.DataAccess
                 identifier = "{\"channel\": \"" + channelName + "\"}"
             });
             webSocketConnection.Send(json);
+        }
+
+        private static List<int> SortTableIds(List<int> tableIds, List<int> parallelTableIds, Dictionary<int, int> tableIdPages)
+        {
+            List<int> preparedTableIds = new List<int>();
+
+            // Remove all table ids in parallelTableIds that do not exist in tableIds
+            List<int> removeParallelTableIds = new List<int>();
+            for (int i = 0; i < parallelTableIds.Count; i++)
+            {
+                var value = parallelTableIds[i];
+                if (!tableIds.Contains(value))
+                    removeParallelTableIds.Add(value);
+            }
+            parallelTableIds.RemoveAll((int t) => { return removeParallelTableIds.Contains(t); });
+
+            // Prepare pagesOfParallelTable
+            var pagesOfParallelTable = new Dictionary<int, int>();
+            foreach (var table in tableIdPages)
+            {
+                if (parallelTableIds.Contains(table.Key))
+                    pagesOfParallelTable[table.Key] = table.Value;
+            }
+
+            // Count the pages
+            int pagesSum = 0;
+            foreach (var table in tableIdPages)
+            {
+                pagesSum += table.Value;
+
+                if (parallelTableIds.Contains(table.Key))
+                    pagesOfParallelTable[table.Key] = table.Value - 1;
+            }
+
+            int index = 0;
+            int currentTableIdIndex = 0;
+            bool parallelTableIdsInserted = false;
+
+            while (index < pagesSum)
+            {
+                int currentTableId = tableIds[currentTableIdIndex];
+                int currentTablePages = tableIdPages[currentTableId];
+
+                if (parallelTableIds.Contains(currentTableId))
+                {
+                    // Add the table id once as it belongs to parallel table ids
+                    preparedTableIds.Add(currentTableId);
+                    index++;
+                }
+                else
+                {
+                    // Add it for all pages
+                    for (var j = 0; j < currentTablePages; j++)
+                    {
+                        preparedTableIds.Add(currentTableId);
+                        index++;
+                    }
+                }
+
+                // Check if all parallel table ids are in prepared table ids
+                bool hasAll = true;
+                foreach (var tableId in parallelTableIds)
+                    if (!preparedTableIds.Contains(tableId))
+                        hasAll = false;
+
+                if (hasAll && !parallelTableIdsInserted)
+                {
+                    parallelTableIdsInserted = true;
+                    int pagesOfParallelTableSum = 0;
+
+                    // Update pagesOfParallelTableSum
+                    foreach (var table in pagesOfParallelTable)
+                        pagesOfParallelTableSum += table.Value;
+
+                    // Add the parallel table ids in the right order
+                    while (pagesOfParallelTableSum > 0)
+                    {
+                        foreach (var parallelTableId in parallelTableIds)
+                        {
+                            if (pagesOfParallelTable[parallelTableId] > 0)
+                            {
+                                preparedTableIds.Add(parallelTableId);
+                                pagesOfParallelTableSum--;
+                                pagesOfParallelTable[parallelTableId]--;
+
+                                index++;
+                            }
+                        }
+                    }
+                }
+
+                currentTableIdIndex++;
+            }
+
+            return preparedTableIds;
         }
 
         private static async Task UpdateLocalTableObject(Guid uuid)
