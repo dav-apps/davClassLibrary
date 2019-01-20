@@ -36,17 +36,17 @@ namespace davClassLibrary.DataAccess
         {
             if (isSyncing) return;
 
-            isSyncing = true;
             string jwt = DavUser.GetJWT();
             if (String.IsNullOrEmpty(jwt)) return;
             fileDownloads.Clear();
             fileDownloaders.Clear();
+            isSyncing = true;
 
             // Holds the table ids, e.g. 1, 2, 3, 4
             var tableIds = ProjectInterface.RetrieveConstants.GetTableIds();
             // Holds the parallel table ids, e.g. 2, 3
             var parallelTableIds = ProjectInterface.RetrieveConstants.GetParallelTableIds();
-            // Holds the order of the table ids, sorted by the pages and the parallel pages, e.g. 1, 2, 3, 2, 3, 4
+            // Holds the order of the table ids, sorted by the pages and the parallel table ids, e.g. 1, 2, 3, 2, 3, 4
             var sortedTableIds = new List<int>();
             // Holds the pages of the table; in the format <tableId, pages>
             var tablePages = new Dictionary<int, int>();
@@ -177,7 +177,6 @@ namespace davClassLibrary.DataAccess
                     {
                         // GET the table object
                         var tableObject = await DownloadTableObject(obj.uuid);
-
                         if (tableObject == null) continue;
 
                         // Is it a file?
@@ -416,7 +415,7 @@ namespace davClassLibrary.DataAccess
         {
             List<int> preparedTableIds = new List<int>();
 
-            // Remove all table ids in parallelTableIds that do not exist in tableIds
+            // Remove all table ids in parallelTableIds that do not occur in tableIds
             List<int> removeParallelTableIds = new List<int>();
             for (int i = 0; i < parallelTableIds.Count; i++)
             {
@@ -484,7 +483,7 @@ namespace davClassLibrary.DataAccess
                     foreach (var table in pagesOfParallelTable)
                         pagesOfParallelTableSum += table.Value;
 
-                    // Add the parallel table ids in the right order
+                    // Append the parallel table ids in the right order
                     while (pagesOfParallelTableSum > 0)
                     {
                         foreach (var parallelTableId in parallelTableIds)

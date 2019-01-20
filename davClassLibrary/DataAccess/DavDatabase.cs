@@ -19,6 +19,14 @@ namespace davClassLibrary.DataAccess
             database.CreateTable<Property>();
         }
 
+        public void Drop()
+        {
+            database.DropTable<TableObject>();
+            database.DropTable<Property>();
+            database.CreateTable<TableObject>();
+            database.CreateTable<Property>();
+        }
+
         #region CRUD for TableObject
         public int CreateTableObject(TableObject tableObject)
         {
