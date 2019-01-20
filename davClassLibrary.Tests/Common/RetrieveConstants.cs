@@ -24,5 +24,10 @@ namespace davClassLibrary.Tests.Common
         {
             return Dav.TableIds;
         }
+
+        public List<int> GetParallelTableIds()
+        {
+            return new List<int>();
+        }
     }
 }
