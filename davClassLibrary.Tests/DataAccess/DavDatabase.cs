@@ -27,21 +27,22 @@ namespace davClassLibrary.Tests.DataAccess
             ProjectInterface.GeneralMethods = new GeneralMethods();
             databasePath = Path.Combine(Dav.GetDavDataPath(), databaseName);
         }
-        #endregion
 
-        #region Constructor
-        [Test]
-        public void DavDatabaseConstructorShouldCreateTheDatabase()
+        [SetUp]
+        public void Setup()
         {
-            // Arrange
-            // Delete the database file
-            string databaseFilePath = Path.Combine(Dav.GetDavDataPath(), "dav.db");
+            // Delete all files and folders in the test folder except the database file
+            var davFolder = new DirectoryInfo(Dav.GetDavDataPath());
+            foreach(var folder in davFolder.GetDirectories())
+                folder.Delete(true);
 
-            // Act
-            new davClassLibrary.DataAccess.DavDatabase();
+            foreach (var file in davFolder.GetFiles())
+                if (!file.Extension.Contains("db"))
+                    file.Delete();
 
-            // Assert
-            Assert.IsTrue(File.Exists(databaseFilePath));
+            // Clear the database
+            var database = new davClassLibrary.DataAccess.DavDatabase();
+            database.Drop();
         }
         #endregion
 
@@ -75,9 +76,6 @@ namespace davClassLibrary.Tests.DataAccess
             Assert.AreEqual(uuid, tableObjectFromDatabase.Uuid);
             Assert.IsFalse(tableObjectFromDatabase.IsFile);
             Assert.AreEqual(visibility, tableObjectFromDatabase.Visibility);
-
-            // Tidy up
-            tableObjectFromDatabase.DeleteImmediately();
         }
         #endregion
 
@@ -125,9 +123,6 @@ namespace davClassLibrary.Tests.DataAccess
             Assert.AreEqual(tableObjectFromDatabase.Id, secondPropertyFromDatabase.TableObjectId);
             Assert.AreEqual(secondPropertyName, secondPropertyFromDatabase.Name);
             Assert.AreEqual(secondPropertyValue, secondPropertyFromDatabase.Value);
-
-            // Tidy up
-            tableObjectFromDatabase.DeleteImmediately();
         }
         #endregion
 
@@ -150,10 +145,6 @@ namespace davClassLibrary.Tests.DataAccess
 
             // Assert
             Assert.AreEqual(tableObjects.Count, allTableObjects.Count);
-
-            // Tidy up
-            foreach(var tableObject in tableObjects)
-                tableObject.DeleteImmediately();
         }
 
         [Test]
@@ -174,10 +165,6 @@ namespace davClassLibrary.Tests.DataAccess
 
             // Assert
             Assert.AreEqual(tableObjects.Count - 1, allTableObjects.Count);
-
-            // Tidy up
-            foreach (var tableObject in tableObjects)
-                tableObject.DeleteImmediately();
         }
         #endregion
 
@@ -202,10 +189,6 @@ namespace davClassLibrary.Tests.DataAccess
 
             // Assert
             Assert.AreEqual(tableObjects.Count - 1, allTableObjects.Count);
-
-            // Tidy up
-            foreach (var tableObject in tableObjects)
-                tableObject.DeleteImmediately();
         }
 
         [Test]
@@ -228,10 +211,6 @@ namespace davClassLibrary.Tests.DataAccess
 
             // Assert
             Assert.AreEqual(tableObjects.Count - 2, allTableObjects.Count);
-
-            // Tidy up
-            foreach (var tableObject in tableObjects)
-                tableObject.DeleteImmediately();
         }
         #endregion
 
@@ -252,9 +231,6 @@ namespace davClassLibrary.Tests.DataAccess
             Assert.AreEqual(tableObject.TableId, tableObjectFromDatabase.TableId);
             Assert.AreEqual(tableObject.Uuid, tableObjectFromDatabase.Uuid);
             Assert.AreEqual(tableObject.UploadStatus, tableObjectFromDatabase.UploadStatus);
-
-            // Tidy up
-            tableObjectFromDatabase.DeleteImmediately();
         }
 
         [Test]
@@ -297,9 +273,6 @@ namespace davClassLibrary.Tests.DataAccess
             Assert.AreEqual(firstPropertyValue, propertiesList[0].Value);
             Assert.AreEqual(secondPropertyName, propertiesList[1].Name);
             Assert.AreEqual(secondPropertyValue, propertiesList[1].Value);
-
-            // Tidy up
-            tableObject.DeleteImmediately();
         }
         #endregion
 
@@ -316,9 +289,6 @@ namespace davClassLibrary.Tests.DataAccess
 
             // Assert
             Assert.IsTrue(tableObjectExists);
-
-            // Tidy up
-            tableObject.DeleteImmediately();
         }
 
         [Test]
@@ -373,9 +343,6 @@ namespace davClassLibrary.Tests.DataAccess
             Assert.AreEqual(tableId, tableObjectFromDatabase.TableId);
             Assert.AreEqual(newVisibility, tableObjectFromDatabase.Visibility);
             Assert.AreEqual(tableObject.Id, tableObjectFromDatabase.Id);
-
-            // Tidy up
-            tableObjectFromDatabase.DeleteImmediately();
         }
 
         [Test]
@@ -411,9 +378,6 @@ namespace davClassLibrary.Tests.DataAccess
             var tableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(uuid);
             Assert.AreEqual(TableObjectUploadStatus.Deleted, tableObjectFromDatabase.UploadStatus);
             Assert.AreEqual(tableObject.Id, tableObjectFromDatabase.Id);
-
-            // Tidy up
-            tableObjectFromDatabase.DeleteImmediately();
         }
 
         [Test]
@@ -464,9 +428,6 @@ namespace davClassLibrary.Tests.DataAccess
             var tableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(uuid);
             Assert.AreEqual(TableObjectUploadStatus.Deleted, tableObjectFromDatabase.UploadStatus);
             Assert.AreEqual(tableObject.Id, tableObjectFromDatabase.Id);
-
-            // Tidy up
-            tableObjectFromDatabase.DeleteImmediately();
         }
 
         [Test]
@@ -581,9 +542,6 @@ namespace davClassLibrary.Tests.DataAccess
             Assert.AreEqual(property.TableObjectId, propertyFromDatabase.TableObjectId);
             Assert.AreEqual(property.Name, propertyFromDatabase.Name);
             Assert.AreEqual(property.Value, propertyFromDatabase.Value);
-
-            // Tidy up
-            davClassLibrary.Dav.Database.DeleteProperty(propertyFromDatabase);
         }
         #endregion
 
@@ -604,9 +562,6 @@ namespace davClassLibrary.Tests.DataAccess
             Assert.AreEqual(property.TableObjectId, propertyFromDatabase.TableObjectId);
             Assert.AreEqual(property.Name, propertyFromDatabase.Name);
             Assert.AreEqual(property.Value, propertyFromDatabase.Value);
-
-            // Tidy up
-            davClassLibrary.Dav.Database.DeleteProperty(propertyFromDatabase);
         }
 
         [Test]
@@ -636,9 +591,6 @@ namespace davClassLibrary.Tests.DataAccess
 
             // Assert
             Assert.IsTrue(propertyExists);
-
-            // Tidy up
-            davClassLibrary.Dav.Database.DeleteProperty(property);
         }
 
         [Test]
@@ -680,9 +632,6 @@ namespace davClassLibrary.Tests.DataAccess
             Assert.AreEqual(tableObjectId, propertyFromDatabase.TableObjectId);
             Assert.AreEqual(newPropertyName, propertyFromDatabase.Name);
             Assert.AreEqual(newPropertyValue, propertyFromDatabase.Value);
-
-            // Tidy up
-            davClassLibrary.Dav.Database.DeleteProperty(propertyFromDatabase);
         }
 
         [Test]
@@ -824,12 +773,6 @@ namespace davClassLibrary.Tests.DataAccess
             Assert.AreEqual(secondTableObjectFromDatabase.GetPropertyValue(Dav.TestDataFirstPropertyName), data[1].properties[Dav.TestDataFirstPropertyName]);
             Assert.AreEqual(secondTableObjectFromDatabase.GetPropertyValue(Dav.TestDataSecondPropertyName), data[1].properties[Dav.TestDataSecondPropertyName]);
             Assert.AreEqual(secondTableObjectFromDatabase.Etag, data[1].etag);
-
-            // Tidy up
-            exportFolder.Delete(true);
-            firstTableObjectFromDatabase.DeleteImmediately();
-            secondTableObjectFromDatabase.DeleteImmediately();
-            fileTableObject.DeleteImmediately();
         }
 
         [Test]
@@ -859,10 +802,6 @@ namespace davClassLibrary.Tests.DataAccess
             Assert.AreEqual(tableObject.Uuid, data[0].uuid);
             Assert.AreEqual(tableObject.IsFile, data[0].file);
             Assert.AreEqual(tableObject.Etag, data[0].etag);
-
-            // Tidy up
-            exportFolder.Delete(true);
-            tableObject.DeleteImmediately();
         }
         #endregion
 
@@ -909,11 +848,6 @@ namespace davClassLibrary.Tests.DataAccess
             Assert.AreEqual(Dav.TestDataSecondTableObject.file, secondTableObjectFromDatabase.IsFile);
             Assert.AreEqual(Dav.TestDataSecondTableObject.properties[Dav.TestDataFirstPropertyName], secondTableObjectFromDatabase.GetPropertyValue(Dav.TestDataFirstPropertyName));
             Assert.AreEqual(Dav.TestDataSecondTableObject.properties[Dav.TestDataSecondPropertyName], secondTableObjectFromDatabase.GetPropertyValue(Dav.TestDataSecondPropertyName));
-
-            // Tidy up
-            exportFolder.Delete(true);
-            firstTableObjectFromDatabase.DeleteImmediately();
-            secondTableObjectFromDatabase.DeleteImmediately();
         }
 
         [Test]
@@ -949,10 +883,6 @@ namespace davClassLibrary.Tests.DataAccess
             Assert.AreEqual(tableObject.Visibility, tableObjectFromDatabase.Visibility);
             Assert.AreEqual(tableObject.Uuid, tableObjectFromDatabase.Uuid);
             Assert.AreEqual(tableObject.IsFile, tableObjectFromDatabase.IsFile);
-
-            // Tidy up
-            exportFolder.Delete(true);
-            tableObjectFromDatabase.DeleteImmediately();
         }
         #endregion
     }
