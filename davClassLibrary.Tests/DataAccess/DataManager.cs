@@ -4,6 +4,7 @@ using Newtonsoft.Json;
 using NUnit.Framework;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
@@ -15,12 +16,6 @@ namespace davClassLibrary.Tests.DataAccess
     class DataManager
     {
         #region Setup
-        [SetUp]
-        public void Setup()
-        {
-
-        }
-
         [OneTimeSetUp]
         public void GlobalSetup()
         {
@@ -30,10 +25,21 @@ namespace davClassLibrary.Tests.DataAccess
             ProjectInterface.GeneralMethods = new GeneralMethods();
         }
 
-        [OneTimeTearDown]
-        public void GlobalTeardown()
+        [SetUp]
+        public void Setup()
         {
+            // Delete all files and folders in the test folder except the database file
+            var davFolder = new DirectoryInfo(Dav.GetDavDataPath());
+            foreach (var folder in davFolder.GetDirectories())
+                folder.Delete(true);
 
+            foreach (var file in davFolder.GetFiles())
+                if (!file.Extension.Contains("db"))
+                    file.Delete();
+
+            // Clear the database
+            var database = new davClassLibrary.DataAccess.DavDatabase();
+            database.Drop();
         }
         #endregion
 
@@ -66,10 +72,6 @@ namespace davClassLibrary.Tests.DataAccess
             Assert.IsFalse(Dav.TestDataSecondTableObject.file);
             Assert.AreEqual(Dav.TestDataSecondTableObject.properties[Dav.TestDataFirstPropertyName], secondTableObject.GetPropertyValue(Dav.TestDataFirstPropertyName));
             Assert.AreEqual(Dav.TestDataSecondTableObject.properties[Dav.TestDataSecondPropertyName], secondTableObject.GetPropertyValue(Dav.TestDataSecondPropertyName));
-
-            // Tidy up
-            firstTableObject.DeleteImmediately();
-            secondTableObject.DeleteImmediately();
         }
 
         [Test]
@@ -105,10 +107,6 @@ namespace davClassLibrary.Tests.DataAccess
 
             Assert.IsNotNull(firstTableObjectFromServer);
             Assert.IsNotNull(secondTableObjectFromServer);
-
-            // Tidy up
-            firstTableObjectFromServer.DeleteImmediately();
-            secondTableObjectFromServer.DeleteImmediately();
         }
         #endregion
 
@@ -214,11 +212,6 @@ namespace davClassLibrary.Tests.DataAccess
 
             // Check if the etag is the same as at the beginning
             Assert.AreEqual(firstEtag, secondEtag);
-
-            // Tidy up
-            var secondTableObject = davClassLibrary.Dav.Database.GetTableObject(Dav.TestDataSecondTableObject.uuid);
-            secondTableObject.DeleteImmediately();
-            tableObject.DeleteImmediately();
         }
 
         [Test]
