@@ -1,6 +1,7 @@
 ﻿using davClassLibrary.Common;
 using davClassLibrary.Tests.Common;
 using NUnit.Framework;
+using System.IO;
 using System.Threading.Tasks;
 
 namespace davClassLibrary.Tests.Models
@@ -9,12 +10,6 @@ namespace davClassLibrary.Tests.Models
     public class DavUser
     {
         #region Setup
-        [SetUp]
-        public void Setup()
-        {
-
-        }
-
         [OneTimeSetUp]
         public void GlobalSetup()
         {
@@ -24,10 +19,17 @@ namespace davClassLibrary.Tests.Models
             ProjectInterface.GeneralMethods = new GeneralMethods();
         }
 
-        [OneTimeTearDown]
-        public void GlobalTeardown()
+        [SetUp]
+        public void Setup()
         {
-
+            // Delete all files and folders in the test folder except the database file
+            var davFolder = new DirectoryInfo(Dav.GetDavDataPath());
+            foreach (var folder in davFolder.GetDirectories())
+                folder.Delete(true);
+            
+            // Clear the database
+            var database = new davClassLibrary.DataAccess.DavDatabase();
+            database.Drop();
         }
         #endregion
 
@@ -57,13 +59,6 @@ namespace davClassLibrary.Tests.Models
             // Assert
             Assert.IsTrue(user.IsLoggedIn);
             Assert.AreEqual(Dav.Jwt, user.JWT);
-
-            // Tidy up
-            var firstTableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(Dav.TestDataFirstTableObject.uuid);
-            var secondTableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(Dav.TestDataSecondTableObject.uuid);
-
-            if (firstTableObjectFromDatabase != null) firstTableObjectFromDatabase.DeleteImmediately();
-            if (secondTableObjectFromDatabase != null) secondTableObjectFromDatabase.DeleteImmediately();
         }
         #endregion
 
@@ -88,13 +83,6 @@ namespace davClassLibrary.Tests.Models
 
             // Check if the avatar was downloaded
             FileAssert.Exists(user.Avatar.FullName);
-
-            // Tidy up
-            var firstTableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(Dav.TestDataFirstTableObject.uuid);
-            var secondTableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(Dav.TestDataSecondTableObject.uuid);
-
-            if (firstTableObjectFromDatabase != null) firstTableObjectFromDatabase.DeleteImmediately();
-            if (secondTableObjectFromDatabase != null) secondTableObjectFromDatabase.DeleteImmediately();
         }
 
         [Test]

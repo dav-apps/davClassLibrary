@@ -1,6 +1,7 @@
 ﻿using davClassLibrary.Common;
 using davClassLibrary.Tests.Common;
 using NUnit.Framework;
+using System.IO;
 
 namespace davClassLibrary.Tests.Models
 {
@@ -15,6 +16,19 @@ namespace davClassLibrary.Tests.Models
             ProjectInterface.RetrieveConstants = new RetrieveConstants();
             ProjectInterface.TriggerAction = new TriggerAction();
             ProjectInterface.GeneralMethods = new GeneralMethods();
+        }
+
+        [SetUp]
+        public void Setup()
+        {
+            // Delete all files and folders in the test folder except the database file
+            var davFolder = new DirectoryInfo(Dav.GetDavDataPath());
+            foreach (var folder in davFolder.GetDirectories())
+                folder.Delete(true);
+
+            // Clear the database
+            var database = new davClassLibrary.DataAccess.DavDatabase();
+            database.Drop();
         }
         #endregion
 
@@ -36,9 +50,6 @@ namespace davClassLibrary.Tests.Models
             Assert.AreEqual(tableObjectId, propertyFromDatabase.TableObjectId);
             Assert.AreEqual(propertyName, propertyFromDatabase.Name);
             Assert.AreEqual(propertyValue, propertyFromDatabase.Value);
-
-            // Tidy up
-            davClassLibrary.Dav.Database.DeleteProperty(propertyFromDatabase);
         }
         #endregion
 
@@ -62,9 +73,6 @@ namespace davClassLibrary.Tests.Models
             Assert.AreEqual(newPropertyValue, propertyFromDatabase.Value);
             Assert.AreEqual(propertyName, propertyFromDatabase.Name);
             Assert.AreEqual(tableObjectId, propertyFromDatabase.TableObjectId);
-
-            // Tidy up
-            davClassLibrary.Dav.Database.DeleteProperty(property);
         }
         #endregion
 
@@ -86,9 +94,6 @@ namespace davClassLibrary.Tests.Models
             Assert.AreEqual(tableObjectId, propertyData.table_object_id);
             Assert.AreEqual(propertyName, propertyData.name);
             Assert.AreEqual(propertyValue, propertyData.value);
-
-            // Tidy up
-            davClassLibrary.Dav.Database.DeleteProperty(property);
         }
         #endregion
 

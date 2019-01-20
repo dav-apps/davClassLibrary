@@ -35,11 +35,7 @@ namespace davClassLibrary.Tests.DataAccess
             var davFolder = new DirectoryInfo(Dav.GetDavDataPath());
             foreach(var folder in davFolder.GetDirectories())
                 folder.Delete(true);
-
-            foreach (var file in davFolder.GetFiles())
-                if (!file.Extension.Contains("db"))
-                    file.Delete();
-
+            
             // Clear the database
             var database = new davClassLibrary.DataAccess.DavDatabase();
             database.Drop();
