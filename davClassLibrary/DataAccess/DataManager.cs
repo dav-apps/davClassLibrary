@@ -411,7 +411,7 @@ namespace davClassLibrary.DataAccess
             webSocketConnection.Send(json);
         }
 
-        private static List<int> SortTableIds(List<int> tableIds, List<int> parallelTableIds, Dictionary<int, int> tableIdPages)
+        public static List<int> SortTableIds(List<int> tableIds, List<int> parallelTableIds, Dictionary<int, int> tableIdPages)
         {
             List<int> preparedTableIds = new List<int>();
 
