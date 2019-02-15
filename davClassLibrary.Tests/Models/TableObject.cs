@@ -260,6 +260,81 @@ namespace davClassLibrary.Tests.Models
         }
         #endregion
 
+        #region SetPropertyValues
+        [Test]
+        public void SetPropertyValuesShouldCreateNewPropertiesAndSaveThemInTheDatabase()
+        {
+            // Arrange
+            Guid uuid = Guid.NewGuid();
+            var tableId = 4;
+            var firstPropertyName = "page1";
+            var secondPropertyName = "page2";
+            var firstPropertyValue = "test";
+            var secondPropertyValue = "blablabla";
+
+            var tableObject = new davClassLibrary.Models.TableObject(uuid, tableId);
+
+            Dictionary<string, string> newProperties = new Dictionary<string, string>();
+            newProperties.Add(firstPropertyName, firstPropertyValue);
+            newProperties.Add(secondPropertyName, secondPropertyValue);
+
+            // Act
+            tableObject.SetPropertyValues(newProperties);
+
+            // Assert
+            Assert.AreEqual(firstPropertyValue, tableObject.GetPropertyValue(firstPropertyName));
+            Assert.AreEqual(secondPropertyValue, tableObject.GetPropertyValue(secondPropertyName));
+
+            var tableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(uuid);
+            Assert.IsNotNull(tableObjectFromDatabase);
+            Assert.AreEqual(2, tableObjectFromDatabase.Properties.Count);
+            Assert.AreEqual(firstPropertyName, tableObjectFromDatabase.Properties[0].Name);
+            Assert.AreEqual(firstPropertyValue, tableObjectFromDatabase.Properties[0].Value);
+            Assert.AreEqual(secondPropertyName, tableObjectFromDatabase.Properties[1].Name);
+            Assert.AreEqual(secondPropertyValue, tableObjectFromDatabase.Properties[1].Value);
+        }
+
+        [Test]
+        public void SetPropertyValuesShouldUpdateExistingPropertiesAndSaveThemInTheDatabase()
+        {
+            // Arrange
+            Guid uuid = Guid.NewGuid();
+            var tableId = 4;
+            var firstPropertyName = "page1";
+            var oldFirstPropertyValue = "test";
+            var newFirstPropertyValue = "testtest";
+            var secondPropertyName = "page2";
+            var oldSecondPropertyValue = "blabla";
+            var newSecondPropertyValue = "blablub";
+            List<davClassLibrary.Models.Property> properties = new List<davClassLibrary.Models.Property>
+            {
+                new davClassLibrary.Models.Property { Name = firstPropertyName, Value = oldFirstPropertyValue },
+                new davClassLibrary.Models.Property { Name = secondPropertyName, Value = oldSecondPropertyValue }
+            };
+
+            var tableObject = new davClassLibrary.Models.TableObject(uuid, tableId, properties);
+
+            Dictionary<string, string> newProperties = new Dictionary<string, string>();
+            newProperties.Add(firstPropertyName, newFirstPropertyValue);
+            newProperties.Add(secondPropertyName, newSecondPropertyValue);
+
+            // Act
+            tableObject.SetPropertyValues(newProperties);
+
+            // Assert
+            Assert.AreEqual(newFirstPropertyValue, tableObject.GetPropertyValue(firstPropertyName));
+            Assert.AreEqual(newSecondPropertyValue, tableObject.GetPropertyValue(secondPropertyName));
+
+            var tableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(uuid);
+            Assert.IsNotNull(tableObjectFromDatabase);
+            Assert.AreEqual(2, tableObjectFromDatabase.Properties.Count);
+            Assert.AreEqual(firstPropertyName, tableObjectFromDatabase.Properties[0].Name);
+            Assert.AreEqual(newFirstPropertyValue, tableObjectFromDatabase.Properties[0].Value);
+            Assert.AreEqual(secondPropertyName, tableObjectFromDatabase.Properties[1].Name);
+            Assert.AreEqual(newSecondPropertyValue, tableObjectFromDatabase.Properties[1].Value);
+        }
+        #endregion
+
         #region GetPropertyValue
         [Test]
         public void GetPropertyValueShouldReturnTheValueOfTheProperty()
