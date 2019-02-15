@@ -203,7 +203,6 @@ namespace davClassLibrary.Models
             {
                 // Update the property
                 if (property.Value == value) return;
-
                 property.SetValue(value);
             }
             else
@@ -211,6 +210,38 @@ namespace davClassLibrary.Models
                 // Create a new property
                 Properties.Add(new Property(Id, name, value));
             }
+
+            if (UploadStatus == TableObjectUploadStatus.UpToDate && !IsFile)
+                UploadStatus = TableObjectUploadStatus.Updated;
+
+            Save();
+            DataManager.SyncPush();
+        }
+
+        public void SetPropertyValues(Dictionary<string, string> properties)
+        {
+            bool propertiesChanged = false;
+
+            foreach(var p in properties)
+            {
+                var property = Properties.Find(prop => prop.Name == p.Key);
+
+                if(property != null)
+                {
+                    // Update the property
+                    if (property.Value == p.Value) continue;
+                    property.SetValue(p.Value);
+                    propertiesChanged = true;
+                }
+                else
+                {
+                    // Create a new property
+                    Properties.Add(new Property(Id, p.Key, p.Value));
+                    propertiesChanged = true;
+                }
+            }
+
+            if (!propertiesChanged) return;
 
             if (UploadStatus == TableObjectUploadStatus.UpToDate && !IsFile)
                 UploadStatus = TableObjectUploadStatus.Updated;
