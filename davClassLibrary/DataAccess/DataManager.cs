@@ -233,7 +233,7 @@ namespace davClassLibrary.DataAccess
                 
                 tableResults[tableId] = JsonConvert.DeserializeObject<TableData>(tableGetResult.Value);
             }
-
+            
             // RemovedTableObjects now includes all objects that were deleted on the server but not locally
             // Delete those objects locally
             foreach(var tableId in tableIds)
@@ -271,6 +271,20 @@ namespace davClassLibrary.DataAccess
             // Push changes
             await SyncPush();
             DownloadFiles();
+
+            // Check if all tables were synced
+            bool allTableGetResultsOkay = true;
+            foreach (var tableGetResult in tableGetResultsOkay)
+            {
+                if (!tableGetResult.Value)
+                {
+                    allTableGetResultsOkay = false;
+                    break;
+                }
+            }
+
+            if(allTableGetResultsOkay)
+                ProjectInterface.TriggerAction.SyncFinished();
         }
 
         public static async Task SyncPush()
