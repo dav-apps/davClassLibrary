@@ -64,13 +64,19 @@ namespace davClassLibrary.Models
                 // User is logged in. Get the user information
                 IsLoggedIn = true;
                 Avatar = GetAvatar();
-
-                DownloadUserInformation();
-                DataManager.EstablishWebsocketConnection();
-                DataManager.Sync();
             }
             else
                 IsLoggedIn = false;
+        }
+
+        public async Task Init()
+        {
+            if (IsLoggedIn)
+            {
+                await DownloadUserInformation();
+                DataManager.EstablishWebsocketConnection();
+                await DataManager.Sync();
+            }
         }
 
         public async Task Login(string jwt)
@@ -79,12 +85,11 @@ namespace davClassLibrary.Models
             IsLoggedIn = true;
             if(await DownloadUserInformation())
             {
-                DataManager.Sync();
+                await DataManager.Sync();
+                DataManager.EstablishWebsocketConnection();
             }
             else
-            {
                 Logout();
-            }
         }
 
         public void Logout()
