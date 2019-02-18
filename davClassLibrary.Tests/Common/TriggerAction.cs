@@ -20,5 +20,10 @@ namespace davClassLibrary.Tests.Common
         {
             
         }
+
+        public void SyncFinished()
+        {
+            
+        }
     }
 }
