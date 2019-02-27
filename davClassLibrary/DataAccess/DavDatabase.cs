@@ -4,72 +4,73 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace davClassLibrary.DataAccess
 {
     public class DavDatabase
     {
-        readonly SQLiteConnection database;
+        readonly SQLiteAsyncConnection database;
         private readonly string databaseName = "dav.db";
 
         public DavDatabase()
         {
-            database = new SQLiteConnection(Path.Combine(Dav.DataPath, databaseName));
-            database.CreateTable<TableObject>();
-            database.CreateTable<Property>();
+            database = new SQLiteAsyncConnection(Path.Combine(Dav.DataPath, databaseName));
+            database.CreateTableAsync<TableObject>();
+            database.CreateTableAsync<Property>();
         }
 
-        public void Drop()
+        public void DropAsync()
         {
-            database.DropTable<TableObject>();
-            database.DropTable<Property>();
-            database.CreateTable<TableObject>();
-            database.CreateTable<Property>();
+            database.DropTableAsync<TableObject>();
+            database.DropTableAsync<Property>();
+            database.CreateTableAsync<TableObject>();
+            database.CreateTableAsync<Property>();
         }
 
         #region CRUD for TableObject
-        public int CreateTableObject(TableObject tableObject)
+        public async Task<int> CreateTableObjectAsync(TableObject tableObject)
         {
-            database.Insert(tableObject);
+            await database.InsertAsync(tableObject);
             return tableObject.Id;
         }
 
-        public int CreateTableObjectWithProperties(TableObject tableObject)
+        public async Task<int> CreateTableObjectWithPropertiesAsync(TableObject tableObject)
         {
-            database.RunInTransaction(() =>
+            await database.RunInTransactionAsync(tran =>
             {
-                database.Insert(tableObject);
+                tran.Insert(tableObject);
 
-                foreach (var property in tableObject.Properties)
+                foreach (Property property in tableObject.Properties)
                 {
                     property.TableObjectId = tableObject.Id;
-                    database.Insert(property);
+                    tran.Insert(property);
                 }
             });
 
             return tableObject.Id;
         }
-
-        public List<TableObject> GetAllTableObjects(bool deleted)
+        
+        public async Task<List<TableObject>> GetAllTableObjectsAsync(bool deleted)
         {
             List<TableObject> tableObjectList = new List<TableObject>();
-            List<TableObject> tableObjects = database.Table<TableObject>().ToList();
+            List<TableObject> tableObjects = await database.Table<TableObject>().ToListAsync();
 
             foreach (var tableObject in tableObjects)
             {
                 if (!deleted && tableObject.UploadStatus == TableObject.TableObjectUploadStatus.Deleted) continue;
 
-                tableObject.Load();
+                await tableObject.LoadAsync();
                 tableObjectList.Add(tableObject);
             }
             
             return tableObjectList;
         }
 
-        public List<TableObject> GetAllTableObjects(int tableId, bool deleted)
+        public async Task<List<TableObject>> GetAllTableObjectsAsync(int tableId, bool deleted)
         {
             List<TableObject> tableObjectsList = new List<TableObject>();
-            List<TableObject> tableObjects = database.Table<TableObject>().ToList();
+            List<TableObject> tableObjects = await database.Table<TableObject>().ToListAsync();
             
             // Get the properties of the table objects
             foreach (var tableObject in tableObjects)
@@ -78,98 +79,93 @@ namespace davClassLibrary.DataAccess
                     tableObject.UploadStatus == TableObject.TableObjectUploadStatus.Deleted) ||
                     tableObject.TableId != tableId) continue;
 
-                tableObject.Load();
+                await tableObject.LoadAsync();
                 tableObjectsList.Add(tableObject);
             }
 
             return tableObjectsList;
         }
         
-        public TableObject GetTableObject(Guid uuid)
+        public async Task<TableObject> GetTableObjectAsync(Guid uuid)
         {
-            List<TableObject> tableObjects = database.Query<TableObject>("SELECT * FROM TableObject WHERE Uuid = ?", uuid);
+            List<TableObject> tableObjects = await database.QueryAsync<TableObject>("SELECT * FROM TableObject WHERE Uuid = ?", uuid);
             if (tableObjects.Count == 0)
                 return null;
             else
             {
                 var tableObject = tableObjects.First();
-                tableObject.Load();
+                await tableObject.LoadAsync();
                 return tableObject;
             }
         }
 
-        public List<Property> GetPropertiesOfTableObject(int tableObjectId)
+        public async Task<List<Property>> GetPropertiesOfTableObjectAsync(int tableObjectId)
         {
-            List<Property> allProperties = database.Query<Property>("SELECT * FROM Property WHERE TableObjectId = ?", tableObjectId);
+            List<Property> allProperties = await database.QueryAsync<Property>("SELECT * FROM Property WHERE TableObjectId = ?", tableObjectId);
             return allProperties;
         }
 
-        public bool TableObjectExists(Guid uuid)
+        public async Task<bool> TableObjectExistsAsync(Guid uuid)
         {
-            return database.Query<TableObject>("SELECT * FROM TableObject WHERE Uuid = ?", uuid).Count > 0;
+            return (await database.QueryAsync<TableObject>("SELECT * FROM TableObject WHERE Uuid = ?", uuid)).Count > 0;
         }
 
-        public void UpdateTableObject(TableObject tableObject)
+        public async Task UpdateTableObjectAsync(TableObject tableObject)
         {
-            database.Update(tableObject);
+            await database.UpdateAsync(tableObject);
         }
 
-        public void DeleteTableObject(Guid uuid)
+        public async Task DeleteTableObjectAsync(Guid uuid)
         {
-            TableObject tableObject = GetTableObject(uuid);
+            TableObject tableObject = await GetTableObjectAsync(uuid);
             if(tableObject != null)
-            {
-                DeleteTableObject(tableObject);
-            }
+                await DeleteTableObjectAsync(tableObject);
         }
 
-        public void DeleteTableObject(TableObject tableObject)
+        public async Task DeleteTableObjectAsync(TableObject tableObject)
         {
             if (tableObject.UploadStatus == TableObject.TableObjectUploadStatus.Deleted)
             {
-                DeleteTableObjectImmediately(tableObject);
+                await DeleteTableObjectImmediatelyAsync(tableObject);
             }
             else
             {
                 // Set the upload status of the table object to Deleted
-                tableObject.SetUploadStatus(TableObject.TableObjectUploadStatus.Deleted);
+                await tableObject.SetUploadStatus(TableObject.TableObjectUploadStatus.Deleted);
             }
         }
 
-        public void DeleteTableObjectImmediately(Guid uuid)
+        public async Task DeleteTableObjectImmediatelyAsync(Guid uuid)
         {
-            TableObject tableObject = GetTableObject(uuid);
+            TableObject tableObject = await GetTableObjectAsync(uuid);
             if (tableObject != null)
-            {
-                DeleteTableObjectImmediately(tableObject);
-            }
+                await DeleteTableObjectImmediatelyAsync(tableObject);
         }
 
-        public void DeleteTableObjectImmediately(TableObject tableObject)
+        public async Task DeleteTableObjectImmediatelyAsync(TableObject tableObject)
         {
-            database.RunInTransaction(() =>
+            await tableObject.LoadAsync();
+            await database.RunInTransactionAsync(tran =>
             {
                 // Delete the properties of the table object
-                tableObject.Load();
                 foreach (var property in tableObject.Properties)
-                {
-                    database.Delete(property);
-                }
-                database.Delete(tableObject);
+                    tran.Delete(property);
+
+                tran.Delete(tableObject);
             });
         }
         #endregion
 
         #region CRUD for Property
-        public int CreateProperty(Property property)
+        public async Task<int> CreatePropertyAsync(Property property)
         {
-            database.Insert(property);
+            await database.InsertAsync(property);
             return property.Id;
         }
 
-        public Property GetProperty(int id)
+        public async Task<Property> GetPropertyAsync(int id)
         {
-            List<Property> properties = database.Query<Property>("SELECT * FROM Property WHERE Id = ?", id);
+            List<Property> properties = await database.QueryAsync<Property>("SELECT * FROM Property WHERE Id = ?", id);
             
             if (properties.Count == 0)
                 return null;
@@ -177,26 +173,26 @@ namespace davClassLibrary.DataAccess
                 return properties.First();
         }
 
-        public bool PropertyExists(int id)
+        public async Task<bool> PropertyExistsAsync(int id)
         {
-            return database.Query<Property>("SELECT * FROM Property WHERE Id = ?", id).Count > 0;
+            return (await database.QueryAsync<Property>("SELECT * FROM Property WHERE Id = ?", id)).Count > 0;
         }
 
-        public void UpdateProperty(Property property)
+        public async Task UpdatePropertyAsync(Property property)
         {
-            database.Update(property);
+            await database.UpdateAsync(property);
         }
 
-        public void DeleteProperty(int id)
+        public async Task DeletePropertyAsync(int id)
         {
-            var property = GetProperty(id);
+            var property = await GetPropertyAsync(id);
             if (property != null)
-                DeleteProperty(property);
+                await DeletePropertyAsync(property);
         }
 
-        public void DeleteProperty(Property property)
+        public async Task DeletePropertyAsync(Property property)
         {
-            database.Delete(property);
+            await database.DeleteAsync(property);
         }
         #endregion
     }
