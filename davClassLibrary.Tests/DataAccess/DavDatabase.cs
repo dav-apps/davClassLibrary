@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
-using static davClassLibrary.Models.TableObject;
 
 namespace davClassLibrary.Tests.DataAccess
 {
@@ -29,7 +28,7 @@ namespace davClassLibrary.Tests.DataAccess
         }
 
         [SetUp]
-        public void Setup()
+        public async Task Setup()
         {
             // Delete all files and folders in the test folder except the database file
             var davFolder = new DirectoryInfo(Dav.GetDavDataPath());
@@ -38,32 +37,32 @@ namespace davClassLibrary.Tests.DataAccess
             
             // Clear the database
             var database = new davClassLibrary.DataAccess.DavDatabase();
-            database.Drop();
+            await database.DropAsync();
         }
         #endregion
 
         #region CreateTableObject
         [Test]
-        public void CreateTableObjectShouldSaveTheTableObjectInTheDatabaseAndReturnTheId()
+        public async Task CreateTableObjectShouldSaveTheTableObjectInTheDatabaseAndReturnTheId()
         {
             // Arrange
             SQLiteConnection database = new SQLiteConnection(databasePath);
             int tableId = 4;
             Guid uuid = Guid.NewGuid();
             int visibilityInt = 1;
-            TableObjectVisibility visibility = TableObjectVisibility.Protected;
+            TableObject.TableObjectVisibility visibility = TableObject.TableObjectVisibility.Protected;
 
-            var tableObjectData = new davClassLibrary.Models.TableObjectData
+            var tableObjectData = new TableObjectData
             {
                 table_id = tableId,
                 uuid = uuid,
                 file = false,
                 visibility = visibilityInt
             };
-            var tableObject = davClassLibrary.Models.TableObject.ConvertTableObjectDataToTableObject(tableObjectData);
+            var tableObject = TableObject.ConvertTableObjectDataToTableObject(tableObjectData);
 
             // Act
-            davClassLibrary.Dav.Database.CreateTableObject(tableObject);
+            await davClassLibrary.Dav.Database.CreateTableObjectAsync(tableObject);
 
             // Assert
             var tableObjectFromDatabase = database.Get<TableObject>(tableObject.Id);
@@ -77,7 +76,7 @@ namespace davClassLibrary.Tests.DataAccess
 
         #region CreateTableObjectWithProperties
         [Test]
-        public void CreateTableObjectWithPropertiesShouldSaveTheTableObjectAndItsPropertiesInTheDatabase()
+        public async Task CreateTableObjectWithPropertiesShouldSaveTheTableObjectAndItsPropertiesInTheDatabase()
         {
             // Arrange
             SQLiteConnection database = new SQLiteConnection(databasePath);
@@ -87,21 +86,23 @@ namespace davClassLibrary.Tests.DataAccess
             string secondPropertyName = "page2";
             string firstPropertyValue = "Hello World";
             string secondPropertyValue = "Hallo Welt";
-            Dictionary<string, string> propertiesDictionary = new Dictionary<string, string>();
-            propertiesDictionary.Add(firstPropertyName, firstPropertyValue);
-            propertiesDictionary.Add(secondPropertyName, secondPropertyValue);
+            Dictionary<string, string> propertiesDictionary = new Dictionary<string, string>
+            {
+                { firstPropertyName, firstPropertyValue },
+                { secondPropertyName, secondPropertyValue }
+            };
 
-            var tableObjectData = new davClassLibrary.Models.TableObjectData
+            var tableObjectData = new TableObjectData
             {
                 table_id = tableId,
                 uuid = uuid,
                 file = false,
                 properties = propertiesDictionary
             };
-            var tableObject = davClassLibrary.Models.TableObject.ConvertTableObjectDataToTableObject(tableObjectData);
+            var tableObject = TableObject.ConvertTableObjectDataToTableObject(tableObjectData);
 
             // Act
-            davClassLibrary.Dav.Database.CreateTableObjectWithProperties(tableObject);
+            await davClassLibrary.Dav.Database.CreateTableObjectWithPropertiesAsync(tableObject);
 
             // Assert
             var tableObjectFromDatabase = database.Get<TableObject>(tableObject.Id);
@@ -124,40 +125,40 @@ namespace davClassLibrary.Tests.DataAccess
 
         #region GetAllTableObjects(bool deleted)
         [Test]
-        public void GetAllTableObjectsShouldReturnAllTableObjects()
+        public async Task GetAllTableObjectsShouldReturnAllTableObjects()
         {
             // Arrange
             SQLiteConnection database = new SQLiteConnection(databasePath);
-            var tableObjects = new List<davClassLibrary.Models.TableObject>
+            var tableObjects = new List<TableObject>
             {
-                new davClassLibrary.Models.TableObject(Guid.NewGuid(), 13),
-                new davClassLibrary.Models.TableObject(Guid.NewGuid(), 13),
-                new davClassLibrary.Models.TableObject(Guid.NewGuid(), 12)
+                await TableObject.CreateAsync(Guid.NewGuid(), 13),
+                await TableObject.CreateAsync(Guid.NewGuid(), 13),
+                await TableObject.CreateAsync(Guid.NewGuid(), 12)
             };
-            tableObjects[0].SetUploadStatus(TableObjectUploadStatus.Deleted);
+            await tableObjects[0].SetUploadStatusAsync(TableObject.TableObjectUploadStatus.Deleted);
 
             // Act
-            var allTableObjects = davClassLibrary.Dav.Database.GetAllTableObjects(true);
+            var allTableObjects = await davClassLibrary.Dav.Database.GetAllTableObjectsAsync(true);
 
             // Assert
             Assert.AreEqual(tableObjects.Count, allTableObjects.Count);
         }
 
         [Test]
-        public void GetAllTableObjectsShouldReturnAllTableObjectsExceptDeletedOnes()
+        public async Task GetAllTableObjectsShouldReturnAllTableObjectsExceptDeletedOnes()
         {
             // Arrange
             SQLiteConnection database = new SQLiteConnection(databasePath);
-            var tableObjects = new List<davClassLibrary.Models.TableObject>
+            var tableObjects = new List<TableObject>
             {
-                new davClassLibrary.Models.TableObject(Guid.NewGuid(), 13),
-                new davClassLibrary.Models.TableObject(Guid.NewGuid(), 13),
-                new davClassLibrary.Models.TableObject(Guid.NewGuid(), 12)
+                await TableObject.CreateAsync(Guid.NewGuid(), 13),
+                await TableObject.CreateAsync(Guid.NewGuid(), 13),
+                await TableObject.CreateAsync(Guid.NewGuid(), 12)
             };
-            tableObjects[0].SetUploadStatus(TableObjectUploadStatus.Deleted);
+            await tableObjects[0].SetUploadStatusAsync(TableObject.TableObjectUploadStatus.Deleted);
 
             // Act
-            var allTableObjects = davClassLibrary.Dav.Database.GetAllTableObjects(false);
+            var allTableObjects = await davClassLibrary.Dav.Database.GetAllTableObjectsAsync(false);
 
             // Assert
             Assert.AreEqual(tableObjects.Count - 1, allTableObjects.Count);
@@ -166,44 +167,44 @@ namespace davClassLibrary.Tests.DataAccess
 
         #region GetAllTableObjects(int tableId, bool deleted)
         [Test]
-        public void GetAllTableObjectsWithTableIdShouldReturnAllTableObjectsOfTheTable()
+        public async Task GetAllTableObjectsWithTableIdShouldReturnAllTableObjectsOfTheTable()
         {
             // Arrange
             SQLiteConnection database = new SQLiteConnection(databasePath);
             int tableId = 4;
-            var tableObjects = new List<davClassLibrary.Models.TableObject>
+            var tableObjects = new List<TableObject>
             {
-                new davClassLibrary.Models.TableObject(Guid.NewGuid(), tableId),
-                new davClassLibrary.Models.TableObject(Guid.NewGuid(), tableId),
-                new davClassLibrary.Models.TableObject(Guid.NewGuid(), tableId),
-                new davClassLibrary.Models.TableObject(Guid.NewGuid(), 3)
+                await TableObject.CreateAsync(Guid.NewGuid(), tableId),
+                await TableObject.CreateAsync(Guid.NewGuid(), tableId),
+                await TableObject.CreateAsync(Guid.NewGuid(), tableId),
+                await TableObject.CreateAsync(Guid.NewGuid(), 3)
             };
-            tableObjects[0].SetUploadStatus(TableObjectUploadStatus.Deleted);
+            await tableObjects[0].SetUploadStatusAsync(TableObject.TableObjectUploadStatus.Deleted);
 
             // Act
-            var allTableObjects = davClassLibrary.Dav.Database.GetAllTableObjects(tableId, true);
+            var allTableObjects = await davClassLibrary.Dav.Database.GetAllTableObjectsAsync(tableId, true);
 
             // Assert
             Assert.AreEqual(tableObjects.Count - 1, allTableObjects.Count);
         }
 
         [Test]
-        public void GetAllTableObjectsWithTableIdShouldReturnAlltableObjectsOfTheTableExceptDeletedOnes()
+        public async Task GetAllTableObjectsWithTableIdShouldReturnAlltableObjectsOfTheTableExceptDeletedOnes()
         {
             // Arrange
             SQLiteConnection database = new SQLiteConnection(databasePath);
             int tableId = 4;
-            var tableObjects = new List<davClassLibrary.Models.TableObject>
+            var tableObjects = new List<TableObject>
             {
-                new davClassLibrary.Models.TableObject(Guid.NewGuid(), tableId),
-                new davClassLibrary.Models.TableObject(Guid.NewGuid(), tableId),
-                new davClassLibrary.Models.TableObject(Guid.NewGuid(), tableId),
-                new davClassLibrary.Models.TableObject(Guid.NewGuid(), 3),
+                await TableObject.CreateAsync(Guid.NewGuid(), tableId),
+                await TableObject.CreateAsync(Guid.NewGuid(), tableId),
+                await TableObject.CreateAsync(Guid.NewGuid(), tableId),
+                await TableObject.CreateAsync(Guid.NewGuid(), 3),
             };
-            tableObjects[0].SetUploadStatus(TableObjectUploadStatus.Deleted);
+            await tableObjects[0].SetUploadStatusAsync(TableObject.TableObjectUploadStatus.Deleted);
 
             // Act
-            var allTableObjects = davClassLibrary.Dav.Database.GetAllTableObjects(tableId, false);
+            var allTableObjects = await davClassLibrary.Dav.Database.GetAllTableObjectsAsync(tableId, false);
 
             // Assert
             Assert.AreEqual(tableObjects.Count - 2, allTableObjects.Count);
@@ -212,15 +213,15 @@ namespace davClassLibrary.Tests.DataAccess
 
         #region GetTableObject
         [Test]
-        public void GetTableObjectShouldReturnTheTableObject()
+        public async Task GetTableObjectShouldReturnTheTableObject()
         {
             // Arrange
             Guid uuid = Guid.NewGuid();
             int tableId = 4;
-            var tableObject = new davClassLibrary.Models.TableObject(uuid, tableId);
+            var tableObject = await TableObject.CreateAsync(uuid, tableId);
 
             // Act
-            var tableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(uuid);
+            var tableObjectFromDatabase = await davClassLibrary.Dav.Database.GetTableObjectAsync(uuid);
 
             // Assert
             Assert.AreEqual(tableObject.Id, tableObjectFromDatabase.Id);
@@ -230,13 +231,13 @@ namespace davClassLibrary.Tests.DataAccess
         }
 
         [Test]
-        public void GetTableObjectShouldReturnNullWhenTheTableObjectDoesNotExist()
+        public async Task GetTableObjectShouldReturnNullWhenTheTableObjectDoesNotExist()
         {
             // Arrange
             Guid uuid = Guid.NewGuid();
 
             // Act
-            var tableObject = davClassLibrary.Dav.Database.GetTableObject(uuid);
+            var tableObject = await davClassLibrary.Dav.Database.GetTableObjectAsync(uuid);
 
             // Assert
             Assert.IsNull(tableObject);
@@ -245,7 +246,7 @@ namespace davClassLibrary.Tests.DataAccess
 
         #region GetPropertiesOfTableObject
         [Test]
-        public void GetPropertiesOfTableObjectShouldReturnAllPropertiesOfTheTableObject()
+        public async Task GetPropertiesOfTableObjectShouldReturnAllPropertiesOfTheTableObject()
         {
             // Arrange
             Guid uuid = Guid.NewGuid();
@@ -259,10 +260,10 @@ namespace davClassLibrary.Tests.DataAccess
                 new Property{ Name = firstPropertyName, Value = firstPropertyValue },
                 new Property{ Name = secondPropertyName, Value = secondPropertyValue }
             };
-            var tableObject = new davClassLibrary.Models.TableObject(uuid, tableId, properties);
+            var tableObject = await TableObject.CreateAsync(uuid, tableId, properties);
 
             // Act
-            var propertiesList = davClassLibrary.Dav.Database.GetPropertiesOfTableObject(tableObject.Id);
+            var propertiesList = await davClassLibrary.Dav.Database.GetPropertiesOfTableObjectAsync(tableObject.Id);
 
             // Assert
             Assert.AreEqual(firstPropertyName, propertiesList[0].Name);
@@ -274,27 +275,27 @@ namespace davClassLibrary.Tests.DataAccess
 
         #region TableObjectExists
         [Test]
-        public void TableObjectExistsShouldReturnTrueIfTheTableObjectExists()
+        public async Task TableObjectExistsShouldReturnTrueIfTheTableObjectExists()
         {
             // Arrange
             int tableId = 5;
-            var tableObject = new davClassLibrary.Models.TableObject(tableId);
+            var tableObject = await TableObject.CreateAsync(tableId);
 
             // Act
-            bool tableObjectExists = davClassLibrary.Dav.Database.TableObjectExists(tableObject.Uuid);
+            bool tableObjectExists = await davClassLibrary.Dav.Database.TableObjectExistsAsync(tableObject.Uuid);
 
             // Assert
             Assert.IsTrue(tableObjectExists);
         }
 
         [Test]
-        public void TableObjectExistsShouldReturnFalseIfTheTableObjectDoesNotExist()
+        public async Task TableObjectExistsShouldReturnFalseIfTheTableObjectDoesNotExist()
         {
             // Arrange
             Guid uuid = Guid.NewGuid();
 
             // Act
-            bool tableObjectExists = davClassLibrary.Dav.Database.TableObjectExists(uuid);
+            bool tableObjectExists = await davClassLibrary.Dav.Database.TableObjectExistsAsync(uuid);
 
             // Assert
             Assert.IsFalse(tableObjectExists);
@@ -303,46 +304,46 @@ namespace davClassLibrary.Tests.DataAccess
 
         #region UpdateTableObject
         [Test]
-        public void UpdateTableObjectShouldUpdateTheTableObjectInTheDatabase()
+        public async Task UpdateTableObjectShouldUpdateTheTableObjectInTheDatabase()
         {
             // Arrange
             Guid uuid = Guid.NewGuid();
             int tableId = 5;
             int oldVisibilityInt = 1;
             int newVisibilityInt = 2;
-            TableObjectVisibility newVisibility = TableObjectVisibility.Public;
-            var tableObjectData = new davClassLibrary.Models.TableObjectData
+            TableObject.TableObjectVisibility newVisibility = TableObject.TableObjectVisibility.Public;
+            var tableObjectData = new TableObjectData
             {
                 uuid = uuid,
                 table_id = tableId,
                 visibility = oldVisibilityInt
             };
-            var tableObject = davClassLibrary.Models.TableObject.ConvertTableObjectDataToTableObject(tableObjectData);
+            var tableObject = TableObject.ConvertTableObjectDataToTableObject(tableObjectData);
 
             // Save the tableObject in the db and create a new table object with the same uuid but different values
-            davClassLibrary.Dav.Database.CreateTableObject(tableObject);
+            await davClassLibrary.Dav.Database.CreateTableObjectAsync(tableObject);
 
-            var newTableObjectData = new davClassLibrary.Models.TableObjectData
+            var newTableObjectData = new TableObjectData
             {
                 uuid = uuid,
                 id = tableObject.Id,
                 table_id = tableId,
                 visibility = newVisibilityInt
             };
-            var newTableObject = davClassLibrary.Models.TableObject.ConvertTableObjectDataToTableObject(newTableObjectData);
+            var newTableObject = TableObject.ConvertTableObjectDataToTableObject(newTableObjectData);
 
             // Act
-            davClassLibrary.Dav.Database.UpdateTableObject(newTableObject);
+            await davClassLibrary.Dav.Database.UpdateTableObjectAsync(newTableObject);
 
             // Assert
-            var tableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(uuid);
+            var tableObjectFromDatabase = await davClassLibrary.Dav.Database.GetTableObjectAsync(uuid);
             Assert.AreEqual(tableId, tableObjectFromDatabase.TableId);
             Assert.AreEqual(newVisibility, tableObjectFromDatabase.Visibility);
             Assert.AreEqual(tableObject.Id, tableObjectFromDatabase.Id);
         }
 
         [Test]
-        public void UpdateTableObjectShouldNotThrowAnExceptionWhenTheTableObjectDoesNotExist()
+        public async Task UpdateTableObjectShouldNotThrowAnExceptionWhenTheTableObjectDoesNotExist()
         {
             // Arrange
             var tableObjectData = new TableObjectData
@@ -354,30 +355,30 @@ namespace davClassLibrary.Tests.DataAccess
             var tableObject = TableObject.ConvertTableObjectDataToTableObject(tableObjectData);
 
             // Act
-            davClassLibrary.Dav.Database.UpdateTableObject(tableObject);
+            await davClassLibrary.Dav.Database.UpdateTableObjectAsync(tableObject);
         }
         #endregion
 
         #region DeleteTableObject(Guid uuid)
         [Test]
-        public void DeleteTableObjectWithUuidShouldSetTheUploadStatusToDeleted()
+        public async Task DeleteTableObjectWithUuidShouldSetTheUploadStatusToDeleted()
         {
             // Arrange
             int tableId = 4;
             Guid uuid = Guid.NewGuid();
-            var tableObject = new TableObject(uuid, tableId);
+            var tableObject = await TableObject.CreateAsync(uuid, tableId);
 
             // Act
-            davClassLibrary.Dav.Database.DeleteTableObject(uuid);
+            await davClassLibrary.Dav.Database.DeleteTableObjectAsync(uuid);
 
             // Assert
-            var tableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(uuid);
-            Assert.AreEqual(TableObjectUploadStatus.Deleted, tableObjectFromDatabase.UploadStatus);
+            var tableObjectFromDatabase = await davClassLibrary.Dav.Database.GetTableObjectAsync(uuid);
+            Assert.AreEqual(TableObject.TableObjectUploadStatus.Deleted, tableObjectFromDatabase.UploadStatus);
             Assert.AreEqual(tableObject.Id, tableObjectFromDatabase.Id);
         }
 
         [Test]
-        public void DeleteTableObjectWithUuidShouldDeleteTheTableObjectAndItsPropertiesIfTheUploadStatusIsDeleted()
+        public async Task DeleteTableObjectWithUuidShouldDeleteTheTableObjectAndItsPropertiesIfTheUploadStatusIsDeleted()
         {
             // Arrange
             int tableId = 6;
@@ -387,47 +388,47 @@ namespace davClassLibrary.Tests.DataAccess
                 new Property{Name = "page1", Value = "Good day"},
                 new Property{Name = "page2", Value = "Guten Tag"}
             };
-            var tableObject = new TableObject(uuid, tableId, propertiesList);
-            tableObject.SetUploadStatus(TableObjectUploadStatus.Deleted);
+            var tableObject = await TableObject.CreateAsync(uuid, tableId, propertiesList);
+            await tableObject.SetUploadStatusAsync(TableObject.TableObjectUploadStatus.Deleted);
 
             int firstPropertyId = tableObject.Properties[0].Id;
             int secondPropertyId = tableObject.Properties[1].Id;
 
             // Act
-            davClassLibrary.Dav.Database.DeleteTableObject(uuid);
+            await davClassLibrary.Dav.Database.DeleteTableObjectAsync(uuid);
 
             // Assert
-            var tableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(uuid);
+            var tableObjectFromDatabase = await davClassLibrary.Dav.Database.GetTableObjectAsync(uuid);
             Assert.IsNull(tableObjectFromDatabase);
 
-            var firstPropertyFromDatabase = davClassLibrary.Dav.Database.GetProperty(firstPropertyId);
+            var firstPropertyFromDatabase = await davClassLibrary.Dav.Database.GetPropertyAsync(firstPropertyId);
             Assert.IsNull(firstPropertyFromDatabase);
 
-            var secondPropertyFromDatabase = davClassLibrary.Dav.Database.GetProperty(secondPropertyId);
+            var secondPropertyFromDatabase = await davClassLibrary.Dav.Database.GetPropertyAsync(secondPropertyId);
             Assert.IsNull(secondPropertyFromDatabase);
         }
         #endregion
 
         #region DeleteTableObject(TableObject tableObject)
         [Test]
-        public void DeleteTableObjectWithTableObjectShouldSetTheUploadStatusToDeleted()
+        public async Task DeleteTableObjectWithTableObjectShouldSetTheUploadStatusToDeleted()
         {
             // Arrange
             int tableId = 4;
             Guid uuid = Guid.NewGuid();
-            var tableObject = new TableObject(uuid, tableId);
+            var tableObject = await TableObject.CreateAsync(uuid, tableId);
 
             // Act
-            davClassLibrary.Dav.Database.DeleteTableObject(tableObject);
+            await davClassLibrary.Dav.Database.DeleteTableObjectAsync(tableObject);
 
             // Assert
-            var tableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(uuid);
-            Assert.AreEqual(TableObjectUploadStatus.Deleted, tableObjectFromDatabase.UploadStatus);
+            var tableObjectFromDatabase = await davClassLibrary.Dav.Database.GetTableObjectAsync(uuid);
+            Assert.AreEqual(TableObject.TableObjectUploadStatus.Deleted, tableObjectFromDatabase.UploadStatus);
             Assert.AreEqual(tableObject.Id, tableObjectFromDatabase.Id);
         }
 
         [Test]
-        public void DeleteTableObjectWithTableObjectShouldDeleteTheTableObjectAndItsPropertiesIfTheUploadStatusIsDeleted()
+        public async Task DeleteTableObjectWithTableObjectShouldDeleteTheTableObjectAndItsPropertiesIfTheUploadStatusIsDeleted()
         {
             // Arrange
             int tableId = 6;
@@ -437,30 +438,30 @@ namespace davClassLibrary.Tests.DataAccess
                 new Property{Name = "page1", Value = "Good day"},
                 new Property{Name = "page2", Value = "Guten Tag"}
             };
-            var tableObject = new TableObject(uuid, tableId, propertiesList);
-            tableObject.SetUploadStatus(TableObjectUploadStatus.Deleted);
+            var tableObject = await TableObject.CreateAsync(uuid, tableId, propertiesList);
+            await tableObject.SetUploadStatusAsync(TableObject.TableObjectUploadStatus.Deleted);
 
             int firstPropertyId = tableObject.Properties[0].Id;
             int secondPropertyId = tableObject.Properties[1].Id;
 
             // Act
-            davClassLibrary.Dav.Database.DeleteTableObject(tableObject);
+            await davClassLibrary.Dav.Database.DeleteTableObjectAsync(tableObject);
 
             // Assert
-            var tableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(uuid);
+            var tableObjectFromDatabase = await davClassLibrary.Dav.Database.GetTableObjectAsync(uuid);
             Assert.IsNull(tableObjectFromDatabase);
 
-            var firstPropertyFromDatabase = davClassLibrary.Dav.Database.GetProperty(firstPropertyId);
+            var firstPropertyFromDatabase = await davClassLibrary.Dav.Database.GetPropertyAsync(firstPropertyId);
             Assert.IsNull(firstPropertyFromDatabase);
 
-            var secondPropertyFromDatabase = davClassLibrary.Dav.Database.GetProperty(secondPropertyId);
+            var secondPropertyFromDatabase = await davClassLibrary.Dav.Database.GetPropertyAsync(secondPropertyId);
             Assert.IsNull(secondPropertyFromDatabase);
         }
         #endregion
 
         #region DeleteTableObjectImmediately(Guid uuid)
         [Test]
-        public void DeleteTableObjectImmediatelyWithUuidShouldDeleteTheTableObjectAndItsPropertiesImmediately()
+        public async Task DeleteTableObjectImmediatelyWithUuidShouldDeleteTheTableObjectAndItsPropertiesImmediately()
         {
             // Arrange
             int tableId = 4;
@@ -470,29 +471,29 @@ namespace davClassLibrary.Tests.DataAccess
                 new Property{ Name = "test", Value = "test" },
                 new Property {Name = "bla", Value = "bla" }
             };
-            var tableObject = new TableObject(uuid, tableId, properties);
+            var tableObject = await TableObject.CreateAsync(uuid, tableId, properties);
 
             int firstPropertyId = tableObject.Properties[0].Id;
             int secondPropertyId = tableObject.Properties[1].Id;
 
             // Act
-            davClassLibrary.Dav.Database.DeleteTableObjectImmediately(uuid);
+            await davClassLibrary.Dav.Database.DeleteTableObjectImmediatelyAsync(uuid);
 
             // Assert
-            var tableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(uuid);
+            var tableObjectFromDatabase = await davClassLibrary.Dav.Database.GetTableObjectAsync(uuid);
             Assert.IsNull(tableObjectFromDatabase);
 
-            var firstPropertyFromDatabase = davClassLibrary.Dav.Database.GetProperty(firstPropertyId);
+            var firstPropertyFromDatabase = await davClassLibrary.Dav.Database.GetPropertyAsync(firstPropertyId);
             Assert.IsNull(firstPropertyFromDatabase);
 
-            var secondPropertyFromDatabase = davClassLibrary.Dav.Database.GetProperty(secondPropertyId);
+            var secondPropertyFromDatabase = await davClassLibrary.Dav.Database.GetPropertyAsync(secondPropertyId);
             Assert.IsNull(secondPropertyFromDatabase);
         }
         #endregion
 
         #region DeleteTableObjectImmediately(TableObject tableObject)
         [Test]
-        public void DeleteTableObjectImmediatelyWithTableObjectShouldDeleteTheTableObjectAndItsPropertiesImmediately()
+        public async Task DeleteTableObjectImmediatelyWithTableObjectShouldDeleteTheTableObjectAndItsPropertiesImmediately()
         {
             // Arrange
             int tableId = 6;
@@ -502,36 +503,36 @@ namespace davClassLibrary.Tests.DataAccess
                 new Property{Name = "page1", Value = "Good day"},
                 new Property{Name = "page2", Value = "Guten Tag"}
             };
-            var tableObject = new TableObject(uuid, tableId, propertiesList);
+            var tableObject = await TableObject.CreateAsync(uuid, tableId, propertiesList);
 
             int firstPropertyId = tableObject.Properties[0].Id;
             int secondPropertyId = tableObject.Properties[1].Id;
 
             // Act
-            davClassLibrary.Dav.Database.DeleteTableObjectImmediately(tableObject);
+            await davClassLibrary.Dav.Database.DeleteTableObjectImmediatelyAsync(tableObject);
 
             // Assert
-            var tableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(uuid);
+            var tableObjectFromDatabase = await davClassLibrary.Dav.Database.GetTableObjectAsync(uuid);
             Assert.IsNull(tableObjectFromDatabase);
 
-            var firstPropertyFromDatabase = davClassLibrary.Dav.Database.GetProperty(firstPropertyId);
+            var firstPropertyFromDatabase = await davClassLibrary.Dav.Database.GetPropertyAsync(firstPropertyId);
             Assert.IsNull(firstPropertyFromDatabase);
 
-            var secondPropertyFromDatabase = davClassLibrary.Dav.Database.GetProperty(secondPropertyId);
+            var secondPropertyFromDatabase = await davClassLibrary.Dav.Database.GetPropertyAsync(secondPropertyId);
             Assert.IsNull(secondPropertyFromDatabase);
         }
         #endregion
 
         #region CreateProperty
         [Test]
-        public void CreatePropertyShouldSaveThePropertyInTheDatabaseAndReturnThePropertyId()
+        public async Task CreatePropertyShouldSaveThePropertyInTheDatabaseAndReturnThePropertyId()
         {
             // Arrange
             SQLiteConnection database = new SQLiteConnection(databasePath);
             var property = new Property { Name = "page1", Value = "Test", TableObjectId = -1 };
 
             // Act
-            int id = davClassLibrary.Dav.Database.CreateProperty(property);
+            int id = await davClassLibrary.Dav.Database.CreatePropertyAsync(property);
 
             // Assert
             var propertyFromDatabase = database.Get<Property>(id);
@@ -543,15 +544,15 @@ namespace davClassLibrary.Tests.DataAccess
 
         #region GetProperty
         [Test]
-        public void GetPropertyShouldReturnThePropertyFromTheDatabase()
+        public async Task GetPropertyShouldReturnThePropertyFromTheDatabase()
         {
             // Arrange
             SQLiteConnection database = new SQLiteConnection(databasePath);
             var property = new Property { Name = "page1", Value = "Test", TableObjectId = -1 };
-            property.Id = davClassLibrary.Dav.Database.CreateProperty(property);
+            property.Id = await davClassLibrary.Dav.Database.CreatePropertyAsync(property);
 
             // Act
-            var propertyFromDatabase = davClassLibrary.Dav.Database.GetProperty(property.Id);
+            var propertyFromDatabase = await davClassLibrary.Dav.Database.GetPropertyAsync(property.Id);
 
             // Assert
             Assert.AreEqual(property.Id, propertyFromDatabase.Id);
@@ -561,13 +562,13 @@ namespace davClassLibrary.Tests.DataAccess
         }
 
         [Test]
-        public void GetPropertyShouldReturnNullIfThePropertyDoesNotExist()
+        public async Task GetPropertyShouldReturnNullIfThePropertyDoesNotExist()
         {
             // Arrange
             int propertyId = -13;
 
             // Act
-            var property = davClassLibrary.Dav.Database.GetProperty(propertyId);
+            var property = await davClassLibrary.Dav.Database.GetPropertyAsync(propertyId);
 
             // Assert
             Assert.IsNull(property);
@@ -576,27 +577,27 @@ namespace davClassLibrary.Tests.DataAccess
 
         #region PropertyExists
         [Test]
-        public void PropertyExistsShouldReturnTrueIfThePropertyExists()
+        public async Task PropertyExistsShouldReturnTrueIfThePropertyExists()
         {
             // Arrange
             var property = new Property { Name = "page1", Value = "Guten Tag", TableObjectId = -2 };
-            property.Id = davClassLibrary.Dav.Database.CreateProperty(property);
+            property.Id = await davClassLibrary.Dav.Database.CreatePropertyAsync(property);
 
             // Act
-            bool propertyExists = davClassLibrary.Dav.Database.PropertyExists(property.Id);
+            bool propertyExists = await davClassLibrary.Dav.Database.PropertyExistsAsync(property.Id);
 
             // Assert
             Assert.IsTrue(propertyExists);
         }
 
         [Test]
-        public void PropertyExistsShouldReturnFalseIfThePropertyDoesNotExist()
+        public async Task PropertyExistsShouldReturnFalseIfThePropertyDoesNotExist()
         {
             // Arrange
             int propertyId = -13;
 
             // Act
-            bool propertyExists = davClassLibrary.Dav.Database.PropertyExists(propertyId);
+            bool propertyExists = await davClassLibrary.Dav.Database.PropertyExistsAsync(propertyId);
 
             // Assert
             Assert.IsFalse(propertyExists);
@@ -605,7 +606,7 @@ namespace davClassLibrary.Tests.DataAccess
 
         #region UpdateProperty
         [Test]
-        public void UpdatePropertyShouldUpdateThePropertyInTheDatabase()
+        public async Task UpdatePropertyShouldUpdateThePropertyInTheDatabase()
         {
             // Arrange
             SQLiteConnection database = new SQLiteConnection(databasePath);
@@ -616,11 +617,11 @@ namespace davClassLibrary.Tests.DataAccess
             int tableObjectId = -2;
             // Create a property, save it and then create a new property with the same id to update it
             var oldProperty = new Property { Name = oldPropertyName, Value = oldPropertyValue, TableObjectId = tableObjectId };
-            oldProperty.Id = davClassLibrary.Dav.Database.CreateProperty(oldProperty);
+            oldProperty.Id = await davClassLibrary.Dav.Database.CreatePropertyAsync(oldProperty);
             var newProperty = new Property { Id = oldProperty.Id, Name = newPropertyName, Value = newPropertyValue, TableObjectId = tableObjectId };
 
             // Act
-            davClassLibrary.Dav.Database.UpdateProperty(newProperty);
+            await davClassLibrary.Dav.Database.UpdatePropertyAsync(newProperty);
 
             // Assert
             var propertyFromDatabase = database.Get<Property>(oldProperty.Id);
@@ -631,27 +632,27 @@ namespace davClassLibrary.Tests.DataAccess
         }
 
         [Test]
-        public void UpdatePropertyShouldNotThrowAnExceptionWhenThePropertyDoesNotExist()
+        public async Task UpdatePropertyShouldNotThrowAnExceptionWhenThePropertyDoesNotExist()
         {
             // Arrange
             var property = new Property { Id = -2, Name = "bla", Value = "blabla", TableObjectId = -2 };
 
             // Act
-            davClassLibrary.Dav.Database.UpdateProperty(property);
+            await davClassLibrary.Dav.Database.UpdatePropertyAsync(property);
         }
         #endregion
 
         #region DeleteProperty(int id)
         [Test]
-        public void DeletePropertyWithIdShouldDeleteThePropertyFromTheDatabase()
+        public async Task DeletePropertyWithIdShouldDeleteThePropertyFromTheDatabase()
         {
             // Arrange
             SQLiteConnection database = new SQLiteConnection(databasePath);
             var property = new Property { Name = "bla", Value = "blabla", TableObjectId = -2 };
-            property.Id = davClassLibrary.Dav.Database.CreateProperty(property);
+            property.Id = await davClassLibrary.Dav.Database.CreatePropertyAsync(property);
 
             // Act
-            davClassLibrary.Dav.Database.DeleteProperty(property.Id);
+            await davClassLibrary.Dav.Database.DeletePropertyAsync(property.Id);
 
             // Assert
             var propertyFromDatabase = database.Query<Property>("SELECT * FROM Property WHERE Id = " + property.Id);
@@ -659,27 +660,27 @@ namespace davClassLibrary.Tests.DataAccess
         }
 
         [Test]
-        public void DeletePropertyWithIdShouldNotThrowAnExceptionIfThePropertyDoesNotExist()
+        public async Task DeletePropertyWithIdShouldNotThrowAnExceptionIfThePropertyDoesNotExist()
         {
             // Arrange
             int propertyId = -13;
 
             // Act
-            davClassLibrary.Dav.Database.DeleteProperty(propertyId);
+            await davClassLibrary.Dav.Database.DeletePropertyAsync(propertyId);
         }
         #endregion
 
         #region DeleteProperty(Property property)
         [Test]
-        public void DeletePropertyWithPropertyShouldDeleteThePropertyFromTheDatabase()
+        public async Task DeletePropertyWithPropertyShouldDeleteThePropertyFromTheDatabase()
         {
             // Arrange
             SQLiteConnection database = new SQLiteConnection(databasePath);
             var property = new Property { Name = "bla", Value = "blabla", TableObjectId = -2 };
-            property.Id = davClassLibrary.Dav.Database.CreateProperty(property);
+            property.Id = await davClassLibrary.Dav.Database.CreatePropertyAsync(property);
 
             // Act
-            davClassLibrary.Dav.Database.DeleteProperty(property);
+            await davClassLibrary.Dav.Database.DeletePropertyAsync(property);
 
             // Assert
             var propertyFromDatabase = database.Query<Property>("SELECT * FROM Property WHERE Id = " + property.Id);
@@ -687,13 +688,13 @@ namespace davClassLibrary.Tests.DataAccess
         }
 
         [Test]
-        public void DeletePropertyWithPropertyShouldNotThrowAnExceptionIfThePropertyDoesNotExist()
+        public async Task DeletePropertyWithPropertyShouldNotThrowAnExceptionIfThePropertyDoesNotExist()
         {
             // Arrange
             var property = new Property { Name = "blabla", Value = "test", Id = -2, TableObjectId = -1 };
 
             // Act
-            davClassLibrary.Dav.Database.DeleteProperty(property);
+            await davClassLibrary.Dav.Database.DeletePropertyAsync(property);
         }
         #endregion
 
@@ -705,7 +706,7 @@ namespace davClassLibrary.Tests.DataAccess
             var uuid = Dav.TestDataFirstTableObject.uuid;
 
             // Act
-            var response = await davClassLibrary.DataAccess.DataManager.HttpGet(Dav.Jwt, "apps/object/" + uuid);
+            var response = await davClassLibrary.DataAccess.DataManager.HttpGetAsync(Dav.Jwt, "apps/object/" + uuid);
 
             // Assert
             Assert.IsTrue(response.Key);
@@ -718,7 +719,7 @@ namespace davClassLibrary.Tests.DataAccess
             var uuid = Guid.NewGuid();
 
             // Act
-            var response = await davClassLibrary.DataAccess.DataManager.HttpGet(Dav.Jwt, "apps/object/" + uuid);
+            var response = await davClassLibrary.DataAccess.DataManager.HttpGetAsync(Dav.Jwt, "apps/object/" + uuid);
 
             // Assert
             Assert.IsFalse(response.Key);
@@ -734,7 +735,7 @@ namespace davClassLibrary.Tests.DataAccess
             await davClassLibrary.DataAccess.DataManager.Sync();
 
             // Copy image.jpg, which is the file of the uploaded table object
-            var fileTableObject = davClassLibrary.Dav.Database.GetAllTableObjects(Dav.TableIds[1], false)[0];
+            var fileTableObject = (await davClassLibrary.Dav.Database.GetAllTableObjectsAsync(Dav.TableIds[1], false))[0];
             var tableFolder = Directory.CreateDirectory(Path.Combine(Dav.GetDavDataPath(), fileTableObject.TableId.ToString()));
             File.Copy(Path.Combine(Dav.ProjectDirectory, "Assets", "image.jpg"), Path.Combine(tableFolder.FullName, fileTableObject.Uuid.ToString()), true);
 
@@ -742,19 +743,19 @@ namespace davClassLibrary.Tests.DataAccess
             var exportFolder = Directory.CreateDirectory(Path.Combine(Dav.GetDavDataPath(), "export"));
 
             // Act
-            await davClassLibrary.DataAccess.DataManager.ExportData(exportFolder, progress);
+            await davClassLibrary.DataAccess.DataManager.ExportDataAsync(exportFolder, progress);
 
             // Assert
             FileInfo dataFile = new FileInfo(Path.Combine(exportFolder.FullName, davClassLibrary.Dav.ExportDataFileName));
             FileAssert.Exists(dataFile);
 
             // Read the file and deserialize the content
-            var firstTableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(Dav.TestDataFirstTableObject.uuid);
-            var secondTableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(Dav.TestDataSecondTableObject.uuid);
+            var firstTableObjectFromDatabase = await davClassLibrary.Dav.Database.GetTableObjectAsync(Dav.TestDataFirstTableObject.uuid);
+            var secondTableObjectFromDatabase = await davClassLibrary.Dav.Database.GetTableObjectAsync(Dav.TestDataSecondTableObject.uuid);
             var data = davClassLibrary.DataAccess.DataManager.GetDataFromFile(dataFile);
             Assert.AreEqual(firstTableObjectFromDatabase.Id, data[0].id);
             Assert.AreEqual(firstTableObjectFromDatabase.TableId, data[0].table_id);
-            Assert.AreEqual(davClassLibrary.Models.TableObject.ParseVisibilityToInt(firstTableObjectFromDatabase.Visibility), data[0].visibility);
+            Assert.AreEqual(TableObject.ParseVisibilityToInt(firstTableObjectFromDatabase.Visibility), data[0].visibility);
             Assert.AreEqual(firstTableObjectFromDatabase.Uuid, data[0].uuid);
             Assert.AreEqual(firstTableObjectFromDatabase.IsFile, data[0].file);
             Assert.AreEqual(firstTableObjectFromDatabase.GetPropertyValue(Dav.TestDataFirstPropertyName), data[0].properties[Dav.TestDataFirstPropertyName]);
@@ -763,7 +764,7 @@ namespace davClassLibrary.Tests.DataAccess
 
             Assert.AreEqual(secondTableObjectFromDatabase.Id, data[1].id);
             Assert.AreEqual(secondTableObjectFromDatabase.TableId, data[1].table_id);
-            Assert.AreEqual(davClassLibrary.Models.TableObject.ParseVisibilityToInt(secondTableObjectFromDatabase.Visibility), data[1].visibility);
+            Assert.AreEqual(TableObject.ParseVisibilityToInt(secondTableObjectFromDatabase.Visibility), data[1].visibility);
             Assert.AreEqual(secondTableObjectFromDatabase.Uuid, data[1].uuid);
             Assert.AreEqual(secondTableObjectFromDatabase.IsFile, data[1].file);
             Assert.AreEqual(secondTableObjectFromDatabase.GetPropertyValue(Dav.TestDataFirstPropertyName), data[1].properties[Dav.TestDataFirstPropertyName]);
@@ -778,13 +779,13 @@ namespace davClassLibrary.Tests.DataAccess
             ProjectInterface.LocalDataSettings.SetValue(davClassLibrary.Dav.jwtKey, null);
             var uuid = Guid.NewGuid();
             FileInfo file = new FileInfo(Path.Combine(Dav.ProjectDirectory, "Assets", "image.jpg"));
-            var tableObject = new davClassLibrary.Models.TableObject(uuid, Dav.TestFileTableId, file);
+            var tableObject = await TableObject.CreateAsync(uuid, Dav.TestFileTableId, file);
 
             var progress = new Progress<int>();
             var exportFolder = Directory.CreateDirectory(Path.Combine(Dav.GetDavDataPath(), "export"));
 
             // Act
-            await davClassLibrary.DataAccess.DataManager.ExportData(exportFolder, progress);
+            await davClassLibrary.DataAccess.DataManager.ExportDataAsync(exportFolder, progress);
 
             // Assert
             FileInfo dataFile = new FileInfo(Path.Combine(exportFolder.FullName, davClassLibrary.Dav.ExportDataFileName));
@@ -794,7 +795,7 @@ namespace davClassLibrary.Tests.DataAccess
 
             Assert.AreEqual(tableObject.Id, data[0].id);
             Assert.AreEqual(tableObject.TableId, data[0].table_id);
-            Assert.AreEqual(davClassLibrary.Models.TableObject.ParseVisibilityToInt(tableObject.Visibility), data[0].visibility);
+            Assert.AreEqual(TableObject.ParseVisibilityToInt(tableObject.Visibility), data[0].visibility);
             Assert.AreEqual(tableObject.Uuid, data[0].uuid);
             Assert.AreEqual(tableObject.IsFile, data[0].file);
             Assert.AreEqual(tableObject.Etag, data[0].etag);
@@ -812,34 +813,34 @@ namespace davClassLibrary.Tests.DataAccess
 
             var progress = new Progress<int>();
             var exportFolder = Directory.CreateDirectory(Path.Combine(Dav.GetDavDataPath(), exportFolderName));
-            await davClassLibrary.DataAccess.DataManager.ExportData(exportFolder, progress);
+            await davClassLibrary.DataAccess.DataManager.ExportDataAsync(exportFolder, progress);
             progress = new Progress<int>();
 
             // Clear the database
             ProjectInterface.LocalDataSettings.SetValue(davClassLibrary.Dav.jwtKey, null);
-            var firstTableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(Dav.TestDataFirstTableObject.uuid);
-            var secondTableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(Dav.TestDataSecondTableObject.uuid);
-            firstTableObjectFromDatabase.DeleteImmediately();
-            secondTableObjectFromDatabase.DeleteImmediately();
+            var firstTableObjectFromDatabase = await davClassLibrary.Dav.Database.GetTableObjectAsync(Dav.TestDataFirstTableObject.uuid);
+            var secondTableObjectFromDatabase = await davClassLibrary.Dav.Database.GetTableObjectAsync(Dav.TestDataSecondTableObject.uuid);
+            await firstTableObjectFromDatabase.DeleteImmediatelyAsync();
+            await secondTableObjectFromDatabase.DeleteImmediatelyAsync();
 
             // Act
-            davClassLibrary.DataAccess.DataManager.ImportData(exportFolder, progress);
+            await davClassLibrary.DataAccess.DataManager.ImportDataAsync(exportFolder, progress);
 
             // Assert
-            firstTableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(Dav.TestDataFirstTableObject.uuid);
-            secondTableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(Dav.TestDataSecondTableObject.uuid);
+            firstTableObjectFromDatabase = await davClassLibrary.Dav.Database.GetTableObjectAsync(Dav.TestDataFirstTableObject.uuid);
+            secondTableObjectFromDatabase = await davClassLibrary.Dav.Database.GetTableObjectAsync(Dav.TestDataSecondTableObject.uuid);
             Assert.IsNotNull(firstTableObjectFromDatabase);
             Assert.IsNotNull(secondTableObjectFromDatabase);
 
             Assert.AreEqual(Dav.TestDataFirstTableObject.table_id, firstTableObjectFromDatabase.TableId);
-            Assert.AreEqual(Dav.TestDataFirstTableObject.visibility, davClassLibrary.Models.TableObject.ParseVisibilityToInt(firstTableObjectFromDatabase.Visibility));
+            Assert.AreEqual(Dav.TestDataFirstTableObject.visibility, TableObject.ParseVisibilityToInt(firstTableObjectFromDatabase.Visibility));
             Assert.AreEqual(Dav.TestDataFirstTableObject.uuid, firstTableObjectFromDatabase.Uuid);
             Assert.AreEqual(Dav.TestDataFirstTableObject.file, firstTableObjectFromDatabase.IsFile);
             Assert.AreEqual(Dav.TestDataFirstTableObject.properties[Dav.TestDataFirstPropertyName], firstTableObjectFromDatabase.GetPropertyValue(Dav.TestDataFirstPropertyName));
             Assert.AreEqual(Dav.TestDataFirstTableObject.properties[Dav.TestDataSecondPropertyName], firstTableObjectFromDatabase.GetPropertyValue(Dav.TestDataSecondPropertyName));
 
             Assert.AreEqual(Dav.TestDataSecondTableObject.table_id, secondTableObjectFromDatabase.TableId);
-            Assert.AreEqual(Dav.TestDataSecondTableObject.visibility, davClassLibrary.Models.TableObject.ParseVisibilityToInt(secondTableObjectFromDatabase.Visibility));
+            Assert.AreEqual(Dav.TestDataSecondTableObject.visibility, TableObject.ParseVisibilityToInt(secondTableObjectFromDatabase.Visibility));
             Assert.AreEqual(Dav.TestDataSecondTableObject.uuid, secondTableObjectFromDatabase.Uuid);
             Assert.AreEqual(Dav.TestDataSecondTableObject.file, secondTableObjectFromDatabase.IsFile);
             Assert.AreEqual(Dav.TestDataSecondTableObject.properties[Dav.TestDataFirstPropertyName], secondTableObjectFromDatabase.GetPropertyValue(Dav.TestDataFirstPropertyName));
@@ -854,25 +855,25 @@ namespace davClassLibrary.Tests.DataAccess
             var uuid = Guid.NewGuid();
             string exportFolderName = "export";
             FileInfo file = new FileInfo(Path.Combine(Dav.ProjectDirectory, "Assets", "image.jpg"));
-            var tableObject = new davClassLibrary.Models.TableObject(uuid, Dav.TestFileTableId, file);
+            var tableObject = await TableObject.CreateAsync(uuid, Dav.TestFileTableId, file);
             FileAssert.Exists(Path.Combine(Dav.GetDavDataPath(), Dav.TestFileTableId.ToString(), uuid.ToString()));
 
             var progress = new Progress<int>();
             var exportFolder = Directory.CreateDirectory(Path.Combine(Dav.GetDavDataPath(), exportFolderName));
-            await davClassLibrary.DataAccess.DataManager.ExportData(exportFolder, progress);
+            await davClassLibrary.DataAccess.DataManager.ExportDataAsync(exportFolder, progress);
             progress = new Progress<int>();
 
             // Clear the database
             ProjectInterface.LocalDataSettings.SetValue(davClassLibrary.Dav.jwtKey, null);
-            var tableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(uuid);
-            tableObjectFromDatabase.DeleteImmediately();
+            var tableObjectFromDatabase = await davClassLibrary.Dav.Database.GetTableObjectAsync(uuid);
+            await tableObjectFromDatabase.DeleteImmediatelyAsync();
             FileAssert.DoesNotExist(Path.Combine(Dav.GetDavDataPath(), Dav.TestFileTableId.ToString(), uuid.ToString()));
 
             // Act
-            davClassLibrary.DataAccess.DataManager.ImportData(exportFolder, progress);
+            await davClassLibrary.DataAccess.DataManager.ImportDataAsync(exportFolder, progress);
 
             // Assert
-            tableObjectFromDatabase = davClassLibrary.Dav.Database.GetTableObject(uuid);
+            tableObjectFromDatabase = await davClassLibrary.Dav.Database.GetTableObjectAsync(uuid);
             Assert.IsNotNull(tableObjectFromDatabase);
             FileAssert.Exists(Path.Combine(Dav.GetDavDataPath(), Dav.TestFileTableId.ToString(), uuid.ToString()));
             Assert.AreEqual(tableObject.TableId, tableObjectFromDatabase.TableId);
