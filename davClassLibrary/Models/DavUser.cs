@@ -68,21 +68,21 @@ namespace davClassLibrary.Models
                 IsLoggedIn = false;
         }
 
-        public async Task Init()
+        public async Task InitAsync()
         {
             if (IsLoggedIn)
             {
-                await DownloadUserInformation();
+                await DownloadUserInformationAsync();
                 DataManager.EstablishWebsocketConnection();
                 DataManager.Sync();
             }
         }
 
-        public async Task Login(string jwt)
+        public async Task LoginAsync(string jwt)
         {
             JWT = jwt;
             IsLoggedIn = true;
-            if(await DownloadUserInformation())
+            if(await DownloadUserInformationAsync())
             {
                 DataManager.Sync();
                 DataManager.EstablishWebsocketConnection();
@@ -110,7 +110,7 @@ namespace davClassLibrary.Models
             DataManager.CloseWebsocketConnection();
         }
 
-        private async Task<bool> DownloadUserInformation()
+        private async Task<bool> DownloadUserInformationAsync()
         {
             if (IsLoggedIn)
             {
