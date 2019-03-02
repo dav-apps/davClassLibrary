@@ -2,6 +2,7 @@
 using davClassLibrary.Tests.Common;
 using NUnit.Framework;
 using System.IO;
+using System.Threading.Tasks;
 
 namespace davClassLibrary.Tests.Models
 {
@@ -19,7 +20,7 @@ namespace davClassLibrary.Tests.Models
         }
 
         [SetUp]
-        public void Setup()
+        public async Task Setup()
         {
             // Delete all files and folders in the test folder except the database file
             var davFolder = new DirectoryInfo(Dav.GetDavDataPath());
@@ -28,13 +29,13 @@ namespace davClassLibrary.Tests.Models
 
             // Clear the database
             var database = new davClassLibrary.DataAccess.DavDatabase();
-            database.Drop();
+            await database.DropAsync();
         }
         #endregion
 
-        #region Constructors
+        #region Create
         [Test]
-        public static void ConstructorWithTableObjectIdNameAndValueShouldCreateANewPropertyAndSaveItInTheDatabase()
+        public async Task CreateWithTableObjectIdNameAndValueShouldCreateNewProperty()
         {
             // Arrange
             int tableObjectId = -1;
@@ -42,10 +43,10 @@ namespace davClassLibrary.Tests.Models
             string propertyValue = "value";
 
             // Act
-            var property = new davClassLibrary.Models.Property(tableObjectId, propertyName, propertyValue);
+            var property = await davClassLibrary.Models.Property.CreateAsync(tableObjectId, propertyName, propertyValue);
 
             // Assert
-            var propertyFromDatabase = davClassLibrary.Dav.Database.GetProperty(property.Id);
+            var propertyFromDatabase = await davClassLibrary.Dav.Database.GetPropertyAsync(property.Id);
             Assert.AreEqual(property.Id, propertyFromDatabase.Id);
             Assert.AreEqual(tableObjectId, propertyFromDatabase.TableObjectId);
             Assert.AreEqual(propertyName, propertyFromDatabase.Name);
@@ -55,20 +56,20 @@ namespace davClassLibrary.Tests.Models
 
         #region SetValue
         [Test]
-        public void SetValueShouldUpdateThePropertyWithTheNewValueInTheDatabase()
+        public async Task SetValueShouldUpdateThePropertyWithTheNewValueInTheDatabase()
         {
             // Arrange
             string propertyName = "test1";
             string oldPropertyValue = "bla";
             string newPropertyValue = "blablabla";
             int tableObjectId = -13;
-            var property = new davClassLibrary.Models.Property(tableObjectId, propertyName, oldPropertyValue);
+            var property = await davClassLibrary.Models.Property.CreateAsync(tableObjectId, propertyName, oldPropertyValue);
 
             // Act
-            property.SetValue(newPropertyValue);
+            await property.SetValueAsync(newPropertyValue);
 
             // Assert
-            var propertyFromDatabase = davClassLibrary.Dav.Database.GetProperty(property.Id);
+            var propertyFromDatabase = await davClassLibrary.Dav.Database.GetPropertyAsync(property.Id);
             Assert.AreEqual(newPropertyValue, property.Value);
             Assert.AreEqual(newPropertyValue, propertyFromDatabase.Value);
             Assert.AreEqual(propertyName, propertyFromDatabase.Name);

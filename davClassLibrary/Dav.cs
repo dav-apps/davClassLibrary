@@ -21,7 +21,7 @@ namespace davClassLibrary
         public const string GetUserUrl = "auth/user";
 
         private const string ApiBaseUrlProduction = "https://dav-backend.herokuapp.com/v1/";
-        private const string ApiBaseUrlDevelopment = "https://52ac789d.ngrok.io/v1/";
+        private const string ApiBaseUrlDevelopment = "https://97298eb8.ngrok.io/v1/";
         public static string ApiBaseUrl => Environment == DavEnvironment.Production ? ApiBaseUrlProduction : ApiBaseUrlDevelopment;
         public static string DataPath
         {
