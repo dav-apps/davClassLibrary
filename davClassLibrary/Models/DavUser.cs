@@ -73,8 +73,7 @@ namespace davClassLibrary.Models
             if (IsLoggedIn)
             {
                 await DownloadUserInformationAsync();
-                DataManager.EstablishWebsocketConnection();
-                DataManager.Sync();
+                var x = DataManager.Sync();
             }
         }
 
@@ -84,8 +83,7 @@ namespace davClassLibrary.Models
             IsLoggedIn = true;
             if(await DownloadUserInformationAsync())
             {
-                DataManager.Sync();
-                DataManager.EstablishWebsocketConnection();
+                var x = DataManager.Sync();
             }
             else
                 Logout();

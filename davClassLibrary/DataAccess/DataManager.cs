@@ -32,7 +32,7 @@ namespace davClassLibrary.DataAccess
         private const string extPropertyName = "ext";
         private static IWebSocketConnection webSocketConnection;
 
-        public static async void Sync()
+        public static async Task Sync()
         {
             if (isSyncing) return;
 
@@ -283,8 +283,11 @@ namespace davClassLibrary.DataAccess
                 }
             }
 
-            if(allTableGetResultsOkay)
+            if (allTableGetResultsOkay)
+            {
                 ProjectInterface.TriggerAction.SyncFinished();
+                EstablishWebsocketConnection();
+            }
         }
 
         public static async Task SyncPush()
