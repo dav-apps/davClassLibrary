@@ -1,6 +1,5 @@
 ﻿using davClassLibrary.Common;
 using davClassLibrary.DataAccess;
-using System;
 using System.Diagnostics;
 using System.IO;
 using System.Net;
@@ -59,7 +58,7 @@ namespace davClassLibrary.Models
         public DavUser()
         {
             // Get the user information from the local settings
-            if(!String.IsNullOrEmpty(ProjectInterface.LocalDataSettings.GetValue(Dav.jwtKey)))
+            if(!string.IsNullOrEmpty(ProjectInterface.LocalDataSettings.GetValue(Dav.jwtKey)))
             {
                 // User is logged in. Get the user information
                 IsLoggedIn = true;
@@ -75,7 +74,7 @@ namespace davClassLibrary.Models
             {
                 await DownloadUserInformation();
                 DataManager.EstablishWebsocketConnection();
-                await DataManager.Sync();
+                DataManager.Sync();
             }
         }
 
@@ -134,7 +133,7 @@ namespace davClassLibrary.Models
                     string avatarFileName = "avatar.png";
                     var avatarFilePath = Path.Combine(Dav.DataPath, avatarFileName);
 
-                    if (!String.Equals(AvatarEtag, newAvatarEtag) || !File.Exists(avatarFilePath))
+                    if (!string.Equals(AvatarEtag, newAvatarEtag) || !File.Exists(avatarFilePath))
                     {
                         // Download the new avatar
                         DownloadAvatar(dataReader.avatar);
@@ -181,15 +180,13 @@ namespace davClassLibrary.Models
 
         public static long GetTotalStorage()
         {
-            long totalStorage = 0;
-            long.TryParse(ProjectInterface.LocalDataSettings.GetValue(Dav.totalStorageKey), out totalStorage);
+            long.TryParse(ProjectInterface.LocalDataSettings.GetValue(Dav.totalStorageKey), out long totalStorage);
             return totalStorage;
         }
 
         public static long GetUsedStorage()
         {
-            long usedStorage = 0;
-            long.TryParse(ProjectInterface.LocalDataSettings.GetValue(Dav.usedStorageKey), out usedStorage);
+            long.TryParse(ProjectInterface.LocalDataSettings.GetValue(Dav.usedStorageKey), out long usedStorage);
             return usedStorage;
         }
 
@@ -198,8 +195,7 @@ namespace davClassLibrary.Models
             var plan = ProjectInterface.LocalDataSettings.GetValue(Dav.planKey);
             if(plan != null)
             {
-                var planInt = 0;
-                int.TryParse(plan, out planInt);
+                int.TryParse(plan, out int planInt);
                 return ParseIntToDavPlan(planInt);
             }
             else

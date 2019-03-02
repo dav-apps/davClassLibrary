@@ -22,12 +22,12 @@ namespace davClassLibrary.DataAccess
             syncDatabase.CreateTable<Property>();
         }
         
-        public void DropAsync()
+        public async Task DropAsync()
         {
-            database.DropTableAsync<TableObject>();
-            database.DropTableAsync<Property>();
-            database.CreateTableAsync<TableObject>();
-            database.CreateTableAsync<Property>();
+            await database.DropTableAsync<TableObject>();
+            await database.DropTableAsync<Property>();
+            await database.CreateTableAsync<TableObject>();
+            await database.CreateTableAsync<Property>();
         }
 
         #region CRUD for TableObject
@@ -133,7 +133,7 @@ namespace davClassLibrary.DataAccess
             else
             {
                 // Set the upload status of the table object to Deleted
-                await tableObject.SetUploadStatus(TableObject.TableObjectUploadStatus.Deleted);
+                await tableObject.SetUploadStatusAsync(TableObject.TableObjectUploadStatus.Deleted);
             }
         }
 

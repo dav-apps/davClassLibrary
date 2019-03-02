@@ -47,9 +47,7 @@ namespace davClassLibrary
             get
             {
                 if (database == null)
-                {
                     database = new DavDatabase();
-                }
                 return database;
             }
         }
