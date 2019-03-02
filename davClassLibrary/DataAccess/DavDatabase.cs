@@ -11,15 +11,17 @@ namespace davClassLibrary.DataAccess
     public class DavDatabase
     {
         readonly SQLiteAsyncConnection database;
+        readonly SQLiteConnection syncDatabase;
         private readonly string databaseName = "dav.db";
 
         public DavDatabase()
         {
             database = new SQLiteAsyncConnection(Path.Combine(Dav.DataPath, databaseName));
-            database.CreateTableAsync<TableObject>();
-            database.CreateTableAsync<Property>();
+            syncDatabase = new SQLiteConnection(Path.Combine(Dav.DataPath, databaseName));
+            syncDatabase.CreateTable<TableObject>();
+            syncDatabase.CreateTable<Property>();
         }
-
+        
         public void DropAsync()
         {
             database.DropTableAsync<TableObject>();
@@ -145,7 +147,7 @@ namespace davClassLibrary.DataAccess
         public async Task DeleteTableObjectImmediatelyAsync(TableObject tableObject)
         {
             await tableObject.LoadAsync();
-            await database.RunInTransactionAsync(tran =>
+            await database.RunInTransactionAsync((SQLiteConnection tran) =>
             {
                 // Delete the properties of the table object
                 foreach (var property in tableObject.Properties)
@@ -161,6 +163,11 @@ namespace davClassLibrary.DataAccess
         {
             await database.InsertAsync(property);
             return property.Id;
+        }
+
+        public async Task CreatePropertiesAsync(List<Property> propertiesToCreate)
+        {
+            await database.InsertAllAsync(propertiesToCreate);
         }
 
         public async Task<Property> GetPropertyAsync(int id)
@@ -181,6 +188,11 @@ namespace davClassLibrary.DataAccess
         public async Task UpdatePropertyAsync(Property property)
         {
             await database.UpdateAsync(property);
+        }
+
+        public async Task UpdatePropertiesAsync(List<Property> propertiesToUpdate)
+        {
+            await database.UpdateAllAsync(propertiesToUpdate);
         }
 
         public async Task DeletePropertyAsync(int id)
