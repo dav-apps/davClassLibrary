@@ -1,4 +1,5 @@
 ﻿using SQLite;
+using System.Threading.Tasks;
 
 namespace davClassLibrary.Models
 {
@@ -17,25 +18,30 @@ namespace davClassLibrary.Models
             TableObjectId = tableObjectId;
             Name = name;
             Value = value;
-
-            Save();
         }
 
-        public void SetValue(string value)
+        public static async Task<Property> Create(int tableObjectId, string name, string value)
+        {
+            var property = new Property(tableObjectId, name, value);
+            await property.Save();
+            return property;
+        }
+
+        public async Task SetValue(string value)
         {
             Value = value;
-            Save();
+            await Save();
         }
 
-        private void Save()
+        private async Task Save()
         {
             // Check if the tableObject already exists
             if(TableObjectId != 0)
             {
-                if (!Dav.Database.PropertyExists(Id))
-                    Id = Dav.Database.CreateProperty(this);
+                if (!await Dav.Database.PropertyExistsAsync(Id))
+                    Id = await Dav.Database.CreatePropertyAsync(this);
                 else
-                    Dav.Database.UpdateProperty(this);
+                    await Dav.Database.UpdatePropertyAsync(this);
             }
         }
 
