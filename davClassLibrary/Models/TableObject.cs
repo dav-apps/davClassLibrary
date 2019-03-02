@@ -212,12 +212,12 @@ namespace davClassLibrary.Models
             {
                 // Update the property
                 if (property.Value == value) return;
-                await property.SetValue(value);
+                await property.SetValueAsync(value);
             }
             else
             {
                 // Create a new property
-                Properties.Add(await Property.Create(Id, name, value));
+                Properties.Add(await Property.CreateAsync(Id, name, value));
             }
 
             if (UploadStatus == TableObjectUploadStatus.UpToDate && !IsFile)

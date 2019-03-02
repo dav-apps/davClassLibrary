@@ -20,20 +20,20 @@ namespace davClassLibrary.Models
             Value = value;
         }
 
-        public static async Task<Property> Create(int tableObjectId, string name, string value)
+        public static async Task<Property> CreateAsync(int tableObjectId, string name, string value)
         {
             var property = new Property(tableObjectId, name, value);
-            await property.Save();
+            await property.SaveAsync();
             return property;
         }
 
-        public async Task SetValue(string value)
+        public async Task SetValueAsync(string value)
         {
             Value = value;
-            await Save();
+            await SaveAsync();
         }
 
-        private async Task Save()
+        private async Task SaveAsync()
         {
             // Check if the tableObject already exists
             if(TableObjectId != 0)
