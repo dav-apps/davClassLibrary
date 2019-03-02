@@ -114,7 +114,7 @@ namespace davClassLibrary.Models
         {
             if (IsLoggedIn)
             {
-                var getResult = await DataManager.HttpGet(JWT, Dav.GetUserUrl);
+                var getResult = await DataManager.HttpGetAsync(JWT, Dav.GetUserUrl);
                 
                 if(getResult.Key)
                 {

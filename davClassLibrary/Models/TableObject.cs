@@ -477,7 +477,7 @@ namespace davClassLibrary.Models
             DataManager.fileDownloaders.Remove(Uuid);
 
             // Save the etags of the table object
-            await DataManager.SetEtagOfTableObject(Uuid, Etag);
+            await DataManager.SetEtagOfTableObjectAsync(Uuid, Etag);
 
             ProjectInterface.TriggerAction.UpdateTableObject(this, true);
         }

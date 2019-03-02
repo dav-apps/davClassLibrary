@@ -32,12 +32,12 @@ namespace davClassLibrary.DataAccess
         private const string extPropertyName = "ext";
         private static IWebSocketConnection webSocketConnection;
 
-        public static async Task Sync()
+        public static async void Sync()
         {
             if (isSyncing) return;
 
             string jwt = DavUser.GetJWT();
-            if (String.IsNullOrEmpty(jwt)) return;
+            if (string.IsNullOrEmpty(jwt)) return;
             fileDownloads.Clear();
             fileDownloaders.Clear();
             isSyncing = true;
@@ -67,7 +67,7 @@ namespace davClassLibrary.DataAccess
             {
                 removedTableObjectUuids[tableId] = new List<Guid>();
 
-                foreach(var tableObject in Dav.Database.GetAllTableObjects(tableId, true))
+                foreach(var tableObject in await Dav.Database.GetAllTableObjectsAsync(tableId, true))
                     removedTableObjectUuids[tableId].Add(tableObject.Uuid);
             }
 
@@ -75,7 +75,7 @@ namespace davClassLibrary.DataAccess
             foreach(var tableId in tableIds)
             {
                 // Get the first page of the table
-                var tableGetResult = await HttpGet(jwt, String.Format("apps/table/{0}?page=1", tableId));
+                var tableGetResult = await HttpGetAsync(jwt, string.Format("apps/table/{0}?page=1", tableId));
 
                 tableGetResultsOkay[tableId] = tableGetResult.Key;
                 if (!tableGetResult.Key) continue;
@@ -122,7 +122,7 @@ namespace davClassLibrary.DataAccess
                     */
 
                     // Is obj in the database?
-                    var currentTableObject = Dav.Database.GetTableObject(obj.uuid);
+                    var currentTableObject = await Dav.Database.GetTableObjectAsync(obj.uuid);
                     if (currentTableObject != null)
                     {
                         // Is the etag correct?
@@ -142,7 +142,7 @@ namespace davClassLibrary.DataAccess
                         else
                         {
                             // GET the table object
-                            var tableObject = await DownloadTableObject(currentTableObject.Uuid);
+                            var tableObject = await DownloadTableObjectAsync(currentTableObject.Uuid);
 
                             if (tableObject == null) continue;
                             tableObject.UploadStatus = TableObjectUploadStatus.UpToDate;
@@ -159,7 +159,7 @@ namespace davClassLibrary.DataAccess
                                     tableObject.Properties.Remove(property);
 
                                 // Save the ext property
-                                tableObject.SaveWithProperties();
+                                await tableObject.SaveWithPropertiesAsync();
 
                                 // Download the file
                                 fileDownloads.Add(tableObject);
@@ -167,7 +167,7 @@ namespace davClassLibrary.DataAccess
                             else
                             {
                                 // Save the table object
-                                tableObject.SaveWithProperties();
+                                await tableObject.SaveWithPropertiesAsync();
                                 ProjectInterface.TriggerAction.UpdateTableObject(tableObject, false);
                                 tableChanged = true;
                             }
@@ -176,7 +176,7 @@ namespace davClassLibrary.DataAccess
                     else
                     {
                         // GET the table object
-                        var tableObject = await DownloadTableObject(obj.uuid);
+                        var tableObject = await DownloadTableObjectAsync(obj.uuid);
                         if (tableObject == null) continue;
 
                         // Is it a file?
@@ -194,8 +194,8 @@ namespace davClassLibrary.DataAccess
 
                             // Save the table object without properties and etag (the etag will be saved later when the file was downloaded)
                             tableObject.Etag = "";
-                            tableObject.SaveWithProperties();
-                            tableObject.SetUploadStatus(TableObjectUploadStatus.UpToDate);
+                            await tableObject.SaveWithPropertiesAsync();
+                            await tableObject.SetUploadStatusAsync(TableObjectUploadStatus.UpToDate);
 
                             // Download the file
                             tableObject.Etag = etag;
@@ -208,7 +208,7 @@ namespace davClassLibrary.DataAccess
                         {
                             // Save the table object
                             tableObject.UploadStatus = TableObjectUploadStatus.UpToDate;
-                            tableObject.SaveWithProperties();
+                            await tableObject.SaveWithPropertiesAsync();
                             ProjectInterface.TriggerAction.UpdateTableObject(tableObject, false);
                             tableChanged = true;
                         }
@@ -224,7 +224,7 @@ namespace davClassLibrary.DataAccess
                     continue;
 
                 // Get the data of the next page
-                var tableGetResult = await HttpGet(jwt, String.Format("apps/table/{0}?page={1}", tableId, currentTablePages[tableId]));
+                var tableGetResult = await HttpGetAsync(jwt, string.Format("apps/table/{0}?page={1}", tableId, currentTablePages[tableId]));
                 if (!tableGetResult.Key)
                 {
                     tableGetResultsOkay[tableId] = false;
@@ -244,7 +244,7 @@ namespace davClassLibrary.DataAccess
 
                 foreach (var objUuid in removedTableObjects)
                 {
-                    var obj = Dav.Database.GetTableObject(objUuid);
+                    var obj = await Dav.Database.GetTableObjectAsync(objUuid);
                     if (obj == null) continue;
 
                     if (obj.UploadStatus == TableObjectUploadStatus.New && obj.IsFile)
@@ -257,7 +257,7 @@ namespace davClassLibrary.DataAccess
                             obj.UploadStatus == TableObjectUploadStatus.Deleted)
                         continue;
 
-                    obj.DeleteImmediately();
+                    await obj.DeleteImmediatelyAsync();
                     ProjectInterface.TriggerAction.DeleteTableObject(obj);
                     tableChanged = true;
                 }
@@ -296,11 +296,11 @@ namespace davClassLibrary.DataAccess
             }
 
             string jwt = DavUser.GetJWT();
-            if (String.IsNullOrEmpty(jwt)) return;
+            if (string.IsNullOrEmpty(jwt)) return;
 
             isSyncing = true;
 
-            List<TableObject> tableObjects = Dav.Database.GetAllTableObjects(true)
+            List<TableObject> tableObjects = (await Dav.Database.GetAllTableObjectsAsync(true))
                                             .Where(obj => obj.UploadStatus != TableObjectUploadStatus.NoUpload &&
                                                     obj.UploadStatus != TableObjectUploadStatus.UpToDate)
                                                     .OrderByDescending(obj => obj.Id).ToList();
@@ -320,30 +320,30 @@ namespace davClassLibrary.DataAccess
                     }
 
                     // Create the new object on the server
-                    var etag = await tableObject.CreateOnServer();
-                    if (!String.IsNullOrEmpty(etag))
+                    var etag = await tableObject.CreateOnServerAsync();
+                    if (!string.IsNullOrEmpty(etag))
                     {
                         tableObject.Etag = etag;
                         tableObject.UploadStatus = TableObjectUploadStatus.UpToDate;
-                        tableObject.Save();
+                        await tableObject.SaveAsync();
                     }
                 }
                 else if (tableObject.UploadStatus == TableObjectUploadStatus.Updated)
                 {
                     // Update the object on the server
-                    var etag = await tableObject.UpdateOnServer();
-                    if (!String.IsNullOrEmpty(etag))
+                    var etag = await tableObject.UpdateOnServerAsync();
+                    if (!string.IsNullOrEmpty(etag))
                     {
                         tableObject.Etag = etag;
                         tableObject.UploadStatus = TableObjectUploadStatus.UpToDate;
-                        tableObject.Save();
+                        await tableObject.SaveAsync();
                     }
                 }
                 else if (tableObject.UploadStatus == TableObjectUploadStatus.Deleted)
                 {
                     // Delete the object on the server
-                    if (await tableObject.DeleteOnServer())
-                        Dav.Database.DeleteTableObject(tableObject.Uuid);
+                    if (await tableObject.DeleteOnServerAsync())
+                        await Dav.Database.DeleteTableObjectAsync(tableObject.Uuid);
                 }
             }
 
@@ -391,22 +391,21 @@ namespace davClassLibrary.DataAccess
             // Get the uuid
             if (jsonMessage.ContainsKey(Dav.uuidKey) && jsonMessage.ContainsKey(Dav.changeKey))
             {
-                Guid uuid;
-                if (!Guid.TryParse(jsonMessage[Dav.uuidKey].ToString(), out uuid)) return;
+                if (!Guid.TryParse(jsonMessage[Dav.uuidKey].ToString(), out Guid uuid)) return;
                 int change = (int)jsonMessage[Dav.changeKey];
 
                 if(change == 0 || change == 1)
                 {
                     // Get the new or updated table object
-                    await UpdateLocalTableObject(uuid);
+                    await UpdateLocalTableObjectAsync(uuid);
                 }
                 else if(change == 2)
                 {
-                    var tableObject = Dav.Database.GetTableObject(uuid);
+                    var tableObject = await Dav.Database.GetTableObjectAsync(uuid);
                     if (tableObject == null) return;
 
                     // Delete the table object
-                    Dav.Database.DeleteTableObject(uuid);
+                    await Dav.Database.DeleteTableObjectAsync(uuid);
                     ProjectInterface.TriggerAction.DeleteTableObject(tableObject);
                 }
             }
@@ -520,10 +519,10 @@ namespace davClassLibrary.DataAccess
             return preparedTableIds;
         }
 
-        private static async Task UpdateLocalTableObject(Guid uuid)
+        private static async Task UpdateLocalTableObjectAsync(Guid uuid)
         {
             // Get the table object from the server and update it locally
-            var tableObject = await DownloadTableObject(uuid);
+            var tableObject = await DownloadTableObjectAsync(uuid);
             if (tableObject == null) return;
 
             if (tableObject.IsFile)
@@ -537,7 +536,7 @@ namespace davClassLibrary.DataAccess
                     tableObject.Properties.Remove(property);
 
                 // Save the ext property
-                tableObject.SaveWithProperties();
+                await tableObject.SaveWithPropertiesAsync();
 
                 // Download the file
                 tableObject.DownloadFile(null);
@@ -546,25 +545,25 @@ namespace davClassLibrary.DataAccess
             {
                 // Save the table object
                 tableObject.UploadStatus = TableObjectUploadStatus.UpToDate;
-                tableObject.SaveWithProperties();
+                await tableObject.SaveWithPropertiesAsync();
                 ProjectInterface.TriggerAction.UpdateTableObject(tableObject, false);
             }
         }
 
-        internal static void SetEtagOfTableObject(Guid uuid, string etag)
+        internal static async Task SetEtagOfTableObjectAsync(Guid uuid, string etag)
         {
             // Get the table object
-            var tableObject = Dav.Database.GetTableObject(uuid);
+            var tableObject = await Dav.Database.GetTableObjectAsync(uuid);
             if (tableObject != null)
             {
                 tableObject.Etag = etag;
-                tableObject.Save();
+                await tableObject.SaveAsync();
             }
         }
 
-        private static async Task<TableObject> DownloadTableObject(Guid uuid)
+        private static async Task<TableObject> DownloadTableObjectAsync(Guid uuid)
         {
-            var getResult = await HttpGet(DavUser.GetJWT(), "apps/object/" + uuid);
+            var getResult = await HttpGetAsync(DavUser.GetJWT(), "apps/object/" + uuid);
             if (getResult.Key)
             {
                 var tableObjectData = JsonConvert.DeserializeObject<TableObjectData>(getResult.Value);
@@ -607,9 +606,7 @@ namespace davClassLibrary.DataAccess
             {
                 // Get a file that is still not being downloaded
                 if (fileDownloads.First().DownloadStatus == TableObjectDownloadStatus.NotDownloaded)
-                {
                     fileDownloads.First().DownloadFile(null);
-                }
             }
             else if (fileDownloads.Count == 0)
             {
@@ -625,12 +622,10 @@ namespace davClassLibrary.DataAccess
             if (!fileDownloadProgressList.TryGetValue(uuid, out progressList)) return;
 
             foreach(IProgress<int> progress in progressList)
-            {
                 progress.Report(value);
-            }
         }
 
-        public static async Task<KeyValuePair<bool, string>> HttpGet(string jwt, string url)
+        public static async Task<KeyValuePair<bool, string>> HttpGetAsync(string jwt, string url)
         {
             if (NetworkInterface.GetIsNetworkAvailable())
             {
@@ -675,7 +670,7 @@ namespace davClassLibrary.DataAccess
             return Directory.CreateDirectory(tableFolderPath);
         }
 
-        public static async Task ExportData(DirectoryInfo exportFolder, IProgress<int> progress)
+        public static async Task ExportDataAsync(DirectoryInfo exportFolder, IProgress<int> progress)
         {
             // 1. foreach all table object
             // 1.1 Create a folder for every table in the export folder
@@ -684,10 +679,10 @@ namespace davClassLibrary.DataAccess
             // 3. Zip the export folder and copy it to the destination
             // 4. Delete the export folder and the zip file in the local storage
 
-            await Task.Run(() =>
+            await Task.Run(async () =>
             {
                 List<TableObjectData> tableObjectDataList = new List<TableObjectData>();
-                var tableObjects = Dav.Database.GetAllTableObjects(false);
+                var tableObjects = await Dav.Database.GetAllTableObjectsAsync(false);
                 int i = 0;
 
                 foreach (var tableObject in tableObjects)
@@ -760,7 +755,7 @@ namespace davClassLibrary.DataAccess
             });
         }
 
-        public static void ImportData(DirectoryInfo importFolder, IProgress<int> progress)
+        public static async Task ImportDataAsync(DirectoryInfo importFolder, IProgress<int> progress)
         {
             string dataFilePath = Path.Combine(importFolder.FullName, Dav.ExportDataFileName);
             FileInfo dataFile = new FileInfo(dataFilePath);
@@ -772,9 +767,9 @@ namespace davClassLibrary.DataAccess
                 TableObject tableObject = ConvertTableObjectDataToTableObject(tableObjectData);
                 tableObject.UploadStatus = TableObjectUploadStatus.New;
 
-                if (!Dav.Database.TableObjectExists(tableObject.Uuid))
+                if (!await Dav.Database.TableObjectExistsAsync(tableObject.Uuid))
                 {
-                    Dav.Database.CreateTableObjectWithProperties(tableObject);
+                    await Dav.Database.CreateTableObjectWithPropertiesAsync(tableObject);
 
                     // If the tableObject is a file, get the file from the appropriate folder
                     if (tableObject.IsFile)
@@ -784,7 +779,7 @@ namespace davClassLibrary.DataAccess
                             string tablePath = Path.Combine(importFolder.FullName, tableObject.TableId.ToString());
                             string filePath = Path.Combine(tablePath, tableObject.Uuid.ToString());
                             FileInfo tableObjectFile = new FileInfo(filePath);
-                            tableObject.SetFile(tableObjectFile);
+                            await tableObject.SetFileAsync(tableObjectFile);
                         }
                         catch (Exception e)
                         {
@@ -798,7 +793,7 @@ namespace davClassLibrary.DataAccess
             }
         }
 
-        internal static void WriteFile(string path, Object objectToWrite)
+        internal static void WriteFile(string path, object objectToWrite)
         {
             DataContractJsonSerializer js = new DataContractJsonSerializer(objectToWrite.GetType());
             MemoryStream ms = new MemoryStream();
