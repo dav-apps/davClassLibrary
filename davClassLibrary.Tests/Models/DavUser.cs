@@ -20,7 +20,7 @@ namespace davClassLibrary.Tests.Models
         }
 
         [SetUp]
-        public void Setup()
+        public async Task Setup()
         {
             // Delete all files and folders in the test folder except the database file
             var davFolder = new DirectoryInfo(Dav.GetDavDataPath());
@@ -29,7 +29,7 @@ namespace davClassLibrary.Tests.Models
             
             // Clear the database
             var database = new davClassLibrary.DataAccess.DavDatabase();
-            database.Drop();
+            await database.DropAsync();
         }
         #endregion
 
@@ -71,7 +71,7 @@ namespace davClassLibrary.Tests.Models
             var user = new davClassLibrary.Models.DavUser();
 
             // Act
-            await user.Login(Dav.Jwt);
+            await user.LoginAsync(Dav.Jwt);
 
             // Assert
             Assert.IsTrue(user.IsLoggedIn);
@@ -93,7 +93,7 @@ namespace davClassLibrary.Tests.Models
             var user = new davClassLibrary.Models.DavUser();
 
             // Act
-            await user.Login(Dav.Jwt + "asdasdsad");
+            await user.LoginAsync(Dav.Jwt + "asdasdsad");
 
             // Assert
             Assert.IsFalse(user.IsLoggedIn);
@@ -107,7 +107,7 @@ namespace davClassLibrary.Tests.Models
         {
             // Arrange
             var user = new davClassLibrary.Models.DavUser();
-            await user.Login(Dav.Jwt);
+            await user.LoginAsync(Dav.Jwt);
 
             Assert.IsTrue(user.IsLoggedIn);
             Assert.AreEqual(Dav.TestUserEmail, user.Email);
