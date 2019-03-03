@@ -820,14 +820,7 @@ namespace davClassLibrary.DataAccess
 
             return dataReader;
         }
-
-        internal static Guid ConvertStringToGuid(string uuidString)
-        {
-            Guid uuid = Guid.Empty;
-            Guid.TryParse(uuidString, out uuid);
-            return uuid;
-        }
-
+        
         internal static Dictionary<string, string> ConvertPropertiesListToDictionary(List<Property> properties)
         {
             Dictionary<string, string> dictionary = new Dictionary<string, string>();
