@@ -542,6 +542,39 @@ namespace davClassLibrary.Tests.DataAccess
         }
         #endregion
 
+        #region CreateProperties
+        [Test]
+        public async Task CreatePropertiesShouldSaveThePropertiesInTheDatabase()
+        {
+            // Arrange
+            SQLiteConnection database = new SQLiteConnection(databasePath);
+            int tableObjectId = 23;
+            string firstPropertyName = "page1";
+            string firstPropertyValue = "Hello World";
+            string secondPropertyName = "page2";
+            string secondPropertyValue = "Hallo Welt";
+            var properties = new List<Property>
+            {
+                new Property(tableObjectId, firstPropertyName, firstPropertyValue),
+                new Property(tableObjectId, secondPropertyName, secondPropertyValue)
+            };
+
+            // Act
+            await davClassLibrary.Dav.Database.CreatePropertiesAsync(properties);
+
+            // Assert
+            var firstPropertyFromDatabase = database.Get<Property>(properties[0].Id);
+            Assert.AreEqual(tableObjectId, firstPropertyFromDatabase.TableObjectId);
+            Assert.AreEqual(firstPropertyName, firstPropertyFromDatabase.Name);
+            Assert.AreEqual(firstPropertyValue, firstPropertyFromDatabase.Value);
+
+            var secondPropertyFromDatabase = database.Get<Property>(properties[1].Id);
+            Assert.AreEqual(tableObjectId, secondPropertyFromDatabase.TableObjectId);
+            Assert.AreEqual(secondPropertyName, secondPropertyFromDatabase.Name);
+            Assert.AreEqual(secondPropertyValue, secondPropertyFromDatabase.Value);
+        }
+        #endregion
+
         #region GetProperty
         [Test]
         public async Task GetPropertyShouldReturnThePropertyFromTheDatabase()
@@ -639,6 +672,49 @@ namespace davClassLibrary.Tests.DataAccess
 
             // Act
             await davClassLibrary.Dav.Database.UpdatePropertyAsync(property);
+        }
+        #endregion
+
+        #region UpdateProperties
+        [Test]
+        public async Task UpdatePropertiesShouldUpdateThePropertiesInTheDatabase()
+        {
+            // Arrange
+            SQLiteConnection database = new SQLiteConnection(databasePath);
+            int tableObjectId = 34;
+            string oldFirstPropertyName = "page1";
+            string newFirstPropertyName = "test1";
+            string oldFirstPropertyValue = "Hello World";
+            string newFirstPropertyValue = "Hello Test";
+            string secondPropertyName = "test2";
+            string oldSecondPropertyValue = "Hallo Welt";
+            string newSecondPropertyValue = "Hallo Test";
+
+            // Create the properties with the old values
+            var properties = new List<Property>
+            {
+                await Property.CreateAsync(tableObjectId, oldFirstPropertyName, oldFirstPropertyValue),
+                await Property.CreateAsync(tableObjectId, secondPropertyName, oldSecondPropertyValue)
+            };
+
+            // Change the values of the properties and call UpdateProperties
+            properties[0].Name = newFirstPropertyName;
+            properties[0].Value = newFirstPropertyValue;
+            properties[1].Value = newSecondPropertyValue;
+
+            // Act
+            await davClassLibrary.Dav.Database.UpdatePropertiesAsync(properties);
+
+            // Assert
+            var firstPropertyFromDatabase = database.Get<Property>(properties[0].Id);
+            Assert.AreEqual(tableObjectId, firstPropertyFromDatabase.TableObjectId);
+            Assert.AreEqual(newFirstPropertyName, firstPropertyFromDatabase.Name);
+            Assert.AreEqual(newFirstPropertyValue, firstPropertyFromDatabase.Value);
+
+            var secondPropertyFromDatabase = database.Get<Property>(properties[1].Id);
+            Assert.AreEqual(tableObjectId, secondPropertyFromDatabase.TableObjectId);
+            Assert.AreEqual(secondPropertyName, secondPropertyFromDatabase.Name);
+            Assert.AreEqual(newSecondPropertyValue, secondPropertyFromDatabase.Value);
         }
         #endregion
 
