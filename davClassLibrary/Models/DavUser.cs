@@ -125,7 +125,7 @@ namespace davClassLibrary.Models
                     Username = dataReader.username;
                     TotalStorage = dataReader.total_storage;
                     UsedStorage = dataReader.used_storage;
-                    Plan = ParseIntToDavPlan(dataReader.plan);
+                    Plan = (DavPlan)dataReader.plan;
                     string newAvatarEtag = dataReader.avatar_etag;
 
                     string avatarFileName = "avatar.png";
@@ -194,7 +194,7 @@ namespace davClassLibrary.Models
             if(plan != null)
             {
                 int.TryParse(plan, out int planInt);
-                return ParseIntToDavPlan(planInt);
+                return (DavPlan)planInt;
             }
             else
             {
@@ -240,7 +240,7 @@ namespace davClassLibrary.Models
 
         private void SetPlan(DavPlan plan)
         {
-            ProjectInterface.LocalDataSettings.SetValue(Dav.planKey, ParseDavPlanToInt(plan).ToString());
+            ProjectInterface.LocalDataSettings.SetValue(Dav.planKey, ((int)plan).ToString());
         }
 
         private void SetAvatarEtag(string avatarEtag)
@@ -252,32 +252,6 @@ namespace davClassLibrary.Models
         {
             ProjectInterface.LocalDataSettings.SetValue(Dav.jwtKey, jwt);
         }
-
-        #region Static methods
-        public static DavPlan ParseIntToDavPlan(int planValue)
-        {
-            switch (planValue)
-            {
-                case 1:
-                    return DavPlan.Plus;
-                default:
-                    return DavPlan.Free;
-            }
-        }
-
-        public static int ParseDavPlanToInt(DavPlan plan)
-        {
-            switch (plan)
-            {
-                case DavPlan.Free:
-                    return 0;
-                case DavPlan.Plus:
-                    return 1;
-                default:
-                    return 0;
-            }
-        }
-        #endregion
     }
 
     public class DavUserData

@@ -668,40 +668,14 @@ namespace davClassLibrary.Models
                 return false;
             }
         }
-
-        public static TableObjectVisibility ParseIntToVisibility(int visibility)
-        {
-            switch (visibility)
-            {
-                case 1:
-                    return TableObjectVisibility.Protected;
-                case 2:
-                    return TableObjectVisibility.Public;
-                default:
-                    return TableObjectVisibility.Private;
-            }
-        }
-
-        public static int ParseVisibilityToInt(TableObjectVisibility visibility)
-        {
-            switch (visibility)
-            {
-                case TableObjectVisibility.Protected:
-                    return 1;
-                case TableObjectVisibility.Public:
-                    return 2;
-                default:
-                    return 0;
-            }
-        }
-
+        
         public TableObjectData ToTableObjectData()
         {
             var tableObjectData = new TableObjectData
             {
                 id = Id,
                 table_id = TableId,
-                visibility = ParseVisibilityToInt(Visibility),
+                visibility = (int)Visibility,
                 uuid = Uuid,
                 file = IsFile,
                 etag = Etag,
@@ -720,7 +694,7 @@ namespace davClassLibrary.Models
             {
                 Id = tableObjectData.id,
                 TableId = tableObjectData.table_id,
-                Visibility = ParseIntToVisibility(tableObjectData.visibility),
+                Visibility = (TableObjectVisibility)tableObjectData.visibility,
                 Uuid = tableObjectData.uuid,
                 IsFile = tableObjectData.file,
                 Etag = tableObjectData.etag
