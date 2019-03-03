@@ -271,9 +271,11 @@ namespace davClassLibrary.Tests.Models
 
             var tableObject = await davClassLibrary.Models.TableObject.CreateAsync(uuid, tableId);
 
-            Dictionary<string, string> newProperties = new Dictionary<string, string>();
-            newProperties.Add(firstPropertyName, firstPropertyValue);
-            newProperties.Add(secondPropertyName, secondPropertyValue);
+            Dictionary<string, string> newProperties = new Dictionary<string, string>
+            {
+                { firstPropertyName, firstPropertyValue },
+                { secondPropertyName, secondPropertyValue }
+            };
 
             // Act
             await tableObject.SetPropertyValuesAsync(newProperties);
@@ -281,6 +283,10 @@ namespace davClassLibrary.Tests.Models
             // Assert
             Assert.AreEqual(firstPropertyValue, tableObject.GetPropertyValue(firstPropertyName));
             Assert.AreEqual(secondPropertyValue, tableObject.GetPropertyValue(secondPropertyName));
+
+            // Make sure the properties have ids
+            Assert.AreNotEqual(0, tableObject.Properties[0].Id);
+            Assert.AreNotEqual(0, tableObject.Properties[1].Id);
 
             var tableObjectFromDatabase = await davClassLibrary.Dav.Database.GetTableObjectAsync(uuid);
             Assert.IsNotNull(tableObjectFromDatabase);
