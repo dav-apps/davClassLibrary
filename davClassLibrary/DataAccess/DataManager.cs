@@ -630,7 +630,7 @@ namespace davClassLibrary.DataAccess
 
         public static async Task<KeyValuePair<bool, string>> HttpGetAsync(string jwt, string url)
         {
-            if (NetworkInterface.GetIsNetworkAvailable())
+            if (ProjectInterface.GeneralMethods.IsNetworkAvailable())
             {
                 HttpClient httpClient = new HttpClient();
                 var headers = httpClient.DefaultRequestHeaders;
