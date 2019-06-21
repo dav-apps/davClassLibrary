@@ -385,7 +385,8 @@ namespace davClassLibrary.DataAccess
                 // Close the connection
                 webSocketConnection.Close();
                 return;
-            }
+            }else if(json.Type == "ping")
+                return;
 
             JObject jsonMessage = json.Message as JObject;
             if (jsonMessage == null) return;
@@ -396,8 +397,19 @@ namespace davClassLibrary.DataAccess
             {
                 if (!Guid.TryParse(jsonMessage[Dav.uuidKey].ToString(), out Guid uuid)) return;
                 int change = (int)jsonMessage[Dav.changeKey];
+                int sessionId = (int)jsonMessage[Dav.sessionIdKey];
 
-                if(change == 0 || change == 1)
+                // Don't notify the app if the session is the current session or 0
+                if (sessionId == 0) return;
+
+                string[] jwtSplit = DavUser.GetJWT().Split('.');
+                if (jwtSplit.Length <= 3) return;
+
+                string currentSessionIdString = jwtSplit[3];
+                if(!int.TryParse(currentSessionIdString, out int currentSessionId) || currentSessionId == sessionId)
+                    return;
+
+                if (change == 0 || change == 1)
                 {
                     // Get the new or updated table object
                     await UpdateLocalTableObjectAsync(uuid);

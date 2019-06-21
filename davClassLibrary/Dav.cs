@@ -16,12 +16,13 @@ namespace davClassLibrary
         // Websocket keys
         public const string uuidKey = "uuid";
         public const string changeKey = "change";
+        public const string sessionIdKey = "session_id";
 
         public const string ExportDataFileName = "data.json";
         public const string GetUserUrl = "auth/user";
 
         private const string ApiBaseUrlProduction = "https://dav-backend.herokuapp.com/v1/";
-        private const string ApiBaseUrlDevelopment = "https://97298eb8.ngrok.io/v1/";
+        private const string ApiBaseUrlDevelopment = "https://193186b9.ngrok.io/v1/";
         public static string ApiBaseUrl => Environment == DavEnvironment.Production ? ApiBaseUrlProduction : ApiBaseUrlDevelopment;
         public static string DataPath
         {
