@@ -31,7 +31,7 @@ namespace davClassLibrary.Models
         public TableObjectUploadStatus UploadStatus { get; set; }
         public string Etag { get; internal set; }
         [Ignore]
-        public TableObjectDownloadStatus DownloadStatus
+        public TableObjectFileDownloadStatus FileDownloadStatus
         {
             get => GetDownloadStatus();
         }
@@ -50,7 +50,7 @@ namespace davClassLibrary.Models
             Deleted = 3,
             NoUpload = 4
         }
-        public enum TableObjectDownloadStatus
+        public enum TableObjectFileDownloadStatus
         {
             NoFileOrNotLoggedIn = 0,
             NotDownloaded = 1,
@@ -341,18 +341,18 @@ namespace davClassLibrary.Models
             await SaveAsync();
         }
 
-        private TableObjectDownloadStatus GetDownloadStatus()
+        private TableObjectFileDownloadStatus GetDownloadStatus()
         {
-            if (!IsFile) return TableObjectDownloadStatus.NoFileOrNotLoggedIn;
+            if (!IsFile) return TableObjectFileDownloadStatus.NoFileOrNotLoggedIn;
 
             if(File != null)
-                if (File.Exists) return TableObjectDownloadStatus.Downloaded;
+                if (File.Exists) return TableObjectFileDownloadStatus.Downloaded;
 
             string jwt = DavUser.GetJWT();
-            if (string.IsNullOrEmpty(jwt)) return TableObjectDownloadStatus.NoFileOrNotLoggedIn;
+            if (string.IsNullOrEmpty(jwt)) return TableObjectFileDownloadStatus.NoFileOrNotLoggedIn;
 
-            if (DataManager.fileDownloaders.ContainsKey(Uuid)) return TableObjectDownloadStatus.Downloading;
-            return TableObjectDownloadStatus.NotDownloaded;
+            if (DataManager.fileDownloaders.ContainsKey(Uuid)) return TableObjectFileDownloadStatus.Downloading;
+            return TableObjectFileDownloadStatus.NotDownloaded;
         }
 
         public async Task DeleteAsync()
@@ -405,16 +405,16 @@ namespace davClassLibrary.Models
                 DataManager.fileDownloadProgressList[Uuid].Add(progress);
             }
                 
-            if (DownloadStatus == TableObjectDownloadStatus.Downloading) return;
+            if (FileDownloadStatus == TableObjectFileDownloadStatus.Downloading) return;
 
             string jwt = DavUser.GetJWT();
-            if (DownloadStatus == TableObjectDownloadStatus.NoFileOrNotLoggedIn || string.IsNullOrEmpty(jwt))
+            if (FileDownloadStatus == TableObjectFileDownloadStatus.NoFileOrNotLoggedIn || string.IsNullOrEmpty(jwt))
             {
                 DataManager.ReportFileDownloadProgress(Uuid, -1);
                 return;
             }
 
-            if(DownloadStatus == TableObjectDownloadStatus.Downloaded)
+            if(FileDownloadStatus == TableObjectFileDownloadStatus.Downloaded)
             {
                 DataManager.ReportFileDownloadProgress(Uuid, -1);
                 return;

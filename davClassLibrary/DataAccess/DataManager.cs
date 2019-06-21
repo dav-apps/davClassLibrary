@@ -27,7 +27,7 @@ namespace davClassLibrary.DataAccess
         internal static Dictionary<Guid, List<IProgress<int>>> fileDownloadProgressList = new Dictionary<Guid, List<IProgress<int>>>();
         private static Timer fileDownloadTimer;
         private static bool syncAgain = false;
-        private const int downloadFilesSimultaneously = 2;
+        private const int maxFileDownloads = 2;
         private const string extPropertyName = "ext";
         private static IWebSocketConnection webSocketConnection;
 
@@ -269,7 +269,7 @@ namespace davClassLibrary.DataAccess
 
             // Push changes
             await SyncPush();
-            DownloadFiles();
+            StartFileDownloads();
 
             // Check if all tables were synced
             bool allTableGetResultsOkay = true;
@@ -600,7 +600,7 @@ namespace davClassLibrary.DataAccess
             }
         }
 
-        private static void DownloadFiles()
+        private static void StartFileDownloads()
         {
             // Do not download more than downloadFilesSimultaneously files at the same time
             fileDownloadTimer = new Timer();
@@ -615,11 +615,11 @@ namespace davClassLibrary.DataAccess
             if (!ProjectInterface.GeneralMethods.IsNetworkAvailable()) return;
 
             // Check if fileDownloads list is greater than downloadFilesSimultaneously
-            if (fileDownloaders.Count < downloadFilesSimultaneously &&
+            if (fileDownloaders.Count < maxFileDownloads &&
                 fileDownloads.Count > 0)
             {
                 // Get a file that is still not being downloaded
-                if (fileDownloads.First().DownloadStatus == TableObjectDownloadStatus.NotDownloaded)
+                if (fileDownloads.First().FileDownloadStatus == TableObjectFileDownloadStatus.NotDownloaded)
                     fileDownloads.First().DownloadFile(null);
             }
             else if (fileDownloads.Count == 0)
