@@ -91,6 +91,8 @@ namespace davClassLibrary.Models
 
         public void Logout()
         {
+            string jwt = this.JWT;
+
             // Clear all values
             IsLoggedIn = false;
             SetJWT(null);
@@ -106,6 +108,7 @@ namespace davClassLibrary.Models
 
             // Close the websocket connection
             DataManager.CloseWebsocketConnection();
+            var x = DataManager.DeleteSessionOnServerAsync(jwt);
         }
 
         private async Task<bool> DownloadUserInformationAsync()

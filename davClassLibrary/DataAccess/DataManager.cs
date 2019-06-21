@@ -10,7 +10,6 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
-using System.Net.NetworkInformation;
 using System.Runtime.Serialization.Json;
 using System.Text;
 using System.Threading.Tasks;
@@ -854,6 +853,19 @@ namespace davClassLibrary.DataAccess
                 fileData = binaryReader.ReadBytes((int)fs.Length);
             }
             return fileData;
+        }
+
+        internal static async Task DeleteSessionOnServerAsync(string jwt)
+        {
+            if (!ProjectInterface.GeneralMethods.IsNetworkAvailable()) return;
+
+            HttpClient httpClient = new HttpClient();
+            var headers = httpClient.DefaultRequestHeaders;
+            headers.Authorization = new AuthenticationHeaderValue(jwt);
+            Uri requestUri = new Uri(Dav.ApiBaseUrl + "auth/session");
+
+            HttpResponseMessage httpResponse = new HttpResponseMessage();
+            httpResponse = await httpClient.DeleteAsync(requestUri);
         }
     }
 
