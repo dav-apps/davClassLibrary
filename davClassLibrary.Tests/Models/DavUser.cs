@@ -93,7 +93,7 @@ namespace davClassLibrary.Tests.Models
             var user = new davClassLibrary.Models.DavUser();
 
             // Act
-            await user.LoginAsync(Dav.Jwt + "asdasdsad");
+            await user.LoginAsync("asdasdasdasd.asdasd.asdasdasdsad");
 
             // Assert
             Assert.IsFalse(user.IsLoggedIn);

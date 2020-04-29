@@ -70,9 +70,8 @@ namespace davClassLibrary.Models
 
         public async Task InitAsync()
         {
-            if (IsLoggedIn)
+            if (await DownloadUserInformationAsync())
             {
-                await DownloadUserInformationAsync();
                 var x = DataManager.Sync();
             }
         }
@@ -91,7 +90,7 @@ namespace davClassLibrary.Models
 
         public void Logout()
         {
-            string jwt = this.JWT;
+            string jwt = JWT;
 
             // Clear all values
             IsLoggedIn = false;
@@ -117,11 +116,11 @@ namespace davClassLibrary.Models
             {
                 var getResult = await DataManager.HttpGetAsync(JWT, Dav.GetUserUrl);
                 
-                if(getResult.Key)
+                if(getResult.Success)
                 {
                     // Deserialize the json and create a user object
                     var serializer = new DataContractJsonSerializer(typeof(DavUserData));
-                    var ms = new MemoryStream(Encoding.UTF8.GetBytes(getResult.Value));
+                    var ms = new MemoryStream(Encoding.UTF8.GetBytes(getResult.Data));
                     var dataReader = (DavUserData)serializer.ReadObject(ms);
 
                     Email = dataReader.email;
@@ -142,15 +141,17 @@ namespace davClassLibrary.Models
 
                     Avatar = new FileInfo(avatarFilePath);
                     AvatarEtag = newAvatarEtag;
-
-                    return true;
                 }
                 else
                 {
-                    Debug.WriteLine(getResult.Value);
-                    return false;
+                    // Check if the session was deleted on the server
+                    if(getResult.Status == 404 && getResult.Data.Contains("2814"))
+                        Logout();
                 }
+
+                return getResult.Success;
             }
+
             return false;
         }
 
