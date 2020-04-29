@@ -76,11 +76,11 @@ namespace davClassLibrary.DataAccess
                 // Get the first page of the table
                 var tableGetResult = await HttpGetAsync(jwt, string.Format("apps/table/{0}?page=1", tableId));
 
-                tableGetResultsOkay[tableId] = tableGetResult.Key;
-                if (!tableGetResult.Key) continue;
+                tableGetResultsOkay[tableId] = tableGetResult.Success;
+                if (!tableGetResult.Success) continue;
 
                 // Save the result
-                var table = JsonConvert.DeserializeObject<TableData>(tableGetResult.Value);
+                var table = JsonConvert.DeserializeObject<TableData>(tableGetResult.Data);
                 tableResults[tableId] = table;
                 tablePages[tableId] = tableResults[tableId].pages;
                 currentTablePages[tableId] = 1;
@@ -224,13 +224,13 @@ namespace davClassLibrary.DataAccess
 
                 // Get the data of the next page
                 var tableGetResult = await HttpGetAsync(jwt, string.Format("apps/table/{0}?page={1}", tableId, currentTablePages[tableId]));
-                if (!tableGetResult.Key)
+                if (!tableGetResult.Success)
                 {
                     tableGetResultsOkay[tableId] = false;
                     continue;
                 }
                 
-                tableResults[tableId] = JsonConvert.DeserializeObject<TableData>(tableGetResult.Value);
+                tableResults[tableId] = JsonConvert.DeserializeObject<TableData>(tableGetResult.Data);
             }
             
             // RemovedTableObjects now includes all objects that were deleted on the server but not locally
@@ -578,15 +578,15 @@ namespace davClassLibrary.DataAccess
         private static async Task<TableObject> DownloadTableObjectAsync(Guid uuid)
         {
             var getResult = await HttpGetAsync(DavUser.GetJWT(), "apps/object/" + uuid);
-            if (getResult.Key)
+            if (getResult.Success)
             {
-                var tableObjectData = JsonConvert.DeserializeObject<TableObjectData>(getResult.Value);
+                var tableObjectData = JsonConvert.DeserializeObject<TableObjectData>(getResult.Data);
                 tableObjectData.id = 0;
                 return ConvertTableObjectDataToTableObject(tableObjectData);
             }
             else
             {
-                HandleErrorCodes(getResult.Value);
+                HandleErrorCodes(getResult.Data);
                 return null;
             }
         }
@@ -639,7 +639,7 @@ namespace davClassLibrary.DataAccess
                 progress.Report(value);
         }
 
-        public static async Task<KeyValuePair<bool, string>> HttpGetAsync(string jwt, string url)
+        public static async Task<ApiResponse> HttpGetAsync(string jwt, string url)
         {
             if (ProjectInterface.GeneralMethods.IsNetworkAvailable())
             {
@@ -651,24 +651,25 @@ namespace davClassLibrary.DataAccess
                 HttpResponseMessage httpResponse = new HttpResponseMessage();
                 string httpResponseBody = "";
 
-                //Send the GET request
+                // Send the GET request
                 httpResponse = await httpClient.GetAsync(requestUri);
                 httpResponseBody = await httpResponse.Content.ReadAsStringAsync();
 
-                if (httpResponse.IsSuccessStatusCode)
-                {
-                    return new KeyValuePair<bool, string>(true, httpResponseBody);
-                }
-                else
-                {
-                    // Return error message
-                    return new KeyValuePair<bool, string>(false, "There was an error");
-                }
+                return new ApiResponse {
+                    Success = httpResponse.IsSuccessStatusCode,
+                    Status = (int)httpResponse.StatusCode,
+                    Data = httpResponseBody
+                };
             }
             else
             {
                 // Return error message
-                return new KeyValuePair<bool, string>(false, "No internet connection");
+                //return new KeyValuePair<bool, string>(false, "No internet connection");
+                return new ApiResponse {
+                    Success = false,
+                    Status = 0,
+                    Data = null
+                };
             }
         }
 
@@ -873,6 +874,13 @@ namespace davClassLibrary.DataAccess
     {
         public string Type { get; set; }
         public object Message { get; set; }
+    }
+
+    public struct ApiResponse
+    {
+        public bool Success;
+        public int Status;
+        public string Data;
     }
 
     public enum DavEnvironment

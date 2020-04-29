@@ -785,7 +785,7 @@ namespace davClassLibrary.Tests.DataAccess
             var response = await davClassLibrary.DataAccess.DataManager.HttpGetAsync(Dav.Jwt, "apps/object/" + uuid);
 
             // Assert
-            Assert.IsTrue(response.Key);
+            Assert.IsTrue(response.Success);
         }
 
         [Test]
@@ -798,7 +798,7 @@ namespace davClassLibrary.Tests.DataAccess
             var response = await davClassLibrary.DataAccess.DataManager.HttpGetAsync(Dav.Jwt, "apps/object/" + uuid);
 
             // Assert
-            Assert.IsFalse(response.Key);
+            Assert.IsFalse(response.Success);
         }
         #endregion
 
