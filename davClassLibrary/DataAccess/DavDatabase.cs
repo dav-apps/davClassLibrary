@@ -85,25 +85,71 @@ namespace davClassLibrary.DataAccess
             await InitAsync();
             List<TableObject> tableObjectsList = new List<TableObject>();
             List<TableObject> tableObjects = await database.Table<TableObject>().ToListAsync();
+            List<Property> properties = await database.Table<Property>().ToListAsync();
             
             // Get the properties of the table objects
             foreach (var tableObject in tableObjects)
             {
-                if ((!deleted &&
-                    tableObject.UploadStatus == TableObject.TableObjectUploadStatus.Deleted) ||
-                    tableObject.TableId != tableId) continue;
+                if (
+                    (!deleted && tableObject.UploadStatus == TableObject.TableObjectUploadStatus.Deleted)
+                    || tableObject.TableId != tableId
+                ) continue;
 
-                await tableObject.LoadAsync();
+                tableObject.Properties = new List<Property>();
+                foreach (var prop in properties.FindAll(p => p.TableObjectId == tableObject.Id))
+                    tableObject.Properties.Add(prop);
+
+                tableObject.LoadFile();
+
                 tableObjectsList.Add(tableObject);
             }
 
             return tableObjectsList;
+        }
+
+        public async Task<List<TableObject>> GetTableObjectsByPropertyAsync(string propertyName, string propertyValue)
+        {
+            await InitAsync();
+
+            // Find all properties with the name and value
+            List<TableObject> tableObjects = new List<TableObject>();
+            List<int> tableObjectIds = new List<int>();
+            List<Property> properties = await database.QueryAsync<Property>("SELECT * FROM Property WHERE name = ? and value = ?", propertyName, propertyValue);
+
+            // Get the table objects of the properties
+            foreach(var property in properties)
+            {
+                // Check if the table objects list already contains the table object of the property
+                if (tableObjectIds.Contains(property.TableObjectId)) continue;
+
+                // Get the table object
+                var tableObject = await GetTableObjectAsync(property.TableObjectId);
+                if (tableObject == null) continue;
+
+                tableObjects.Add(tableObject);
+            }
+
+            return tableObjects;
         }
         
         public async Task<TableObject> GetTableObjectAsync(Guid uuid)
         {
             await InitAsync();
             List<TableObject> tableObjects = await database.QueryAsync<TableObject>("SELECT * FROM TableObject WHERE Uuid = ?", uuid);
+            if (tableObjects.Count == 0)
+                return null;
+            else
+            {
+                var tableObject = tableObjects.First();
+                await tableObject.LoadAsync();
+                return tableObject;
+            }
+        }
+
+        public async Task<TableObject> GetTableObjectAsync(int id)
+        {
+            await InitAsync();
+            List<TableObject> tableObjects = await database.QueryAsync<TableObject>("SELECT * FROM TableObject WHERE Id = ?", id);
             if (tableObjects.Count == 0)
                 return null;
             else

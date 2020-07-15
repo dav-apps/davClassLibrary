@@ -27,7 +27,7 @@ namespace davClassLibrary.Models
         [Ignore]
         public FileInfo File { get; private set; }
         [Ignore]
-        public List<Property> Properties { get; private set; }
+        public List<Property> Properties { get; internal set; }
         public TableObjectUploadStatus UploadStatus { get; set; }
         public string Etag { get; internal set; }
         [Ignore]
@@ -302,7 +302,7 @@ namespace davClassLibrary.Models
                 UploadStatus = TableObjectUploadStatus.Updated;
         }
 
-        private void LoadFile()
+        internal void LoadFile()
         {
             if (!IsFile) return;
 
