@@ -68,12 +68,17 @@ namespace davClassLibrary.DataAccess
             await InitAsync();
             List<TableObject> tableObjectList = new List<TableObject>();
             List<TableObject> tableObjects = await database.Table<TableObject>().ToListAsync();
+            List<Property> properties = await database.Table<Property>().ToListAsync();
 
             foreach (var tableObject in tableObjects)
             {
                 if (!deleted && tableObject.UploadStatus == TableObject.TableObjectUploadStatus.Deleted) continue;
 
-                await tableObject.LoadAsync();
+                tableObject.Properties = new List<Property>();
+                foreach (var prop in properties.FindAll(p => p.TableObjectId == tableObject.Id))
+                    tableObject.Properties.Add(prop);
+
+                tableObject.LoadFile();
                 tableObjectList.Add(tableObject);
             }
             
@@ -100,7 +105,6 @@ namespace davClassLibrary.DataAccess
                     tableObject.Properties.Add(prop);
 
                 tableObject.LoadFile();
-
                 tableObjectsList.Add(tableObject);
             }
 
