@@ -21,8 +21,8 @@ namespace davClassLibrary
         public const string ExportDataFileName = "data.json";
         public const string GetUserUrl = "auth/user";
 
-        private const string ApiBaseUrlProduction = "https://dav-backend.herokuapp.com/v1/";
-        private const string ApiBaseUrlDevelopment = "https://193186b9.ngrok.io/v1/";
+        private const string ApiBaseUrlProduction = "https://dav-backend.herokuapp.com/v1";
+        private const string ApiBaseUrlDevelopment = "https://829cc76acebc.ngrok.io/v1";
         public static string ApiBaseUrl => Environment == DavEnvironment.Production ? ApiBaseUrlProduction : ApiBaseUrlDevelopment;
         public static string DataPath
         {

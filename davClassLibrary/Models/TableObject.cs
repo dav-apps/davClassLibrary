@@ -123,9 +123,9 @@ namespace davClassLibrary.Models
         {
             if (!IsFile) return null;
             string jwt = DavUser.GetJWT();
-            if (String.IsNullOrEmpty(jwt)) return null;
+            if (string.IsNullOrEmpty(jwt)) return null;
 
-            return new Uri(Dav.ApiBaseUrl + "apps/object/" + Uuid + "?file=true&jwt=" + jwt);
+            return new Uri($"{Dav.ApiBaseUrl}/apps/object/{Uuid}?file=true&jwt={jwt}");
         }
 
         public async Task<MemoryStream> GetFileStreamAsync()
@@ -134,7 +134,7 @@ namespace davClassLibrary.Models
             string jwt = DavUser.GetJWT();
             if (string.IsNullOrEmpty(jwt)) return null;
 
-            string url = Dav.ApiBaseUrl + "apps/object/" + Uuid + "?file=true&jwt=" + jwt;
+            string url = $"{Dav.ApiBaseUrl}/apps/object/{Uuid}?file=true&jwt={jwt}";
 
             WebClient client = new WebClient();
             var stream = await client.OpenReadTaskAsync(url);
@@ -427,7 +427,7 @@ namespace davClassLibrary.Models
             webClient.DownloadProgressChanged += DownloadFileWebClient_DownloadProgressChanged;
             webClient.DownloadFileCompleted += DownloadFileWebClient_DownloadFileCompleted;
 
-            string url = Dav.ApiBaseUrl + "apps/object/" + Uuid + "?file=true";
+            string url = $"{Dav.ApiBaseUrl}/apps/object/{Uuid}?file=true";
             DirectoryInfo tempTableFolder = DataManager.GetTempTableFolder(TableId);
             string tempFilePath = Path.Combine(tempTableFolder.FullName, Uuid.ToString());
             webClient.DownloadFileAsync(new Uri(url), tempFilePath);
@@ -498,7 +498,6 @@ namespace davClassLibrary.Models
                     Timeout = TimeSpan.FromMinutes(60)
                 };
 
-                var headers = httpClient.DefaultRequestHeaders;
                 httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(jwt);
 
                 HttpContent content;
@@ -524,7 +523,7 @@ namespace davClassLibrary.Models
                     content = new StringContent(json, Encoding.UTF8, "application/json");
                 }
 
-                Uri requestUri = new Uri(Dav.ApiBaseUrl + url);
+                Uri requestUri = new Uri($"{Dav.ApiBaseUrl}/{url}");
 
                 // Send the request
                 var httpResponse = await httpClient.PostAsync(requestUri, content);
@@ -577,7 +576,7 @@ namespace davClassLibrary.Models
                 };
 
                 httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(jwt);
-                Uri requestUri = new Uri(Dav.ApiBaseUrl + url);
+                Uri requestUri = new Uri($"{Dav.ApiBaseUrl}/{url}");
 
                 HttpContent content;
 
@@ -643,7 +642,7 @@ namespace davClassLibrary.Models
                 HttpClient httpClient = new HttpClient();
                 var headers = httpClient.DefaultRequestHeaders;
                 httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(jwt);
-                Uri requestUri = new Uri(Dav.ApiBaseUrl + url);
+                Uri requestUri = new Uri($"{Dav.ApiBaseUrl}/{url}");
 
                 var httpResponse = await httpClient.DeleteAsync(requestUri);
 

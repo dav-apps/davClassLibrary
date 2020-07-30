@@ -366,7 +366,7 @@ namespace davClassLibrary.DataAccess
             webSocketConnection.OnOpened += Connection_OnOpened;
             webSocketConnection.OnMessage += Connection_OnMessage;
 
-            webSocketConnection.Open(string.Format(Dav.ApiBaseUrl.Replace("http", "ws") + "cable?app_id={0}&jwt={1}", Dav.AppId, DavUser.GetJWT()));
+            webSocketConnection.Open($"{Dav.ApiBaseUrl.Replace("http", "ws")}/cable?app_id={Dav.AppId}&jwt={DavUser.GetJWT()}");
         }
 
         internal static void CloseWebsocketConnection()
@@ -646,7 +646,7 @@ namespace davClassLibrary.DataAccess
                 HttpClient httpClient = new HttpClient();
                 var headers = httpClient.DefaultRequestHeaders;
                 headers.Authorization = new AuthenticationHeaderValue(jwt);
-                Uri requestUri = new Uri(Dav.ApiBaseUrl + url);
+                Uri requestUri = new Uri($"{Dav.ApiBaseUrl}/{url}");
 
                 HttpResponseMessage httpResponse = new HttpResponseMessage();
                 string httpResponseBody = "";
@@ -863,10 +863,9 @@ namespace davClassLibrary.DataAccess
             HttpClient httpClient = new HttpClient();
             var headers = httpClient.DefaultRequestHeaders;
             headers.Authorization = new AuthenticationHeaderValue(jwt);
-            Uri requestUri = new Uri(Dav.ApiBaseUrl + "auth/session");
+            Uri requestUri = new Uri($"{Dav.ApiBaseUrl}/auth/session");
 
-            HttpResponseMessage httpResponse = new HttpResponseMessage();
-            httpResponse = await httpClient.DeleteAsync(requestUri);
+            await httpClient.DeleteAsync(requestUri);
         }
     }
 
