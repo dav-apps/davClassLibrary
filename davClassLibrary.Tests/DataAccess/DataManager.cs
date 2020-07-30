@@ -131,7 +131,7 @@ namespace davClassLibrary.Tests.DataAccess
             await davClassLibrary.DataAccess.DataManager.SyncPush();
 
             // Assert
-            var response = await HttpGetAsync("apps/object/" + tableObject.Uuid);
+            var response = await HttpGetAsync("/apps/object/" + tableObject.Uuid);
             var tableObjectFromServer = JsonConvert.DeserializeObject<TableObjectData>(response);
             var tableObjectFromDatabase = await davClassLibrary.Dav.Database.GetTableObjectAsync(tableObject.Uuid);
 
@@ -156,7 +156,7 @@ namespace davClassLibrary.Tests.DataAccess
             await davClassLibrary.DataAccess.DataManager.SyncPush();
 
             // Assert
-            var response2 = await HttpGetAsync("apps/object/" + tableObject.Uuid);
+            var response2 = await HttpGetAsync("/apps/object/" + tableObject.Uuid);
             Assert.IsTrue(response2.Contains("2805"));   // Resource does not exist: TableObject
             tableObjectFromDatabase = await davClassLibrary.Dav.Database.GetTableObjectAsync(tableObject.Uuid);
             Assert.IsNull(tableObjectFromDatabase);
@@ -180,7 +180,7 @@ namespace davClassLibrary.Tests.DataAccess
             await davClassLibrary.DataAccess.DataManager.SyncPush();
 
             // Assert
-            var response = await HttpGetAsync("apps/object/" + tableObject.Uuid);
+            var response = await HttpGetAsync("/apps/object/" + tableObject.Uuid);
             var tableObjectFromServer = JsonConvert.DeserializeObject<davClassLibrary.Models.TableObjectData>(response);
             var tableObjectFromDatabase = await davClassLibrary.Dav.Database.GetTableObjectAsync(tableObject.Uuid);
 
@@ -199,7 +199,7 @@ namespace davClassLibrary.Tests.DataAccess
             await davClassLibrary.DataAccess.DataManager.SyncPush();
 
             // Assert
-            var response2 = await HttpGetAsync("apps/object/" + tableObject.Uuid);
+            var response2 = await HttpGetAsync("/apps/object/" + tableObject.Uuid);
             var tableObjectFromServer2 = JsonConvert.DeserializeObject<TableObjectData>(response2);
             var tableObjectFromDatabase2 = await davClassLibrary.Dav.Database.GetTableObjectAsync(tableObject.Uuid);
             string secondEtag = tableObjectFromDatabase2.Etag;
@@ -235,7 +235,7 @@ namespace davClassLibrary.Tests.DataAccess
             await davClassLibrary.DataAccess.DataManager.SyncPush();
 
             // Check if the table object was uploaded
-            var response = await HttpGetAsync("apps/object/" + tableObject.Uuid);
+            var response = await HttpGetAsync("/apps/object/" + tableObject.Uuid);
             var tableObjectFromServer = JsonConvert.DeserializeObject<TableObjectData>(response);
             Assert.AreEqual(Dav.TestDataTableId, tableObjectFromServer.table_id);
             Assert.AreEqual(firstPropertyValue, tableObjectFromServer.properties[firstPropertyName]);
@@ -248,7 +248,7 @@ namespace davClassLibrary.Tests.DataAccess
             await davClassLibrary.DataAccess.DataManager.SyncPush();
 
             // Assert
-            var response2 = await HttpGetAsync("apps/object/" + tableObject.Uuid);
+            var response2 = await HttpGetAsync("/apps/object/" + tableObject.Uuid);
             Assert.IsTrue(response2.Contains("2805"));
 
             tableObject = await davClassLibrary.Dav.Database.GetTableObjectAsync(tableObject.Uuid);
@@ -504,8 +504,7 @@ namespace davClassLibrary.Tests.DataAccess
             Uri requestUri = new Uri(davClassLibrary.Dav.ApiBaseUrl + url);
 
             //Send the GET request
-            HttpResponseMessage httpResponse = new HttpResponseMessage();
-            httpResponse = await httpClient.GetAsync(requestUri);
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(requestUri);
             return await httpResponse.Content.ReadAsStringAsync();
         }
     }
