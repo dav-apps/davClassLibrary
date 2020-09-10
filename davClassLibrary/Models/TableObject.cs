@@ -18,18 +18,18 @@ namespace davClassLibrary.Models
     public class TableObject
     {
         [PrimaryKey, AutoIncrement]
-        public int Id { get; private set; }
-        public int TableId { get; private set; }
-        public TableObjectVisibility Visibility { get; private set; }
+        public int Id { get; set; }
+        public int TableId { get; set; }
+        public TableObjectVisibility Visibility { get; set; }
         [NotNull]
-        public Guid Uuid { get; private set; }
-        public bool IsFile { get; private set; }
+        public Guid Uuid { get; set; }
+        public bool IsFile { get; set; }
         [Ignore]
-        public FileInfo File { get; private set; }
+        public FileInfo File { get; set; }
         [Ignore]
-        public List<Property> Properties { get; internal set; }
+        public List<Property> Properties { get; set; }
         public TableObjectUploadStatus UploadStatus { get; set; }
-        public string Etag { get; internal set; }
+        public string Etag { get; set; }
         [Ignore]
         public TableObjectFileDownloadStatus FileDownloadStatus
         {
