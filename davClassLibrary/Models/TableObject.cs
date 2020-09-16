@@ -345,8 +345,8 @@ namespace davClassLibrary.Models
         {
             if (!IsFile) return TableObjectFileDownloadStatus.NoFileOrNotLoggedIn;
 
-            if(File != null)
-                if (File.Exists) return TableObjectFileDownloadStatus.Downloaded;
+            if(File != null && File.Exists)
+                return TableObjectFileDownloadStatus.Downloaded;
 
             string jwt = DavUser.GetJWT();
             if (string.IsNullOrEmpty(jwt)) return TableObjectFileDownloadStatus.NoFileOrNotLoggedIn;
@@ -384,37 +384,65 @@ namespace davClassLibrary.Models
 
             await Dav.Database.DeleteTableObjectImmediatelyAsync(Uuid);
         }
-        
-        private async void Client_DownloadFileCompleted(object sender, System.ComponentModel.AsyncCompletedEventArgs e)
-        {
-            if (e.Cancelled || e.Error != null) return;
-            await CopyDownloadedFileAsync();
-        }
 
-        public void DownloadFile(IProgress<int> progress)
+        public void ScheduleFileDownload(IProgress<(Guid, int)> progress)
         {
+            var downloadStatus = GetDownloadStatus();
+
+            // Check the download status
+            if (
+                downloadStatus == TableObjectFileDownloadStatus.NoFileOrNotLoggedIn
+                || downloadStatus == TableObjectFileDownloadStatus.Downloaded
+            ) return;
+
             if (progress != null)
             {
-                // Add the progress to the progress list
                 if (!DataManager.fileDownloadProgressList.ContainsKey(Uuid))
                 {
-                    // Add a new list to the dictionary
-                    DataManager.fileDownloadProgressList.Add(Uuid, new List<IProgress<int>>());
+                    // Add the progress to the progress list
+                    DataManager.fileDownloadProgressList.Add(Uuid, new List<IProgress<(Guid, int)>>());
                 }
 
                 DataManager.fileDownloadProgressList[Uuid].Add(progress);
             }
-                
-            if (FileDownloadStatus == TableObjectFileDownloadStatus.Downloading) return;
 
-            string jwt = DavUser.GetJWT();
-            if (FileDownloadStatus == TableObjectFileDownloadStatus.NoFileOrNotLoggedIn || string.IsNullOrEmpty(jwt))
+            if (downloadStatus == TableObjectFileDownloadStatus.Downloading) return;
+
+            // DownloadStatus is NotDownloaded
+            // Check if the fileDownloads contain this TableObject
+            int i = DataManager.fileDownloads.FindIndex(obj => obj.Uuid.Equals(Uuid));
+            if (i != -1)
             {
-                DataManager.ReportFileDownloadProgress(Uuid, -1);
-                return;
+                // Remove the object
+                DataManager.fileDownloads.RemoveAt(i);
             }
 
-            if(FileDownloadStatus == TableObjectFileDownloadStatus.Downloaded)
+            // Add the object at the beginning of the list
+            DataManager.fileDownloads.Insert(0, this);
+        }
+
+        public void DownloadFile(IProgress<(Guid, int)> progress)
+        {
+            var downloadStatus = GetDownloadStatus();
+
+            if (progress != null)
+            {
+                if (!DataManager.fileDownloadProgressList.ContainsKey(Uuid))
+                {
+                    // Add the progress to the progress list
+                    DataManager.fileDownloadProgressList.Add(Uuid, new List<IProgress<(Guid, int)>>());
+                }
+
+                DataManager.fileDownloadProgressList[Uuid].Add(progress);
+            }
+            
+            if (downloadStatus == TableObjectFileDownloadStatus.Downloading) return;
+
+            string jwt = DavUser.GetJWT();
+            if (
+                downloadStatus == TableObjectFileDownloadStatus.NoFileOrNotLoggedIn
+                || downloadStatus == TableObjectFileDownloadStatus.Downloaded
+            )
             {
                 DataManager.ReportFileDownloadProgress(Uuid, -1);
                 return;

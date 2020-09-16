@@ -24,10 +24,10 @@ namespace davClassLibrary.DataAccess
         private static bool isSyncing = false;
         internal static List<TableObject> fileDownloads = new List<TableObject>();
         internal static Dictionary<Guid, WebClient> fileDownloaders = new Dictionary<Guid, WebClient>();
-        internal static Dictionary<Guid, List<IProgress<int>>> fileDownloadProgressList = new Dictionary<Guid, List<IProgress<int>>>();
+        internal static Dictionary<Guid, List<IProgress<(Guid, int)>>> fileDownloadProgressList = new Dictionary<Guid, List<IProgress<(Guid, int)>>>();
         private static Timer fileDownloadTimer;
         private static bool syncAgain = false;
-        private const int maxFileDownloads = 2;
+        private const int maxFileDownloads = 1;
         private const string extPropertyName = "ext";
         private static IWebSocketConnection webSocketConnection;
 
@@ -37,8 +37,6 @@ namespace davClassLibrary.DataAccess
 
             string jwt = DavUser.GetJWT();
             if (string.IsNullOrEmpty(jwt)) return;
-            fileDownloads.Clear();
-            fileDownloaders.Clear();
             isSyncing = true;
 
             // Holds the table ids, e.g. 1, 2, 3, 4
@@ -577,7 +575,7 @@ namespace davClassLibrary.DataAccess
 
         private static async Task<TableObject> DownloadTableObjectAsync(Guid uuid)
         {
-            var getResult = await HttpGetAsync(DavUser.GetJWT(), "apps/object/" + uuid);
+            var getResult = await HttpGetAsync(DavUser.GetJWT(), $"apps/object/{uuid}");
             if (getResult.Success)
             {
                 var tableObjectData = JsonConvert.DeserializeObject<TableObjectData>(getResult.Data);
@@ -615,8 +613,10 @@ namespace davClassLibrary.DataAccess
             if (!ProjectInterface.GeneralMethods.IsNetworkAvailable()) return;
 
             // Check if fileDownloads list is greater than downloadFilesSimultaneously
-            if (fileDownloaders.Count < maxFileDownloads &&
-                fileDownloads.Count > 0)
+            if (
+                fileDownloaders.Count < maxFileDownloads &&
+                fileDownloads.Count > 0
+            )
             {
                 // Get a file that is still not being downloaded
                 if (fileDownloads.First().FileDownloadStatus == TableObjectFileDownloadStatus.NotDownloaded)
@@ -632,11 +632,11 @@ namespace davClassLibrary.DataAccess
         internal static void ReportFileDownloadProgress(Guid uuid, int value)
         {
             // Get the list by the uuid
-            List<IProgress<int>> progressList = new List<IProgress<int>>();
+            List<IProgress<(Guid, int)>> progressList = new List<IProgress<(Guid, int)>>();
             if (!fileDownloadProgressList.TryGetValue(uuid, out progressList)) return;
 
-            foreach(IProgress<int> progress in progressList)
-                progress.Report(value);
+            foreach(IProgress<(Guid, int)> progress in progressList)
+                progress.Report((uuid, value));
         }
 
         public static async Task<ApiResponse> HttpGetAsync(string jwt, string url)
