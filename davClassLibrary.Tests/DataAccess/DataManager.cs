@@ -57,14 +57,12 @@ namespace davClassLibrary.Tests.DataAccess
             Assert.NotNull(secondTableObject);
             Assert.AreEqual(Dav.TestDataFirstTableObject.uuid, firstTableObject.Uuid);
             Assert.AreEqual(Dav.TestDataFirstTableObject.table_id, firstTableObject.TableId);
-            Assert.AreEqual(Dav.TestDataFirstTableObject.visibility, (int) firstTableObject.Visibility);
             Assert.IsFalse(Dav.TestDataFirstTableObject.file);
             Assert.AreEqual(Dav.TestDataFirstTableObject.properties[Dav.TestDataFirstPropertyName], firstTableObject.GetPropertyValue(Dav.TestDataFirstPropertyName));
             Assert.AreEqual(Dav.TestDataFirstTableObject.properties[Dav.TestDataSecondPropertyName], firstTableObject.GetPropertyValue(Dav.TestDataSecondPropertyName));
 
             Assert.AreEqual(Dav.TestDataSecondTableObject.uuid, secondTableObject.Uuid);
             Assert.AreEqual(Dav.TestDataSecondTableObject.table_id, secondTableObject.TableId);
-            Assert.AreEqual(Dav.TestDataSecondTableObject.visibility, (int) secondTableObject.Visibility);
             Assert.IsFalse(Dav.TestDataSecondTableObject.file);
             Assert.AreEqual(Dav.TestDataSecondTableObject.properties[Dav.TestDataFirstPropertyName], secondTableObject.GetPropertyValue(Dav.TestDataFirstPropertyName));
             Assert.AreEqual(Dav.TestDataSecondTableObject.properties[Dav.TestDataSecondPropertyName], secondTableObject.GetPropertyValue(Dav.TestDataSecondPropertyName));

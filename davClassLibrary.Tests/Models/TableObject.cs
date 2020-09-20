@@ -132,29 +132,6 @@ namespace davClassLibrary.Tests.Models
         }
         #endregion
 
-        #region SetVisibility
-        [Test]
-        public async Task SetVisibilityShouldSetTheVisibilityOfTheTableObjectAndSaveItInTheDatabase()
-        {
-            // Arrange
-            int tableId = 4;
-            var tableObject = new davClassLibrary.Models.TableObject(tableId);
-            TableObjectVisibility oldVisibility = tableObject.Visibility;
-            TableObjectVisibility newVisibility = TableObjectVisibility.Public;
-
-            // Act
-            await tableObject.SetVisibilityAsync(newVisibility);
-
-            // Assert
-            Assert.AreEqual(newVisibility, tableObject.Visibility);
-            Assert.AreNotEqual(newVisibility, oldVisibility);
-
-            var tableObject2 = await davClassLibrary.Dav.Database.GetTableObjectAsync(tableObject.Uuid);
-            Assert.NotNull(tableObject2);
-            Assert.AreEqual(newVisibility, tableObject2.Visibility);
-        }
-        #endregion
-
         #region SetFile
         [Test]
         public async Task SetFileShouldCopyTheFileAndSaveTheExtInTheDatabase()
@@ -630,7 +607,6 @@ namespace davClassLibrary.Tests.Models
             // Assert
             Assert.AreEqual(tableObject.Id, tableObjectData.id);
             Assert.AreEqual(tableObject.TableId, tableObjectData.table_id);
-            Assert.AreEqual(0, tableObjectData.visibility);
             Assert.AreEqual(tableObject.Uuid, tableObjectData.uuid);
             Assert.AreEqual(tableObject.IsFile, tableObjectData.file);
             Assert.AreEqual(firstPropertyValue, tableObjectData.properties[firstPropertyName]);
@@ -663,7 +639,6 @@ namespace davClassLibrary.Tests.Models
             // Assert
             Assert.AreEqual(tableObject.Id, newTableObject.Id);
             Assert.AreEqual(tableObject.TableId, newTableObject.TableId);
-            Assert.AreEqual(tableObject.Visibility, newTableObject.Visibility);
             Assert.AreEqual(tableObject.Uuid, newTableObject.Uuid);
             Assert.AreEqual(tableObject.IsFile, newTableObject.IsFile);
             Assert.AreEqual(tableObject.Properties[0].Name, newTableObject.Properties[0].Name);

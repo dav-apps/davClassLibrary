@@ -49,15 +49,12 @@ namespace davClassLibrary.Tests.DataAccess
             SQLiteConnection database = new SQLiteConnection(databasePath);
             int tableId = 4;
             Guid uuid = Guid.NewGuid();
-            int visibilityInt = 1;
-            TableObject.TableObjectVisibility visibility = TableObject.TableObjectVisibility.Protected;
 
             var tableObjectData = new TableObjectData
             {
                 table_id = tableId,
                 uuid = uuid,
-                file = false,
-                visibility = visibilityInt
+                file = false
             };
             var tableObject = TableObject.ConvertTableObjectDataToTableObject(tableObjectData);
 
@@ -70,7 +67,6 @@ namespace davClassLibrary.Tests.DataAccess
             Assert.AreEqual(tableObject.Id, tableObjectFromDatabase.Id);
             Assert.AreEqual(uuid, tableObjectFromDatabase.Uuid);
             Assert.IsFalse(tableObjectFromDatabase.IsFile);
-            Assert.AreEqual(visibility, tableObjectFromDatabase.Visibility);
         }
         #endregion
 
@@ -309,14 +305,10 @@ namespace davClassLibrary.Tests.DataAccess
             // Arrange
             Guid uuid = Guid.NewGuid();
             int tableId = 5;
-            int oldVisibilityInt = 1;
-            int newVisibilityInt = 2;
-            TableObject.TableObjectVisibility newVisibility = TableObject.TableObjectVisibility.Public;
             var tableObjectData = new TableObjectData
             {
                 uuid = uuid,
-                table_id = tableId,
-                visibility = oldVisibilityInt
+                table_id = tableId
             };
             var tableObject = TableObject.ConvertTableObjectDataToTableObject(tableObjectData);
 
@@ -327,8 +319,7 @@ namespace davClassLibrary.Tests.DataAccess
             {
                 uuid = uuid,
                 id = tableObject.Id,
-                table_id = tableId,
-                visibility = newVisibilityInt
+                table_id = tableId
             };
             var newTableObject = TableObject.ConvertTableObjectDataToTableObject(newTableObjectData);
 
@@ -338,7 +329,6 @@ namespace davClassLibrary.Tests.DataAccess
             // Assert
             var tableObjectFromDatabase = await davClassLibrary.Dav.Database.GetTableObjectAsync(uuid);
             Assert.AreEqual(tableId, tableObjectFromDatabase.TableId);
-            Assert.AreEqual(newVisibility, tableObjectFromDatabase.Visibility);
             Assert.AreEqual(tableObject.Id, tableObjectFromDatabase.Id);
         }
 
@@ -831,7 +821,6 @@ namespace davClassLibrary.Tests.DataAccess
             var data = davClassLibrary.DataAccess.DataManager.GetDataFromFile(dataFile);
             Assert.AreEqual(firstTableObjectFromDatabase.Id, data[0].id);
             Assert.AreEqual(firstTableObjectFromDatabase.TableId, data[0].table_id);
-            Assert.AreEqual((int)firstTableObjectFromDatabase.Visibility, data[0].visibility);
             Assert.AreEqual(firstTableObjectFromDatabase.Uuid, data[0].uuid);
             Assert.AreEqual(firstTableObjectFromDatabase.IsFile, data[0].file);
             Assert.AreEqual(firstTableObjectFromDatabase.GetPropertyValue(Dav.TestDataFirstPropertyName), data[0].properties[Dav.TestDataFirstPropertyName]);
@@ -840,7 +829,6 @@ namespace davClassLibrary.Tests.DataAccess
 
             Assert.AreEqual(secondTableObjectFromDatabase.Id, data[1].id);
             Assert.AreEqual(secondTableObjectFromDatabase.TableId, data[1].table_id);
-            Assert.AreEqual((int)secondTableObjectFromDatabase.Visibility, data[1].visibility);
             Assert.AreEqual(secondTableObjectFromDatabase.Uuid, data[1].uuid);
             Assert.AreEqual(secondTableObjectFromDatabase.IsFile, data[1].file);
             Assert.AreEqual(secondTableObjectFromDatabase.GetPropertyValue(Dav.TestDataFirstPropertyName), data[1].properties[Dav.TestDataFirstPropertyName]);
@@ -871,7 +859,6 @@ namespace davClassLibrary.Tests.DataAccess
 
             Assert.AreEqual(tableObject.Id, data[0].id);
             Assert.AreEqual(tableObject.TableId, data[0].table_id);
-            Assert.AreEqual((int)tableObject.Visibility, data[0].visibility);
             Assert.AreEqual(tableObject.Uuid, data[0].uuid);
             Assert.AreEqual(tableObject.IsFile, data[0].file);
             Assert.AreEqual(tableObject.Etag, data[0].etag);
@@ -909,14 +896,12 @@ namespace davClassLibrary.Tests.DataAccess
             Assert.IsNotNull(secondTableObjectFromDatabase);
 
             Assert.AreEqual(Dav.TestDataFirstTableObject.table_id, firstTableObjectFromDatabase.TableId);
-            Assert.AreEqual(Dav.TestDataFirstTableObject.visibility, (int)firstTableObjectFromDatabase.Visibility);
             Assert.AreEqual(Dav.TestDataFirstTableObject.uuid, firstTableObjectFromDatabase.Uuid);
             Assert.AreEqual(Dav.TestDataFirstTableObject.file, firstTableObjectFromDatabase.IsFile);
             Assert.AreEqual(Dav.TestDataFirstTableObject.properties[Dav.TestDataFirstPropertyName], firstTableObjectFromDatabase.GetPropertyValue(Dav.TestDataFirstPropertyName));
             Assert.AreEqual(Dav.TestDataFirstTableObject.properties[Dav.TestDataSecondPropertyName], firstTableObjectFromDatabase.GetPropertyValue(Dav.TestDataSecondPropertyName));
 
             Assert.AreEqual(Dav.TestDataSecondTableObject.table_id, secondTableObjectFromDatabase.TableId);
-            Assert.AreEqual(Dav.TestDataSecondTableObject.visibility, (int)secondTableObjectFromDatabase.Visibility);
             Assert.AreEqual(Dav.TestDataSecondTableObject.uuid, secondTableObjectFromDatabase.Uuid);
             Assert.AreEqual(Dav.TestDataSecondTableObject.file, secondTableObjectFromDatabase.IsFile);
             Assert.AreEqual(Dav.TestDataSecondTableObject.properties[Dav.TestDataFirstPropertyName], secondTableObjectFromDatabase.GetPropertyValue(Dav.TestDataFirstPropertyName));
@@ -953,7 +938,6 @@ namespace davClassLibrary.Tests.DataAccess
             Assert.IsNotNull(tableObjectFromDatabase);
             FileAssert.Exists(Path.Combine(Dav.GetDavDataPath(), Dav.TestFileTableId.ToString(), uuid.ToString()));
             Assert.AreEqual(tableObject.TableId, tableObjectFromDatabase.TableId);
-            Assert.AreEqual(tableObject.Visibility, tableObjectFromDatabase.Visibility);
             Assert.AreEqual(tableObject.Uuid, tableObjectFromDatabase.Uuid);
             Assert.AreEqual(tableObject.IsFile, tableObjectFromDatabase.IsFile);
         }
