@@ -20,7 +20,6 @@ namespace davClassLibrary.Models
         [PrimaryKey, AutoIncrement]
         public int Id { get; set; }
         public int TableId { get; set; }
-        public TableObjectVisibility Visibility { get; set; }
         [NotNull]
         public Guid Uuid { get; set; }
         public bool IsFile { get; set; }
@@ -36,12 +35,6 @@ namespace davClassLibrary.Models
             get => GetDownloadStatus();
         }
 
-        public enum TableObjectVisibility
-        {
-            Private = 0,
-            Protected = 1,
-            Public = 2
-        }
         public enum TableObjectUploadStatus
         {
             UpToDate = 0,
@@ -111,12 +104,6 @@ namespace davClassLibrary.Models
             var tableObject = new TableObject(uuid, tableId, properties);
             await tableObject.SaveWithPropertiesAsync();
             return tableObject;
-        }
-        
-        public async Task SetVisibilityAsync(TableObjectVisibility visibility)
-        {
-            Visibility = visibility;
-            await SaveAsync();
         }
         
         public Uri GetFileUri()
@@ -345,7 +332,7 @@ namespace davClassLibrary.Models
         {
             if (!IsFile) return TableObjectFileDownloadStatus.NoFileOrNotLoggedIn;
 
-            if(File != null && File.Exists)
+            if(File != null && System.IO.File.Exists(File.FullName))
                 return TableObjectFileDownloadStatus.Downloaded;
 
             string jwt = DavUser.GetJWT();
@@ -419,6 +406,7 @@ namespace davClassLibrary.Models
 
             // Add the object at the beginning of the list
             DataManager.fileDownloads.Insert(0, this);
+            DataManager.StartFileDownloads();
         }
 
         public void DownloadFile(IProgress<(Guid, int)> progress)
@@ -444,7 +432,7 @@ namespace davClassLibrary.Models
                 || downloadStatus == TableObjectFileDownloadStatus.Downloaded
             )
             {
-                DataManager.ReportFileDownloadProgress(Uuid, -1);
+                DataManager.ReportFileDownloadProgress(this, -1);
                 return;
             }
 
@@ -467,21 +455,23 @@ namespace davClassLibrary.Models
 
         private void DownloadFileWebClient_DownloadProgressChanged(object sender, DownloadProgressChangedEventArgs e)
         {
-            DataManager.ReportFileDownloadProgress(Uuid, e.ProgressPercentage);
+            DataManager.ReportFileDownloadProgress(this, e.ProgressPercentage);
         }
 
         private async void DownloadFileWebClient_DownloadFileCompleted(object sender, System.ComponentModel.AsyncCompletedEventArgs e)
         {
             if (e.Cancelled || e.Error != null)
-                DataManager.ReportFileDownloadProgress(Uuid, -1);
+                DataManager.ReportFileDownloadProgress(this, -1);
             else
             {
                 await CopyDownloadedFileAsync();
-                DataManager.ReportFileDownloadProgress(Uuid, 101);
+
+                ProjectInterface.TriggerAction.UpdateTableObject(this, true);
+                DataManager.ReportFileDownloadProgress(this, 101);
             }
 
-            // Remove the file download progress list from the dictionary
             DataManager.fileDownloadProgressList.Remove(Uuid);
+            DataManager.fileDownloaders.Remove(Uuid);
         }
 
         private async Task CopyDownloadedFileAsync()
@@ -502,12 +492,8 @@ namespace davClassLibrary.Models
             if (file.Exists)
                 file.MoveTo(filePath);
 
-            DataManager.fileDownloaders.Remove(Uuid);
-
             // Save the etags of the table object
             await DataManager.SetEtagOfTableObjectAsync(Uuid, Etag);
-
-            ProjectInterface.TriggerAction.UpdateTableObject(this, true);
         }
 
         internal async Task<string> CreateOnServerAsync()
@@ -702,7 +688,6 @@ namespace davClassLibrary.Models
             {
                 id = Id,
                 table_id = TableId,
-                visibility = (int)Visibility,
                 uuid = Uuid,
                 file = IsFile,
                 etag = Etag,
@@ -721,7 +706,6 @@ namespace davClassLibrary.Models
             {
                 Id = tableObjectData.id,
                 TableId = tableObjectData.table_id,
-                Visibility = (TableObjectVisibility)tableObjectData.visibility,
                 Uuid = tableObjectData.uuid,
                 IsFile = tableObjectData.file,
                 Etag = tableObjectData.etag
@@ -750,7 +734,6 @@ namespace davClassLibrary.Models
     {
         public int id { get; set; }
         public int table_id { get; set; }
-        public int visibility { get; set; }
         public Guid uuid { get; set; }
         public bool file { get; set; }
         public Dictionary<string, string> properties { get; set; }

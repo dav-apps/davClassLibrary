@@ -22,6 +22,7 @@ namespace davClassLibrary.DataAccess
     public static class DataManager
     {
         private static bool isSyncing = false;
+        internal static bool fileDownloadsStarted = false;
         internal static List<TableObject> fileDownloads = new List<TableObject>();
         internal static Dictionary<Guid, WebClient> fileDownloaders = new Dictionary<Guid, WebClient>();
         internal static Dictionary<Guid, List<IProgress<(Guid, int)>>> fileDownloadProgressList = new Dictionary<Guid, List<IProgress<(Guid, int)>>>();
@@ -598,16 +599,26 @@ namespace davClassLibrary.DataAccess
             }
         }
 
-        private static void StartFileDownloads()
+        internal static void StartFileDownloads()
         {
+            if (fileDownloadsStarted) return;
+            fileDownloadsStarted = true;
+
             // Do not download more than downloadFilesSimultaneously files at the same time
             fileDownloadTimer = new Timer();
             fileDownloadTimer.Elapsed += DownloadFileTimer_Elapsed;
             fileDownloadTimer.Interval = 5000;
             fileDownloadTimer.Start();
+
+            StartNextFileDownload();
         }
 
         private static void DownloadFileTimer_Elapsed(object sender, ElapsedEventArgs e)
+        {
+            StartNextFileDownload();
+        }
+
+        private static void StartNextFileDownload()
         {
             // Check the network connection
             if (!ProjectInterface.GeneralMethods.IsNetworkAvailable()) return;
@@ -624,19 +635,21 @@ namespace davClassLibrary.DataAccess
             }
             else if (fileDownloads.Count == 0)
             {
-                // Stop the timer
+                fileDownloadsStarted = false;
                 fileDownloadTimer.Stop();
             }
         }
 
-        internal static void ReportFileDownloadProgress(Guid uuid, int value)
+        internal static void ReportFileDownloadProgress(TableObject tableObject, int value)
         {
             // Get the list by the uuid
             List<IProgress<(Guid, int)>> progressList = new List<IProgress<(Guid, int)>>();
-            if (!fileDownloadProgressList.TryGetValue(uuid, out progressList)) return;
+            if (!fileDownloadProgressList.TryGetValue(tableObject.Uuid, out progressList)) return;
 
             foreach(IProgress<(Guid, int)> progress in progressList)
-                progress.Report((uuid, value));
+                progress.Report((tableObject.Uuid, value));
+
+            ProjectInterface.TriggerAction.TableObjectDownloadProgress(tableObject, value);
         }
 
         public static async Task<ApiResponse> HttpGetAsync(string jwt, string url)
@@ -664,7 +677,6 @@ namespace davClassLibrary.DataAccess
             else
             {
                 // Return error message
-                //return new KeyValuePair<bool, string>(false, "No internet connection");
                 return new ApiResponse {
                     Success = false,
                     Status = 0,
