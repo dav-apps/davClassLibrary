@@ -1,5 +1,4 @@
-﻿using System;
-using davClassLibrary.Common;
+﻿using davClassLibrary.Common;
 using davClassLibrary.Models;
 
 namespace davClassLibrary.Tests.Common
@@ -17,6 +16,11 @@ namespace davClassLibrary.Tests.Common
         }
 
         public void UpdateTableObject(TableObject tableObject, bool fileDownloaded)
+        {
+            
+        }
+
+        public void TableObjectDownloadProgress(TableObject tableObject, int progress)
         {
             
         }
