@@ -301,10 +301,13 @@ namespace davClassLibrary.DataAccess
 
             isSyncing = true;
 
-            List<TableObject> tableObjects = (await Dav.Database.GetAllTableObjectsAsync(true))
-                                            .Where(obj => obj.UploadStatus != TableObjectUploadStatus.NoUpload &&
-                                                    obj.UploadStatus != TableObjectUploadStatus.UpToDate)
-                                                    .OrderByDescending(obj => obj.Id).ToList();
+            List<TableObject> tableObjects =
+                (await Dav.Database.GetAllTableObjectsAsync(true))
+                    .Where(obj => 
+                        obj.UploadStatus != TableObjectUploadStatus.NoUpload
+                        && obj.UploadStatus != TableObjectUploadStatus.UpToDate
+                    ).OrderByDescending(obj => obj.Id).ToList();
+
             foreach (var tableObject in tableObjects)
             {
                 if (tableObject.UploadStatus == TableObjectUploadStatus.New)
@@ -662,11 +665,24 @@ namespace davClassLibrary.DataAccess
                 Uri requestUri = new Uri($"{Dav.ApiBaseUrl}/{url}");
 
                 HttpResponseMessage httpResponse = new HttpResponseMessage();
-                string httpResponseBody = "";
 
                 // Send the GET request
-                httpResponse = await httpClient.GetAsync(requestUri);
-                httpResponseBody = await httpResponse.Content.ReadAsStringAsync();
+                try
+                {
+                    httpResponse = await httpClient.GetAsync(requestUri);
+                }
+                catch
+                {
+                    // Return error message
+                    return new ApiResponse
+                    {
+                        Success = false,
+                        Status = 0,
+                        Data = null
+                    };
+                }
+                
+                string httpResponseBody = await httpResponse.Content.ReadAsStringAsync();
 
                 return new ApiResponse {
                     Success = httpResponse.IsSuccessStatusCode,
@@ -877,7 +893,11 @@ namespace davClassLibrary.DataAccess
             headers.Authorization = new AuthenticationHeaderValue(jwt);
             Uri requestUri = new Uri($"{Dav.ApiBaseUrl}/auth/session");
 
-            await httpClient.DeleteAsync(requestUri);
+            try
+            {
+                await httpClient.DeleteAsync(requestUri);
+            }
+            catch { }
         }
     }
 
