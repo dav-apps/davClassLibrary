@@ -5,14 +5,6 @@ namespace davClassLibrary
 {
     public class Dav
     {
-        public const string jwtKey = "jwt";
-        public const string emailKey = "email";
-        public const string usernameKey = "username";
-        public const string totalStorageKey = "totalStorage";
-        public const string usedStorageKey = "usedStorage";
-        public const string planKey = "plan";
-        public const string avatarEtagKey = "avatarEtag";
-
         // Websocket keys
         public const string uuidKey = "uuid";
         public const string changeKey = "change";
@@ -21,6 +13,7 @@ namespace davClassLibrary
         public const string ExportDataFileName = "data.json";
         public const string GetUserUrl = "auth/user";
 
+        public static string AccessToken { get; internal set; }
         private const string ApiBaseUrlProduction = "https://dav-backend.herokuapp.com/v1";
         private const string ApiBaseUrlDevelopment = "https://829cc76acebc.ngrok.io/v1";
         public static string ApiBaseUrl => Environment == DavEnvironment.Production ? ApiBaseUrlProduction : ApiBaseUrlDevelopment;
