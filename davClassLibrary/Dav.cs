@@ -1,41 +1,24 @@
-﻿using davClassLibrary.Common;
-using davClassLibrary.DataAccess;
+﻿using davClassLibrary.DataAccess;
+using System.Collections.Generic;
+using System.Net.Http;
 
 namespace davClassLibrary
 {
-    public class Dav
+    public static class Dav
     {
-        // Websocket keys
-        public const string uuidKey = "uuid";
-        public const string changeKey = "change";
-        public const string sessionIdKey = "session_id";
-
-        public const string ExportDataFileName = "data.json";
-        public const string GetUserUrl = "auth/user";
+        public static Environment Environment { get; internal set; }
+        public static int AppId { get; internal set; }
+        public static List<int> TableIds { get; internal set; }
+        public static List<int> ParallelTableIds { get; internal set; }
+        public static string DataPath { get; internal set; }
 
         public static string AccessToken { get; internal set; }
         private const string ApiBaseUrlProduction = "https://dav-backend.herokuapp.com/v1";
         private const string ApiBaseUrlDevelopment = "https://829cc76acebc.ngrok.io/v1";
-        public static string ApiBaseUrl => Environment == DavEnvironment.Production ? ApiBaseUrlProduction : ApiBaseUrlDevelopment;
-        public static string DataPath
-        {
-            get { return ProjectInterface.RetrieveConstants.GetDataPath(); }
-        }
-        public static string ApiKey
-        {
-            get { return ProjectInterface.RetrieveConstants.GetApiKey(); }
-        }
-        public static int AppId
-        {
-            get { return ProjectInterface.RetrieveConstants.GetAppId(); }
-        }
-        public static DavEnvironment Environment
-        {
-            get { return ProjectInterface.GeneralMethods.GetEnvironment(); }
-        }
-        
-        private static DavDatabase database;
+        public static string ApiBaseUrl => Environment == Environment.Production ? ApiBaseUrlProduction : ApiBaseUrlDevelopment;
 
+        internal static readonly HttpClient httpClient = new HttpClient();
+        private static DavDatabase database;
         public static DavDatabase Database
         {
             get
@@ -44,6 +27,21 @@ namespace davClassLibrary
                     database = new DavDatabase();
                 return database;
             }
+        }
+
+        public static void Init(
+            Environment environment,
+            int appId,
+            List<int> tableIds,
+            List<int> parallelTableIds,
+            string dataPath
+        )
+        {
+            Environment = environment;
+            AppId = appId;
+            TableIds = tableIds;
+            ParallelTableIds = parallelTableIds;
+            DataPath = dataPath;
         }
     }
 }
