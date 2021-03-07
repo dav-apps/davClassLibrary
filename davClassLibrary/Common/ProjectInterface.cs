@@ -3,8 +3,7 @@
     public class ProjectInterface
     {
         public static ILocalDataSettings LocalDataSettings;
-        public static IRetrieveConstants RetrieveConstants;
-        public static ITriggerAction TriggerAction;
+        public static ICallbacks Callbacks;
         public static IGeneralMethods GeneralMethods;
     }
 }
