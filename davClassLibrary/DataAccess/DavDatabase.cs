@@ -72,7 +72,7 @@ namespace davClassLibrary.DataAccess
 
             foreach (var tableObject in tableObjects)
             {
-                if (!deleted && tableObject.UploadStatus == TableObject.TableObjectUploadStatus.Deleted) continue;
+                if (!deleted && tableObject.UploadStatus == TableObjectUploadStatus.Deleted) continue;
 
                 tableObject.Properties = new List<Property>();
                 foreach (var prop in properties.FindAll(p => p.TableObjectId == tableObject.Id))
@@ -96,7 +96,7 @@ namespace davClassLibrary.DataAccess
             foreach (var tableObject in tableObjects)
             {
                 if (
-                    (!deleted && tableObject.UploadStatus == TableObject.TableObjectUploadStatus.Deleted)
+                    (!deleted && tableObject.UploadStatus == TableObjectUploadStatus.Deleted)
                     || tableObject.TableId != tableId
                 ) continue;
 
@@ -194,14 +194,14 @@ namespace davClassLibrary.DataAccess
         public async Task DeleteTableObjectAsync(TableObject tableObject)
         {
             await InitAsync();
-            if (tableObject.UploadStatus == TableObject.TableObjectUploadStatus.Deleted)
+            if (tableObject.UploadStatus == TableObjectUploadStatus.Deleted)
             {
                 await DeleteTableObjectImmediatelyAsync(tableObject);
             }
             else
             {
                 // Set the upload status of the table object to Deleted
-                await tableObject.SetUploadStatusAsync(TableObject.TableObjectUploadStatus.Deleted);
+                await tableObject.SetUploadStatusAsync(TableObjectUploadStatus.Deleted);
             }
         }
 
@@ -217,6 +217,8 @@ namespace davClassLibrary.DataAccess
         {
             await InitAsync();
             await tableObject.LoadAsync();
+            tableObject.DeleteFile();
+
             await database.RunInTransactionAsync((SQLiteConnection tran) =>
             {
                 // Delete the properties of the table object

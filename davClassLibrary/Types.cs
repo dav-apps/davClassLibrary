@@ -1,4 +1,7 @@
-﻿namespace davClassLibrary
+﻿using davClassLibrary.Models;
+using System;
+
+namespace davClassLibrary
 {
     public enum Environment
     {
@@ -12,6 +15,28 @@
         Free,
         Plus,
         Pro
+    }
+
+    public enum TableObjectUploadStatus
+    {
+        UpToDate = 0,
+        New = 1,
+        Updated = 2,
+        Deleted = 3
+    }
+
+    internal enum SessionUploadStatus
+    {
+        UpToDate = 0,
+        Deleted = 1
+    }
+
+    public enum TableObjectFileDownloadStatus
+    {
+        NoFileOrNotLoggedIn = 0,
+        NotDownloaded = 1,
+        Downloading = 2,
+        Downloaded = 3
     }
 
     public class HttpResponse
@@ -28,8 +53,16 @@
 
     public class ApiResponse<T>
     {
+        public bool Success { get; set; }
         public int Status { get; set; }
         public T Data { get; set; }
+        public ApiError[] Errors { get; set; }
+    }
+
+    public class ApiResponse
+    {
+        public bool Success { get; set; }
+        public int Status { get; set; }
         public ApiError[] Errors { get; set; }
     }
 
@@ -43,5 +76,30 @@
     {
         public bool Success { get; set; }
         public ApiError[] Errors { get; set; }
+    }
+
+    internal class TableObjectDownload
+    {
+        public Guid uuid { get; set; }
+        public string etag { get; set; }
+    }
+
+    internal class TableObjectServerResponse
+    {
+        public bool Success { get; set; }
+        public ApiResponse<TableObject> Response { get; set; }
+    }
+
+    internal class TableObjectUpdateResponse
+    {
+        public string type { get; set; }
+        public TableObjectUpdateResponseMessage message { get; set; }
+    }
+
+    internal class TableObjectUpdateResponseMessage
+    {
+        public Guid uuid { get; set; }
+        public int change { get; set; }
+        public string access_token_md5 { get; set; }
     }
 }
