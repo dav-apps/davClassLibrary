@@ -9,11 +9,15 @@
 
         // New settings keys
         internal const string accessTokenKey = "accessToken";
+        internal const string sessionUploadStatusKey = "sessionUploadStatus";
         internal const string emailKey = "email";
         internal const string firstNameKey = "firstName";
         internal const string totalStorageKey = "totalStorage";
         internal const string usedStorageKey = "usedStorage";
         internal const string planKey = "plan";
         internal const string profileImageEtagKey = "profileImageEtag";
+
+        internal const string extPropertyName = "ext";
+        internal const string tableObjectUpdateChannelName = "TableObjectUpdateChannel";
     }
 }
