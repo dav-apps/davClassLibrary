@@ -1,11 +1,25 @@
-﻿using davClassLibrary.DataAccess;
+﻿using davClassLibrary.Common;
+using davClassLibrary.DataAccess;
+using davClassLibrary.Models;
 using System.Collections.Generic;
 using System.Net.Http;
+using System.Threading.Tasks;
 
 namespace davClassLibrary
 {
     public static class Dav
     {
+        public static bool IsLoggedIn = false;
+        public static User User = new User
+        {
+            Email = "",
+            FirstName = "",
+            TotalStorage = 0,
+            UsedStorage = 0,
+            Plan = Plan.Free,
+            ProfileImageEtag = ""
+        };
+
         public static Environment Environment { get; internal set; }
         public static int AppId { get; internal set; }
         public static List<int> TableIds { get; internal set; }
@@ -16,6 +30,8 @@ namespace davClassLibrary
         private const string ApiBaseUrlProduction = "https://dav-backend.herokuapp.com/v1";
         private const string ApiBaseUrlDevelopment = "https://829cc76acebc.ngrok.io/v1";
         public static string ApiBaseUrl => Environment == Environment.Production ? ApiBaseUrlProduction : ApiBaseUrlDevelopment;
+
+        private static bool isSyncing = false;
 
         internal static readonly HttpClient httpClient = new HttpClient();
         private static DavDatabase database;
@@ -42,6 +58,65 @@ namespace davClassLibrary
             TableIds = tableIds;
             ParallelTableIds = parallelTableIds;
             DataPath = dataPath;
+
+            _ = StartSync();
+        }
+
+        private static async Task StartSync()
+        {
+            if (isSyncing) return;
+            isSyncing = true;
+
+            // Get the access token and session upload status from the local settings
+            AccessToken = SettingsManager.GetAccessToken();
+            var sessionUploadStatus = SettingsManager.GetSessionUploadStatus();
+
+            if(string.IsNullOrEmpty(AccessToken) || sessionUploadStatus == SessionUploadStatus.Deleted)
+            {
+                await SyncManager.SessionSyncPush();
+                isSyncing = false;
+                return;
+            }
+            IsLoggedIn = true;
+
+            // Load the user
+            SyncManager.LoadUser();
+
+            // Sync the user
+            if(!await SyncManager.SyncUser())
+            {
+                isSyncing = false;
+                return;
+            }
+
+            // Sync the table objects
+            bool syncSuccess = await SyncManager.Sync();
+            bool syncPushSuccess = await SyncManager.SyncPush();
+            if(!syncSuccess || !syncPushSuccess)
+            {
+                isSyncing = false;
+                return;
+            }
+
+            await SyncManager.StartWebsocketConnection();
+            SyncManager.StartFileDownloads();
+
+            ProjectInterface.Callbacks.SyncFinished();
+            isSyncing = false;
+        }
+
+        public static void Logout()
+        {
+            AccessToken = null;
+            IsLoggedIn = false;
+
+            SettingsManager.RemoveUser();
+
+            // Set the session UploadStatus to Deleted
+            SettingsManager.SetSessionUploadStatus(SessionUploadStatus.Deleted);
+
+            // Start deleting the session on the server
+            _ = SyncManager.SessionSyncPush();
         }
     }
 }
