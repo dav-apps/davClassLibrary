@@ -1,4 +1,5 @@
 ﻿using davClassLibrary.Models;
+using System;
 
 namespace davClassLibrary.Common
 {
@@ -6,7 +7,7 @@ namespace davClassLibrary.Common
     {
         void UpdateAllOfTable(int tableId, bool changed);
         void UpdateTableObject(TableObject tableObject, bool fileDownloaded);
-        void DeleteTableObject(TableObject tableObject);
+        void DeleteTableObject(Guid uuid, int tableId);
         void TableObjectDownloadProgress(TableObject tableObject, int progress);
         void SyncFinished();
     }
