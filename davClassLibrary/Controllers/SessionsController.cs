@@ -1,4 +1,4 @@
-﻿using System.Net.Http;
+﻿using System.Net.Http.Headers;
 using System.Threading.Tasks;
 
 namespace davClassLibrary.Controllers
@@ -7,13 +7,17 @@ namespace davClassLibrary.Controllers
     {
         public static async Task<ApiResponse<SessionResponse>> RenewSession(string accessToken)
         {
-            HttpClient httpClient = new HttpClient();
-            httpClient.DefaultRequestHeaders.Add("AUTHORIZATION", accessToken);
+            var httpClient = Dav.httpClient;
+            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(Dav.AccessToken);
 
             var response = await httpClient.GetAsync($"{Dav.ApiBaseUrl}/session/renew");
             string responseData = await response.Content.ReadAsStringAsync();
 
-            var result = new ApiResponse<SessionResponse> { Status = (int)response.StatusCode };
+            var result = new ApiResponse<SessionResponse>
+            {
+                Success = response.IsSuccessStatusCode,
+                Status = (int)response.StatusCode
+            };
 
             if (response.IsSuccessStatusCode)
             {
@@ -22,6 +26,29 @@ namespace davClassLibrary.Controllers
             }
             else
             {
+                var errors = Utils.SerializeJson<ApiError[]>(responseData);
+                result.Errors = errors;
+            }
+
+            return result;
+        }
+
+        public static async Task<ApiResponse> DeleteSession(string accessToken)
+        {
+            var httpClient = Dav.httpClient;
+            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(Dav.AccessToken);
+
+            var response = await httpClient.DeleteAsync($"{Dav.ApiBaseUrl}/session");
+
+            var result = new ApiResponse
+            {
+                Success = response.IsSuccessStatusCode,
+                Status = (int)response.StatusCode
+            };
+
+            if (!response.IsSuccessStatusCode)
+            {
+                string responseData = await response.Content.ReadAsStringAsync();
                 var errors = Utils.SerializeJson<ApiError[]>(responseData);
                 result.Errors = errors;
             }
