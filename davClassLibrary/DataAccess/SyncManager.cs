@@ -282,7 +282,7 @@ namespace davClassLibrary.DataAccess
 
                     await obj.DeleteImmediatelyAsync();
 
-                    ProjectInterface.Callbacks.DeleteTableObject(obj);
+                    ProjectInterface.Callbacks.DeleteTableObject(obj.Uuid, obj.TableId);
                     tableChanged = true;
                 }
 
