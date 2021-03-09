@@ -4,6 +4,5 @@
     {
         public static ILocalDataSettings LocalDataSettings;
         public static ICallbacks Callbacks;
-        public static IGeneralMethods GeneralMethods;
     }
 }
