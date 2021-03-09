@@ -28,7 +28,7 @@ namespace davClassLibrary
 
         public static string AccessToken { get; internal set; }
         private const string ApiBaseUrlProduction = "https://dav-backend.herokuapp.com/v1";
-        private const string ApiBaseUrlDevelopment = "https://829cc76acebc.ngrok.io/v1";
+        private const string ApiBaseUrlDevelopment = "https://0508c04ef156.ngrok.io/v1";
         public static string ApiBaseUrl => Environment == Environment.Production ? ApiBaseUrlProduction : ApiBaseUrlDevelopment;
 
         private static bool isSyncing = false;
@@ -105,12 +105,30 @@ namespace davClassLibrary
             isSyncing = false;
         }
 
+        public static void Login(string accessToken)
+        {
+            if (string.IsNullOrEmpty(accessToken)) return;
+
+            // Save the access token in the local settings
+            SettingsManager.SetAccessToken(accessToken);
+            SettingsManager.SetSessionUploadStatus(SessionUploadStatus.UpToDate);
+
+            _ = StartSync();
+        }
+
         public static void Logout()
         {
             AccessToken = null;
             IsLoggedIn = false;
 
+            // Close the websocket connection
+            SyncManager.CloseWebsocketConnection();
+
+            // Remove the user
             SettingsManager.RemoveUser();
+
+            // Delete the profile image
+            // TODO
 
             // Set the session UploadStatus to Deleted
             SettingsManager.SetSessionUploadStatus(SessionUploadStatus.Deleted);

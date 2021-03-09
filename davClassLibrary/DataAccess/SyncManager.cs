@@ -24,6 +24,7 @@ namespace davClassLibrary.DataAccess
         internal static Dictionary<Guid, List<IProgress<(Guid, int)>>> fileDownloadProgressList = new Dictionary<Guid, List<IProgress<(Guid, int)>>>();
 
         private static IWebSocketConnection websocketConnection;
+        private static bool websocketConnectionEstablished = false;
 
         internal static async Task SessionSyncPush()
         {
@@ -432,13 +433,23 @@ namespace davClassLibrary.DataAccess
             websocketConnection.Open($"{Dav.ApiBaseUrl.Replace("http", "ws")}/cable?token={token}");
         }
 
+        internal static void CloseWebsocketConnection()
+        {
+            if (!websocketConnectionEstablished) return;
+            websocketConnection.Close();
+            websocketConnectionEstablished = false;
+        }
+
         private static void WebsocketConnection_OnOpened()
         {
+            websocketConnectionEstablished = true;
+
             string json = JsonConvert.SerializeObject(new
             {
                 command = "subscribe",
                 identifier = "{\"channel\": \"" + Constants.tableObjectUpdateChannelName + "\"}"
             });
+
             websocketConnection.Send(json);
         }
 
@@ -450,7 +461,7 @@ namespace davClassLibrary.DataAccess
                 return;
             else if(json.type == "reject_subscription")
             {
-                websocketConnection.Close();
+                CloseWebsocketConnection();
                 return;
             }
 
