@@ -107,7 +107,7 @@ namespace davClassLibrary.DataAccess
             // Holds the table ids, e.g. 1, 2, 3, 4
             var tableIds = Dav.TableIds;
             // Holds the parallel table ids, e.g. 2, 3
-            var parallelTableIds = Dav.TableIds;
+            var parallelTableIds = Dav.ParallelTableIds;
             // Holds the order of the table ids, sorted by the pages and the parallel table ids, e.g. 1, 2, 3, 2, 3, 4
             var sortedTableIds = new List<int>();
             // Holds the pages of the table; in the format <tableId, pages>
@@ -138,7 +138,7 @@ namespace davClassLibrary.DataAccess
                 // Get the first page of the table
                 var getTableResult = await TablesController.GetTable(tableId);
 
-                tableGetResultsOkay[tableId] = getTableResult.Status == 200;
+                tableGetResultsOkay[tableId] = getTableResult.Success;
                 if (getTableResult.Status != 200) continue;
 
                 var tableData = getTableResult.Data;
@@ -312,7 +312,7 @@ namespace davClassLibrary.DataAccess
             List<TableObject> tableObjects = await Dav.Database.GetAllTableObjectsAsync(true);
             List<TableObject> filteredTableObjects = tableObjects.Where(obj => obj.UploadStatus != TableObjectUploadStatus.UpToDate).Reverse().ToList();
 
-            foreach (var tableObject in tableObjects)
+            foreach (var tableObject in filteredTableObjects)
             {
                 switch (tableObject.UploadStatus)
                 {
@@ -455,9 +455,9 @@ namespace davClassLibrary.DataAccess
 
         private static async void WebsocketConnection_OnMessage(string message)
         {
-            TableObjectUpdateResponse json = JsonConvert.DeserializeObject<TableObjectUpdateResponse>(message);
+            dynamic json = JsonConvert.DeserializeObject(message);
 
-            if (json.type == "ping")
+            if (json.type == "ping" || json.message == null)
                 return;
             else if(json.type == "reject_subscription")
             {
@@ -465,9 +465,9 @@ namespace davClassLibrary.DataAccess
                 return;
             }
 
-            var uuid = json.message.uuid;
-            var change = json.message.change;
-            var accessTokenMd5 = json.message.access_token_md5;
+            var uuid = (Guid)json.message.uuid;
+            var change = (int)json.message.change;
+            var accessTokenMd5 = (string)json.message.access_token_md5;
             if (uuid == null || string.IsNullOrEmpty(accessTokenMd5)) return;
 
             // Don't notify the app if the session is the current session

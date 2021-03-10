@@ -1,5 +1,4 @@
-﻿using davClassLibrary.Models;
-using System;
+﻿using System;
 
 namespace davClassLibrary
 {
@@ -82,24 +81,5 @@ namespace davClassLibrary
     {
         public Guid uuid { get; set; }
         public string etag { get; set; }
-    }
-
-    internal class TableObjectServerResponse
-    {
-        public bool Success { get; set; }
-        public ApiResponse<TableObject> Response { get; set; }
-    }
-
-    internal class TableObjectUpdateResponse
-    {
-        public string type { get; set; }
-        public TableObjectUpdateResponseMessage message { get; set; }
-    }
-
-    internal class TableObjectUpdateResponseMessage
-    {
-        public Guid uuid { get; set; }
-        public int change { get; set; }
-        public string access_token_md5 { get; set; }
     }
 }
