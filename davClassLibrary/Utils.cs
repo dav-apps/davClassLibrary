@@ -25,6 +25,18 @@ namespace davClassLibrary
             return fileData;
         }
 
+        internal static DirectoryInfo GetTableFolder(int tableId)
+        {
+            string tableFolderPath = Path.Combine(Dav.DataPath, tableId.ToString());
+            return Directory.CreateDirectory(tableFolderPath);
+        }
+
+        internal static DirectoryInfo GetTempTableFolder(int tableId)
+        {
+            string tableFolderPath = Path.Combine(Path.GetTempPath(), "dav", tableId.ToString());
+            return Directory.CreateDirectory(tableFolderPath);
+        }
+
         // https://stackoverflow.com/questions/11454004/calculate-a-md5-hash-from-a-string
         internal static string CreateMD5(string input)
         {
