@@ -1,4 +1,5 @@
 ﻿using davClassLibrary.Models;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Net.Http.Headers;
@@ -24,8 +25,15 @@ namespace davClassLibrary.Controllers
 
             if (response.IsSuccessStatusCode)
             {
-                var getTableResponseData = Utils.SerializeJson<GetTableResponseData>(responseData);
-                result.Data = getTableResponseData.ToGetTableResponse();
+                try
+                {
+                    var getTableResponseData = JsonConvert.DeserializeObject<GetTableResponseData>(responseData);
+                    result.Data = getTableResponseData.ToGetTableResponse();
+                }
+                catch (Exception)
+                {
+                    result.Success = false;
+                }
             }
             else
             {

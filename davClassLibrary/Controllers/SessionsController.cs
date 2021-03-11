@@ -1,4 +1,6 @@
-﻿using System.Net.Http.Headers;
+﻿using Newtonsoft.Json;
+using System;
+using System.Net.Http.Headers;
 using System.Threading.Tasks;
 
 namespace davClassLibrary.Controllers
@@ -21,13 +23,24 @@ namespace davClassLibrary.Controllers
 
             if (response.IsSuccessStatusCode)
             {
-                var sessionResponseData = Utils.SerializeJson<SessionResponseData>(responseData);
-                result.Data = sessionResponseData.ToSessionResponse();
+                try
+                {
+                    var sessionResponseData = JsonConvert.DeserializeObject<SessionResponseData>(responseData);
+                    result.Data = sessionResponseData.ToSessionResponse();
+                }
+                catch (Exception)
+                {
+                    result.Success = false;
+                }
             }
             else
             {
-                var errors = Utils.SerializeJson<ApiError[]>(responseData);
-                result.Errors = errors;
+                try
+                {
+                    var errors = JsonConvert.DeserializeObject<ApiError[]>(responseData);
+                    result.Errors = errors;
+                }
+                catch (Exception) { }
             }
 
             return result;
@@ -48,9 +61,13 @@ namespace davClassLibrary.Controllers
 
             if (!response.IsSuccessStatusCode)
             {
-                string responseData = await response.Content.ReadAsStringAsync();
-                var errors = Utils.SerializeJson<ApiError[]>(responseData);
-                result.Errors = errors;
+                try
+                {
+                    string responseData = await response.Content.ReadAsStringAsync();
+                    var errors = JsonConvert.DeserializeObject<ApiError[]>(responseData);
+                    result.Errors = errors;
+                }
+                catch (Exception) { }
             }
 
             return result;

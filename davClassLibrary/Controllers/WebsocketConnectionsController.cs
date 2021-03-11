@@ -1,4 +1,6 @@
-﻿using System.Net.Http;
+﻿using Newtonsoft.Json;
+using System;
+using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
@@ -23,8 +25,15 @@ namespace davClassLibrary.Controllers
 
             if (response.IsSuccessStatusCode)
             {
-                var websocketConnectionData = Utils.SerializeJson<WebsocketConnectionResponseData>(responseData);
-                result.Data = websocketConnectionData.ToWebsocketConnectionResponse();
+                try
+                {
+                    var websocketConnectionData = JsonConvert.DeserializeObject<WebsocketConnectionResponseData>(responseData);
+                    result.Data = websocketConnectionData.ToWebsocketConnectionResponse();
+                }
+                catch (Exception)
+                {
+                    result.Success = false;
+                }
             }
             else
             {

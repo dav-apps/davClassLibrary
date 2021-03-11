@@ -1,9 +1,10 @@
 ﻿using davClassLibrary.Controllers;
 using davClassLibrary.DataAccess;
 using davClassLibrary.Models;
+using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Runtime.Serialization.Json;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -11,13 +12,6 @@ namespace davClassLibrary
 {
     public static class Utils
     {
-        internal static T SerializeJson<T>(string json)
-        {
-            var serializer = new DataContractJsonSerializer(typeof(T));
-            var ms = new MemoryStream(Encoding.UTF8.GetBytes(json));
-            return (T)serializer.ReadObject(ms);
-        }
-
         internal static byte[] ReadFile(string filePath)
         {
             if (!File.Exists(filePath)) return null;
@@ -62,28 +56,39 @@ namespace davClassLibrary
 
         internal static async Task<HandleApiErrorResult> HandleApiError(string responseData)
         {
-            var errors = SerializeJson<ApiError[]>(responseData);
-
-            if (errors.Length > 0 && errors[0].Code == ErrorCodes.AccessTokenMustBeRenewed)
+            try
             {
-                // Renew the session
-                var renewSessionResult = await SessionsController.RenewSession(Dav.AccessToken);
+                var errors = JsonConvert.DeserializeObject<ApiError[]>(responseData);
 
-                if (renewSessionResult.Status == 200)
+                if (errors.Length > 0 && errors[0].Code == ErrorCodes.AccessTokenMustBeRenewed)
                 {
-                    // Update the access token and save it in the local settings
-                    Dav.AccessToken = renewSessionResult.Data.AccessToken;
-                    SettingsManager.SetAccessToken(Dav.AccessToken);
+                    // Renew the session
+                    var renewSessionResult = await SessionsController.RenewSession(Dav.AccessToken);
 
-                    return new HandleApiErrorResult { Success = true, Errors = null };
+                    if (renewSessionResult.Status == 200)
+                    {
+                        // Update the access token and save it in the local settings
+                        Dav.AccessToken = renewSessionResult.Data.AccessToken;
+                        SettingsManager.SetAccessToken(Dav.AccessToken);
+
+                        return new HandleApiErrorResult { Success = true, Errors = null };
+                    }
+                    else
+                    {
+                        return new HandleApiErrorResult { Success = false, Errors = renewSessionResult.Errors };
+                    }
                 }
-                else
-                {
-                    return new HandleApiErrorResult { Success = false, Errors = renewSessionResult.Errors };
-                }
+
+                return new HandleApiErrorResult { Success = false, Errors = errors };
             }
-
-            return new HandleApiErrorResult { Success = false, Errors = errors };
+            catch (Exception)
+            {
+                return new HandleApiErrorResult
+                {
+                    Success = false,
+                    Errors = null
+                };
+            }
         }
 
         internal static List<int> SortTableIds(List<int> tableIds, List<int> parallelTableIds, Dictionary<int, int> tableIdPages)

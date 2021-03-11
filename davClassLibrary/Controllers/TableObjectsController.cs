@@ -2,6 +2,7 @@
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
@@ -49,8 +50,15 @@ namespace davClassLibrary.Controllers
 
             if (response.IsSuccessStatusCode)
             {
-                var tableObjectData = Utils.SerializeJson<TableObjectData>(responseData);
-                result.Data = tableObjectData.ToTableObject();
+                try
+                {
+                    var tableObjectData = JsonConvert.DeserializeObject<TableObjectData>(responseData);
+                    result.Data = tableObjectData.ToTableObject();
+                }
+                catch (Exception)
+                {
+                    result.Success = false;
+                }
             }
             else
             {
@@ -81,8 +89,15 @@ namespace davClassLibrary.Controllers
 
             if (response.IsSuccessStatusCode)
             {
-                var tableObjectData = Utils.SerializeJson<TableObjectData>(responseData);
-                result.Data = tableObjectData.ToTableObject();
+                try
+                {
+                    var tableObjectData = JsonConvert.DeserializeObject<TableObjectData>(responseData);
+                    result.Data = tableObjectData.ToTableObject();
+                }
+                catch (Exception)
+                {
+                    result.Success = false;
+                }
             }
             else
             {
@@ -128,8 +143,15 @@ namespace davClassLibrary.Controllers
 
             if (response.IsSuccessStatusCode)
             {
-                var tableObjectData = Utils.SerializeJson<TableObjectData>(responseData);
-                result.Data = tableObjectData.ToTableObject();
+                try
+                {
+                    var tableObjectData = JsonConvert.DeserializeObject<TableObjectData>(responseData);
+                    result.Data = tableObjectData.ToTableObject();
+                }
+                catch (Exception)
+                {
+                    result.Success = false;
+                }
             }
             else
             {
@@ -196,8 +218,15 @@ namespace davClassLibrary.Controllers
 
             if (response.IsSuccessStatusCode)
             {
-                var tableObjectData = Utils.SerializeJson<TableObjectData>(responseData);
-                result.Data = tableObjectData.ToTableObject();
+                try
+                {
+                    var tableObjectData = JsonConvert.DeserializeObject<TableObjectData>(responseData);
+                    result.Data = tableObjectData.ToTableObject();
+                }
+                catch (Exception)
+                {
+                    result.Success = false;
+                }
             }
             else
             {
@@ -205,6 +234,69 @@ namespace davClassLibrary.Controllers
 
                 if (errorResult.Success)
                     return await SetTableObjectFile(uuid, filePath, contentType);
+                else
+                    result.Errors = errorResult.Errors;
+            }
+
+            return result;
+        }
+
+        public static async Task<ApiResponse> GetTableObjectFile(Guid uuid, string filePath, IProgress<int> progress)
+        {
+            var httpClient = Dav.httpClient;
+            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(Dav.AccessToken);
+
+            var response = await httpClient.GetAsync($"{Dav.ApiBaseUrl}/table_object/{uuid}/file");
+            long contentLength = response.Content.Headers.ContentLength.GetValueOrDefault();
+
+            var result = new ApiResponse
+            {
+                Success = response.IsSuccessStatusCode,
+                Status = (int)response.StatusCode
+            };
+
+            if (response.IsSuccessStatusCode)
+            {
+                try
+                {
+                    if (File.Exists(filePath))
+                        File.Delete(filePath);
+
+                    using (var responseStream = await response.Content.ReadAsStreamAsync())
+                    {
+                        var fileStream = File.Create(filePath);
+                        var buffer = new byte[1024];
+                        int read;
+                        long offset = 0;
+
+                        do
+                        {
+                            read = await responseStream.ReadAsync(buffer, 0, buffer.Length);
+                            await fileStream.WriteAsync(buffer, 0, buffer.Length);
+                            offset += read;
+
+                            if (offset != 0)
+                                progress.Report((int)Math.Floor(offset / (float)contentLength * 100));
+
+                        } while (read != 0);
+
+                        await fileStream.FlushAsync();
+                        fileStream.Dispose();
+                        progress.Report(100);
+                    }
+                }
+                catch (Exception)
+                {
+                    result.Success = false;
+                }
+            }
+            else
+            {
+                string responseData = await response.Content.ReadAsStringAsync();
+                var errorResult = await Utils.HandleApiError(responseData);
+
+                if (errorResult.Success)
+                    return await GetTableObjectFile(uuid, filePath, progress);
                 else
                     result.Errors = errorResult.Errors;
             }

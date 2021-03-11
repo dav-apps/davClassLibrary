@@ -1,6 +1,7 @@
 ﻿using davClassLibrary.Common;
 using davClassLibrary.DataAccess;
 using davClassLibrary.Models;
+using System;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -28,12 +29,12 @@ namespace davClassLibrary
 
         public static string AccessToken { get; internal set; }
         private const string ApiBaseUrlProduction = "https://dav-backend.herokuapp.com/v1";
-        private const string ApiBaseUrlDevelopment = "https://0508c04ef156.ngrok.io/v1";
+        private const string ApiBaseUrlDevelopment = "http://localhost:3111/v1";
         public static string ApiBaseUrl => Environment == Environment.Production ? ApiBaseUrlProduction : ApiBaseUrlDevelopment;
 
         private static bool isSyncing = false;
 
-        internal static readonly HttpClient httpClient = new HttpClient();
+        internal static readonly HttpClient httpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(60) };
         private static DavDatabase database;
         public static DavDatabase Database
         {
