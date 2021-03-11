@@ -5,6 +5,7 @@ using MimeTypes;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
@@ -18,6 +19,7 @@ namespace davClassLibrary.DataAccess
         private static bool syncAgain = false;
 
         internal static List<TableObjectDownload> fileDownloads = new List<TableObjectDownload>();
+        internal static Guid downloadingFileUuid = Guid.Empty;
         internal static bool downloadingFiles = false;
         internal static Guid currentFileDownloadUuid = Guid.Empty;
         internal static WebClient currentFileDownloadWebClient = null;
@@ -63,13 +65,16 @@ namespace davClassLibrary.DataAccess
             Dav.User.UsedStorage = SettingsManager.GetUsedStorage();
             Dav.User.Plan = SettingsManager.GetPlan();
             Dav.User.ProfileImageEtag = SettingsManager.GetProfileImageEtag();
-            
-            // TODO: Load the profile image
+
+            // Load the profile image
+            string profileImageFilePath = Path.Combine(Dav.DataPath, Constants.profileImageFileName);
+            if (File.Exists(profileImageFilePath))
+                Dav.User.ProfileImage = new FileInfo(profileImageFilePath);
         }
 
         internal static async Task<bool> SyncUser()
         {
-            if (string.IsNullOrEmpty(Dav.AccessToken)) return false;
+            if (!Dav.IsLoggedIn) return false;
 
             // Get the user
             var getUserResponse = await UsersController.GetUser();
@@ -88,11 +93,20 @@ namespace davClassLibrary.DataAccess
             if (Dav.User.UsedStorage != userResponseData.UsedStorage) SettingsManager.SetUsedStorage(userResponseData.UsedStorage);
             if (Dav.User.Plan != userResponseData.Plan) SettingsManager.SetPlan(userResponseData.Plan);
 
-            if(Dav.User.ProfileImageEtag != userResponseData.ProfileImageEtag)
+            if(
+                !File.Exists(Path.Combine(Dav.DataPath, Constants.profileImageFileName))
+                || Dav.User.ProfileImageEtag != userResponseData.ProfileImageEtag
+            )
             {
-                // TODO: Download the new profile image
+                // Download the profile image
+                var getProfileImageResult = await UsersController.GetProfileImageOfUser(Path.Combine(Dav.DataPath, Constants.profileImageFileName));
+
+                if (getProfileImageResult.Success)
+                    SettingsManager.SetProfileImageEtag(userResponseData.ProfileImageEtag);
             }
 
+            LoadUser();
+            ProjectInterface.Callbacks.UserSyncFinished();
             return true;
         }
 
@@ -100,7 +114,7 @@ namespace davClassLibrary.DataAccess
         {
             if (
                 isSyncing
-                || string.IsNullOrEmpty(Dav.AccessToken)
+                || !Dav.IsLoggedIn
             ) return false;
             isSyncing = true;
 
@@ -301,7 +315,7 @@ namespace davClassLibrary.DataAccess
 
         public static async Task<bool> SyncPush()
         {
-            if (string.IsNullOrEmpty(Dav.AccessToken)) return false;
+            if (!Dav.IsLoggedIn) return false;
             if (isSyncing)
             {
                 syncAgain = true;
@@ -416,7 +430,7 @@ namespace davClassLibrary.DataAccess
         internal static async Task StartWebsocketConnection()
         {
             if (
-                string.IsNullOrEmpty(Dav.AccessToken)
+                !Dav.IsLoggedIn
                 || Dav.Environment == Environment.Test
             ) return;
 
@@ -514,7 +528,15 @@ namespace davClassLibrary.DataAccess
                 var tableObject = await Dav.Database.GetTableObjectAsync(fileDownload.uuid);
                 if (tableObject == null || !tableObject.IsFile) continue;
 
-                //tableObject.DownloadFile();
+                if (!await tableObject.DownloadFile())
+                    continue;
+
+                // Remove the download progress from the list
+                fileDownloadProgressList.Remove(fileDownload.uuid);
+
+                // Update the table object with the new etag
+                if (fileDownload.etag != null)
+                    await tableObject.SetEtagAsync(fileDownload.etag);
 
                 ProjectInterface.Callbacks.UpdateTableObject(tableObject, true);
             }
@@ -522,9 +544,21 @@ namespace davClassLibrary.DataAccess
             downloadingFiles = false;
         }
 
+        internal static void ReportFileDownloadProgress(Guid uuid, int value)
+        {
+            // Get the list by the uuid
+            List<IProgress<(Guid, int)>> progressList = new List<IProgress<(Guid, int)>>();
+            if (!fileDownloadProgressList.TryGetValue(uuid, out progressList)) return;
+
+            foreach (IProgress<(Guid, int)> progress in progressList)
+                progress.Report((uuid, value));
+
+            ProjectInterface.Callbacks.TableObjectDownloadProgress(uuid, value);
+        }
+
         private static async Task<ApiResponse<TableObject>> CreateTableObjectOnServer(TableObject tableObject)
         {
-            if (string.IsNullOrEmpty(Dav.AccessToken)) return new ApiResponse<TableObject> { Success = false };
+            if (!Dav.IsLoggedIn) return new ApiResponse<TableObject> { Success = false };
 
             if (tableObject.IsFile)
             {
@@ -536,7 +570,7 @@ namespace davClassLibrary.DataAccess
                     new Dictionary<string, string> { { Constants.extPropertyName, tableObject.GetPropertyValue(Constants.extPropertyName) } }
                 );
 
-                if(createTableObjectResponse.Status != 201)
+                if(!createTableObjectResponse.Success)
                 {
                     // Check if the table object already exists
                     var errorResponse = createTableObjectResponse.Errors;
@@ -577,7 +611,7 @@ namespace davClassLibrary.DataAccess
 
         private static async Task<ApiResponse<TableObject>> UpdateTableObjectOnServer(TableObject tableObject)
         {
-            if (string.IsNullOrEmpty(Dav.AccessToken)) return new ApiResponse<TableObject> { Success = false };
+            if (!Dav.IsLoggedIn) return new ApiResponse<TableObject> { Success = false };
 
             if (tableObject.IsFile && tableObject.File != null)
             {
@@ -627,8 +661,13 @@ namespace davClassLibrary.DataAccess
 
         private static async Task<ApiResponse> DeleteTableObjectOnServer(TableObject tableObject)
         {
-            if (string.IsNullOrEmpty(Dav.AccessToken)) return new ApiResponse { Success = false };
+            if (!Dav.IsLoggedIn) return new ApiResponse { Success = false };
             return await TableObjectsController.DeleteTableObject(tableObject.Uuid);
+        }
+
+        internal static void SetDownloadingFileUuid(Guid uuid)
+        {
+            downloadingFileUuid = uuid;
         }
     }
 }

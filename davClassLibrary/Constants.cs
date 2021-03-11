@@ -19,5 +19,6 @@
 
         internal const string extPropertyName = "ext";
         internal const string tableObjectUpdateChannelName = "TableObjectUpdateChannel";
+        internal const string profileImageFileName = "profileImage";
     }
 }

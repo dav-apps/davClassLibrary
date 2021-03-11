@@ -1,4 +1,6 @@
-﻿namespace davClassLibrary.Models
+﻿using System.IO;
+
+namespace davClassLibrary.Models
 {
     public class User
     {
@@ -7,11 +9,14 @@
         public long TotalStorage { get; set; }
         public long UsedStorage { get; set; }
         public Plan Plan { get; set; }
+        public FileInfo ProfileImage { get; set; }
         public string ProfileImageEtag { get; set; }
     }
 
-    class UserData
+    public class UserData
     {
+        public UserData() { }
+
         public string email { get; set; }
         public string first_name { get; set; }
         public long total_storage { get; set; }

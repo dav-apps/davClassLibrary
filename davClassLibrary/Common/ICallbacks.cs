@@ -8,7 +8,8 @@ namespace davClassLibrary.Common
         void UpdateAllOfTable(int tableId, bool changed);
         void UpdateTableObject(TableObject tableObject, bool fileDownloaded);
         void DeleteTableObject(Guid uuid, int tableId);
-        void TableObjectDownloadProgress(TableObject tableObject, int progress);
+        void TableObjectDownloadProgress(Guid uuid, int progress);
+        void UserSyncFinished();
         void SyncFinished();
     }
 }
