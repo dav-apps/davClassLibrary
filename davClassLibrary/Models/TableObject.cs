@@ -1,16 +1,16 @@
-﻿using davClassLibrary.Common;
+﻿using davClassLibrary.Controllers;
 using davClassLibrary.DataAccess;
 using SQLite;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Net;
 using System.Threading.Tasks;
 
 namespace davClassLibrary.Models
 {
     public class TableObject
     {
+        #region Variables
         [PrimaryKey, AutoIncrement]
         public int Id { get; set; }
         public int TableId { get; set; }
@@ -24,13 +24,12 @@ namespace davClassLibrary.Models
         public TableObjectUploadStatus UploadStatus { get; set; }
         public string Etag { get; set; }
         [Ignore]
-        public TableObjectFileDownloadStatus FileDownloadStatus
-        {
-            get => GetDownloadStatus();
-        }
+        public TableObjectFileDownloadStatus FileDownloadStatus { get => GetFileDownloadStatus(); }
+        #endregion
 
-        public TableObject(){}
-        
+        #region Constructors & Create methods
+        public TableObject() { }
+
         public TableObject(int tableId)
         {
             Uuid = Guid.NewGuid();
@@ -46,7 +45,7 @@ namespace davClassLibrary.Models
             Properties = new List<Property>();
             UploadStatus = TableObjectUploadStatus.New;
         }
-        
+
         public TableObject(Guid uuid, int tableId, List<Property> properties)
         {
             Uuid = uuid;
@@ -83,42 +82,275 @@ namespace davClassLibrary.Models
             await tableObject.SaveWithPropertiesAsync();
             return tableObject;
         }
-        
-        public Uri GetFileUri()
-        {
-            if (!IsFile) return null;
-            string jwt = DavUser.GetJWT();
-            if (string.IsNullOrEmpty(jwt)) return null;
+        #endregion
 
-            return new Uri($"{Dav.ApiBaseUrl}/apps/object/{Uuid}?file=true&jwt={jwt}");
+        #region UploadStatus methods
+        public async Task SetUploadStatusAsync(TableObjectUploadStatus newUploadStatus)
+        {
+            if (UploadStatus == newUploadStatus) return;
+
+            UploadStatus = newUploadStatus;
+            await SaveAsync();
+        }
+        #endregion
+
+        #region Etag methods
+        internal async Task SetEtagAsync(string etag)
+        {
+            if (Etag == etag) return;
+
+            Etag = etag;
+            await SaveAsync();
+        }
+        #endregion
+
+        #region Properties methods
+        private async Task LoadPropertiesAsync()
+        {
+            Properties = await Dav.Database.GetPropertiesOfTableObjectAsync(Id);
         }
 
-        public async Task<MemoryStream> GetFileStreamAsync()
+        public async Task SetPropertyValueAsync(string name, string value)
         {
-            if (!IsFile) return null;
-            string jwt = DavUser.GetJWT();
-            if (string.IsNullOrEmpty(jwt)) return null;
+            var property = Properties.Find(prop => prop.Name == name);
 
-            string url = $"{Dav.ApiBaseUrl}/apps/object/{Uuid}?file=true&jwt={jwt}";
+            if (property != null)
+            {
+                // Update the property
+                if (property.Value == value) return;
+                await property.SetValueAsync(value);
+            }
+            else
+            {
+                // Create a new property
+                Properties.Add(await Property.CreateAsync(Id, name, value));
+            }
 
-            WebClient client = new WebClient();
-            var stream = await client.OpenReadTaskAsync(url);
+            if (UploadStatus == TableObjectUploadStatus.UpToDate && !IsFile)
+                UploadStatus = TableObjectUploadStatus.Updated;
 
-            MemoryStream streamCopy = new MemoryStream();
-            await stream.CopyToAsync(streamCopy);
-            return streamCopy;
+            await SaveAsync();
+            _ = SyncManager.SyncPush();
         }
 
+        public async Task SetPropertyValuesAsync(Dictionary<string, string> properties)
+        {
+            bool propertiesChanged = false;
+            List<Property> propertiesToCreate = new List<Property>();
+            List<Property> propertiesToUpdate = new List<Property>();
+
+            foreach (var p in properties)
+            {
+                var property = Properties.Find(prop => prop.Name == p.Key);
+
+                if (property != null)
+                {
+                    // Update the property
+                    if (property.Value == p.Value) continue;
+                    property.Value = p.Value;
+                    propertiesToUpdate.Add(property);
+                    propertiesChanged = true;
+                }
+                else
+                {
+                    // Create a new property
+                    var newProperty = new Property(Id, p.Key, p.Value);
+                    Properties.Add(newProperty);
+                    propertiesToCreate.Add(newProperty);
+                    propertiesChanged = true;
+                }
+            }
+
+            // Save the properties in transaction
+            await Dav.Database.CreatePropertiesAsync(propertiesToCreate);
+            await Dav.Database.UpdatePropertiesAsync(propertiesToUpdate);
+
+            if (!propertiesChanged) return;
+
+            if (UploadStatus == TableObjectUploadStatus.UpToDate && !IsFile)
+                UploadStatus = TableObjectUploadStatus.Updated;
+
+            await SaveAsync();
+            _ = SyncManager.SyncPush();
+        }
+
+        public string GetPropertyValue(string name)
+        {
+            var property = Properties.Find(prop => prop.Name == name);
+            return property?.Value;
+        }
+
+        public async Task RemovePropertyAsync(string name)
+        {
+            var property = Properties.Find(prop => prop.Name == name);
+            if (property == null) return;
+            Properties.Remove(property);
+
+            if (UploadStatus == TableObjectUploadStatus.UpToDate)
+                UploadStatus = TableObjectUploadStatus.Updated;
+
+            await Dav.Database.DeletePropertyAsync(property);
+            _ = SyncManager.SyncPush();
+        }
+        #endregion
+
+        #region File methods
         public bool FileDownloaded()
         {
             return System.IO.File.Exists(GetFilePath());
         }
-        
+
         private string GetFilePath()
         {
-            return Path.Combine(DataManager.GetTableFolder(TableId).FullName, Uuid.ToString());
+            return Path.Combine(Utils.GetTableFolder(TableId).FullName, Uuid.ToString());
         }
 
+        private string GetTempFilePath()
+        {
+            return Path.Combine(Utils.GetTempTableFolder(TableId).FullName, Uuid.ToString());
+        }
+
+        internal void LoadFile()
+        {
+            if (!IsFile) return;
+
+            string filePath = Path.Combine(Dav.DataPath, TableId.ToString(), Uuid.ToString());
+            var file = new FileInfo(filePath);
+
+            if (file != null)
+                File = file;
+        }
+
+        public async Task<FileInfo> SetFileAsync(FileInfo file)
+        {
+            if (!IsFile) return null;
+            if (File == file) return File;
+
+            if (UploadStatus == TableObjectUploadStatus.UpToDate)
+                UploadStatus = TableObjectUploadStatus.Updated;
+
+            // Save the file in the data folder with the uuid as name (without extension)
+            string filename = Uuid.ToString();
+            var tableFolder = Utils.GetTableFolder(TableId);
+            File = file.CopyTo(Path.Combine(tableFolder.FullName, filename), true);
+
+            if (!string.IsNullOrEmpty(file.Extension))
+                await SetPropertyValueAsync(Constants.extPropertyName, file.Extension.Replace(".", ""));
+
+            await SaveAsync();
+            return File;
+        }
+
+        internal void DeleteFile()
+        {
+            if (!IsFile || File == null) return;
+
+            // Delete the file
+            try
+            {
+                File.Delete();
+            }
+            catch (Exception) { }
+        }
+
+        private TableObjectFileDownloadStatus GetFileDownloadStatus()
+        {
+            if (!IsFile) return TableObjectFileDownloadStatus.NoFileOrNotLoggedIn;
+            if (File != null && System.IO.File.Exists(File.FullName)) return TableObjectFileDownloadStatus.Downloaded;
+            if (!Dav.IsLoggedIn) return TableObjectFileDownloadStatus.NoFileOrNotLoggedIn;
+
+            if (SyncManager.downloadingFileUuid.Equals(Uuid)) return TableObjectFileDownloadStatus.Downloading;
+            return TableObjectFileDownloadStatus.NotDownloaded;
+        }
+
+        public void ScheduleFileDownload(IProgress<(Guid, int)> progress)
+        {
+            var downloadStatus = GetFileDownloadStatus();
+
+            // Check the download status
+            if (
+                downloadStatus == TableObjectFileDownloadStatus.NoFileOrNotLoggedIn
+                || downloadStatus == TableObjectFileDownloadStatus.Downloaded
+            ) return;
+
+            if (progress != null)
+            {
+                if (!SyncManager.fileDownloadProgressList.ContainsKey(Uuid))
+                {
+                    // Add the progress to the progress list
+                    SyncManager.fileDownloadProgressList.Add(Uuid, new List<IProgress<(Guid, int)>>());
+                }
+
+                SyncManager.fileDownloadProgressList[Uuid].Add(progress);
+            }
+
+            if (downloadStatus == TableObjectFileDownloadStatus.Downloading) return;
+
+            // DownloadStatus is NotDownloaded
+            // Check if fileDownloads contains this TableObject
+            int i = SyncManager.fileDownloads.FindIndex(obj => obj.uuid.Equals(Uuid));
+            if (i != -1)
+            {
+                // Move the item to the beginning of the list
+                var item = SyncManager.fileDownloads[i];
+
+                SyncManager.fileDownloads.RemoveAt(i);
+                SyncManager.fileDownloads.Insert(0, item);
+            }
+            else
+            {
+                // Add the object at the beginning of the list
+                SyncManager.fileDownloads.Insert(0, new TableObjectDownload { uuid = Uuid });
+            }
+
+            SyncManager.StartFileDownloads();
+        }
+
+        public async Task<bool> DownloadFile()
+        {
+            if (GetFileDownloadStatus() != TableObjectFileDownloadStatus.NotDownloaded)
+                return false;
+
+            if (!SyncManager.downloadingFileUuid.Equals(Guid.Empty)) return false;
+            SyncManager.SetDownloadingFileUuid(Uuid);
+
+            var progress = new Progress<int>((int value) => SyncManager.ReportFileDownloadProgress(Uuid, value));
+            var response = new ApiResponse();
+            await Task.Run(async () =>
+            {
+                response = await TableObjectsController.GetTableObjectFile(Uuid, GetTempFilePath(), progress);
+            });
+
+            if (response.Success)
+            {
+                try
+                {
+                    // Move the file into the table folder
+                    var tempFile = new FileInfo(GetTempFilePath());
+                    tempFile.MoveTo(GetFilePath());
+
+                    File = new FileInfo(GetFilePath());
+
+                    SyncManager.ReportFileDownloadProgress(Uuid, 101);
+                    SyncManager.SetDownloadingFileUuid(Guid.Empty);
+                    return true;
+                }
+                catch (Exception)
+                {
+                    SyncManager.ReportFileDownloadProgress(Uuid, -1);
+                }
+            }
+            else
+            {
+                SyncManager.ReportFileDownloadProgress(Uuid, -1);
+            }
+
+            SyncManager.SetDownloadingFileUuid(Guid.Empty);
+            return false;
+        }
+        #endregion
+
+        #region General methods
         public async Task LoadAsync()
         {
             await LoadPropertiesAsync();
@@ -164,173 +396,6 @@ namespace davClassLibrary.Models
             _ = SyncManager.SyncPush();
         }
 
-        private async Task LoadPropertiesAsync()
-        {
-            Properties = await Dav.Database.GetPropertiesOfTableObjectAsync(Id);
-        }
-
-        public async Task SetPropertyValueAsync(string name, string value)
-        {
-            var property = Properties.Find(prop => prop.Name == name);
-
-            if(property != null)
-            {
-                // Update the property
-                if (property.Value == value) return;
-                await property.SetValueAsync(value);
-            }
-            else
-            {
-                // Create a new property
-                Properties.Add(await Property.CreateAsync(Id, name, value));
-            }
-
-            if (UploadStatus == TableObjectUploadStatus.UpToDate && !IsFile)
-                UploadStatus = TableObjectUploadStatus.Updated;
-
-            await SaveAsync();
-            _ = SyncManager.SyncPush();
-        }
-
-        public async Task SetPropertyValuesAsync(Dictionary<string, string> properties)
-        {
-            bool propertiesChanged = false;
-            List<Property> propertiesToCreate = new List<Property>();
-            List<Property> propertiesToUpdate = new List<Property>();
-
-            foreach(var p in properties)
-            {
-                var property = Properties.Find(prop => prop.Name == p.Key);
-
-                if(property != null)
-                {
-                    // Update the property
-                    if (property.Value == p.Value) continue;
-                    property.Value = p.Value;
-                    propertiesToUpdate.Add(property);
-                    propertiesChanged = true;
-                }
-                else
-                {
-                    // Create a new property
-                    var newProperty = new Property(Id, p.Key, p.Value);
-                    Properties.Add(newProperty);
-                    propertiesToCreate.Add(newProperty);
-                    propertiesChanged = true;
-                }
-            }
-
-            // Save the properties in transaction
-            await Dav.Database.CreatePropertiesAsync(propertiesToCreate);
-            await Dav.Database.UpdatePropertiesAsync(propertiesToUpdate);
-
-            if (!propertiesChanged) return;
-
-            if (UploadStatus == TableObjectUploadStatus.UpToDate && !IsFile)
-                UploadStatus = TableObjectUploadStatus.Updated;
-
-            await SaveAsync();
-            _ = SyncManager.SyncPush();
-        }
-
-        public string GetPropertyValue(string name)
-        {
-            var property = Properties.Find(prop => prop.Name == name);
-            if (property != null)
-                return property.Value;
-            else
-                return null;
-        }
-
-        public async Task RemovePropertyAsync(string name)
-        {
-            var property = Properties.Find(prop => prop.Name == name);
-            if (property == null) return;
-            Properties.Remove(property);
-
-            if (UploadStatus == TableObjectUploadStatus.UpToDate)
-                UploadStatus = TableObjectUploadStatus.Updated;
-
-            await Dav.Database.DeletePropertyAsync(property);
-            _ = SyncManager.SyncPush();
-        }
-
-        public async Task RemoveAllPropertiesAsync()
-        {
-            await LoadPropertiesAsync();
-            foreach (var property in Properties)
-                await Dav.Database.DeletePropertyAsync(property);
-
-            Properties.Clear();
-
-            if (UploadStatus == TableObjectUploadStatus.UpToDate)
-                UploadStatus = TableObjectUploadStatus.Updated;
-        }
-
-        internal void LoadFile()
-        {
-            if (!IsFile) return;
-
-            string filePath = Path.Combine(Dav.DataPath, TableId.ToString(), Uuid.ToString());
-            var file = new FileInfo(filePath);
-
-            if (file != null)
-                File = file;
-        }
-
-        internal void DeleteFile()
-        {
-            if (!IsFile || File == null) return;
-
-            // Delete the file
-            try
-            {
-                File.Delete();
-            }
-            catch (Exception) { }
-        }
-
-        public async Task<FileInfo> SetFileAsync(FileInfo file)
-        {
-            if (!IsFile) return null;
-            if (File == file) return File;
-
-            if (UploadStatus == TableObjectUploadStatus.UpToDate)
-                UploadStatus = TableObjectUploadStatus.Updated;
-
-            // Save the file in the data folder with the uuid as name (without extension)
-            string filename = Uuid.ToString();
-            var tableFolder = DataManager.GetTableFolder(TableId);
-            File = file.CopyTo(Path.Combine(tableFolder.FullName, filename), true);
-
-            if (!string.IsNullOrEmpty(file.Extension))
-                await SetPropertyValueAsync("ext", file.Extension.Replace(".", ""));
-
-            await SaveAsync();
-            return File;
-        }
-
-        public async Task SetUploadStatusAsync(TableObjectUploadStatus newUploadStatus)
-        {
-            if (UploadStatus == newUploadStatus) return;
-
-            UploadStatus = newUploadStatus;
-            await SaveAsync();
-        }
-
-        private TableObjectFileDownloadStatus GetDownloadStatus()
-        {
-            if (!IsFile) return TableObjectFileDownloadStatus.NoFileOrNotLoggedIn;
-
-            if(File != null && System.IO.File.Exists(File.FullName))
-                return TableObjectFileDownloadStatus.Downloaded;
-
-            if (!Dav.IsLoggedIn) return TableObjectFileDownloadStatus.NoFileOrNotLoggedIn;
-
-            if (DataManager.fileDownloaders.ContainsKey(Uuid)) return TableObjectFileDownloadStatus.Downloading;
-            return TableObjectFileDownloadStatus.NotDownloaded;
-        }
-
         public async Task DeleteAsync()
         {
             if (!Dav.IsLoggedIn)
@@ -340,10 +405,6 @@ namespace davClassLibrary.Models
             }
             else
             {
-                // Delete the file
-                if (IsFile && File.Exists)
-                    File.Delete();
-
                 await SetUploadStatusAsync(TableObjectUploadStatus.Deleted);
                 _ = SyncManager.SyncPush();
             }
@@ -355,133 +416,6 @@ namespace davClassLibrary.Models
             await Dav.Database.DeleteTableObjectImmediatelyAsync(Uuid);
         }
 
-        public void ScheduleFileDownload(IProgress<(Guid, int)> progress)
-        {
-            var downloadStatus = GetDownloadStatus();
-
-            // Check the download status
-            if (
-                downloadStatus == TableObjectFileDownloadStatus.NoFileOrNotLoggedIn
-                || downloadStatus == TableObjectFileDownloadStatus.Downloaded
-            ) return;
-
-            if (progress != null)
-            {
-                if (!SyncManager.fileDownloadProgressList.ContainsKey(Uuid))
-                {
-                    // Add the progress to the progress list
-                    SyncManager.fileDownloadProgressList.Add(Uuid, new List<IProgress<(Guid, int)>>());
-                }
-
-                SyncManager.fileDownloadProgressList[Uuid].Add(progress);
-            }
-
-            if (downloadStatus == TableObjectFileDownloadStatus.Downloading) return;
-
-            // DownloadStatus is NotDownloaded
-            // Check if fileDownloads contains this TableObject
-            int i = SyncManager.fileDownloads.FindIndex(obj => obj.uuid.Equals(Uuid));
-            if (i == -1)
-            {
-                // Remove the object
-                //SyncManager.fileDownloads.RemoveAt(i);
-
-                // Add the object at the beginning of the list
-                SyncManager.fileDownloads.Insert(0, new TableObjectDownload
-                {
-                    uuid = Uuid
-                });
-            }
-
-            SyncManager.StartFileDownloads();
-        }
-
-        public void DownloadFile(IProgress<(Guid, int)> progress)
-        {
-            var downloadStatus = GetDownloadStatus();
-
-            if (progress != null)
-            {
-                if (!SyncManager.fileDownloadProgressList.ContainsKey(Uuid))
-                {
-                    // Add the progress to the progress list
-                    SyncManager.fileDownloadProgressList.Add(Uuid, new List<IProgress<(Guid, int)>>());
-                }
-
-                SyncManager.fileDownloadProgressList[Uuid].Add(progress);
-            }
-            
-            if (downloadStatus == TableObjectFileDownloadStatus.Downloading) return;
-
-            if (
-                downloadStatus == TableObjectFileDownloadStatus.NoFileOrNotLoggedIn
-                || downloadStatus == TableObjectFileDownloadStatus.Downloaded
-            )
-            {
-                DataManager.ReportFileDownloadProgress(this, -1);
-                return;
-            }
-
-            // DownloadStatus is NotDownloaded
-            // Start the download
-            WebClient webClient = new WebClient();
-            webClient.Headers.Add(HttpRequestHeader.Authorization, Dav.AccessToken);
-            webClient.DownloadProgressChanged += DownloadFileWebClient_DownloadProgressChanged;
-            webClient.DownloadFileCompleted += DownloadFileWebClient_DownloadFileCompleted;
-
-            string url = $"{Dav.ApiBaseUrl}/apps/object/{Uuid}?file=true";
-            DirectoryInfo tempTableFolder = DataManager.GetTempTableFolder(TableId);
-            string tempFilePath = Path.Combine(tempTableFolder.FullName, Uuid.ToString());
-            webClient.DownloadFileAsync(new Uri(url), tempFilePath);
-
-            // Remove the tableObject from the fileDownloads and add it to the fileDownloaders
-            //SyncManager.fileDownloads.Remove(Uuid);
-            //SyncManager.fileDownloaders.Add(Uuid, webClient);
-        }
-
-        private void DownloadFileWebClient_DownloadProgressChanged(object sender, DownloadProgressChangedEventArgs e)
-        {
-            DataManager.ReportFileDownloadProgress(this, e.ProgressPercentage);
-        }
-
-        private async void DownloadFileWebClient_DownloadFileCompleted(object sender, System.ComponentModel.AsyncCompletedEventArgs e)
-        {
-            if (e.Cancelled || e.Error != null)
-                DataManager.ReportFileDownloadProgress(this, -1);
-            else
-            {
-                await CopyDownloadedFileAsync();
-
-                ProjectInterface.Callbacks.UpdateTableObject(this, true);
-                DataManager.ReportFileDownloadProgress(this, 101);
-            }
-
-            //DataManager.fileDownloadProgressList.Remove(Uuid);
-            //DataManager.fileDownloaders.Remove(Uuid);
-        }
-
-        private async Task CopyDownloadedFileAsync()
-        {
-            DirectoryInfo tempTableFolder = DataManager.GetTempTableFolder(TableId);
-            DirectoryInfo tableFolder = DataManager.GetTableFolder(TableId);
-
-            string tempFilePath = Path.Combine(tempTableFolder.FullName, Uuid.ToString());
-            string filePath = Path.Combine(tableFolder.FullName, Uuid.ToString());
-
-            // Delete the old file if it exists
-            FileInfo oldFile = new FileInfo(filePath);
-            if (oldFile.Exists)
-                oldFile.Delete();
-
-            // Move the new file into the folder of the table
-            FileInfo file = new FileInfo(tempFilePath);
-            if (file.Exists)
-                file.MoveTo(filePath);
-
-            // Save the etags of the table object
-            await DataManager.SetEtagOfTableObjectAsync(Uuid, Etag);
-        }
-        
         public TableObjectData ToTableObjectData()
         {
             var tableObjectData = new TableObjectData
@@ -492,12 +426,13 @@ namespace davClassLibrary.Models
                 etag = Etag,
                 properties = new Dictionary<string, string>()
             };
-            
-            foreach(var property in Properties)
+
+            foreach (var property in Properties)
                 tableObjectData.properties.Add(property.Name, property.Value);
 
             return tableObjectData;
         }
+        #endregion
     }
 
     public class TableObjectData
