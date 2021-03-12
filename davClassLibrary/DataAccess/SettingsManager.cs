@@ -3,15 +3,15 @@ using System;
 
 namespace davClassLibrary.DataAccess
 {
-    internal static class SettingsManager
+    public static class SettingsManager
     {
         #region AccessToken
-        internal static void SetAccessToken(string accessToken)
+        public static void SetAccessToken(string accessToken)
         {
             ProjectInterface.LocalDataSettings.Set(Constants.accessTokenKey, accessToken);
         }
 
-        internal static string GetAccessToken()
+        public static string GetAccessToken()
         {
             var accessToken = ProjectInterface.LocalDataSettings.GetString(Constants.accessTokenKey);
             if (!string.IsNullOrEmpty(accessToken)) return accessToken;
@@ -21,36 +21,36 @@ namespace davClassLibrary.DataAccess
         #endregion
 
         #region SessionUploadStatus
-        internal static void SetSessionUploadStatus(SessionUploadStatus sessionUploadStatus)
+        public static void SetSessionUploadStatus(SessionUploadStatus sessionUploadStatus)
         {
             ProjectInterface.LocalDataSettings.Set(Constants.sessionUploadStatusKey, (int)sessionUploadStatus);
         }
 
-        internal static SessionUploadStatus GetSessionUploadStatus()
+        public static SessionUploadStatus GetSessionUploadStatus()
         {
             return (SessionUploadStatus)ProjectInterface.LocalDataSettings.GetInt(Constants.sessionUploadStatusKey);
         }
         #endregion
 
         #region Email
-        internal static void SetEmail(string email)
+        public static void SetEmail(string email)
         {
             ProjectInterface.LocalDataSettings.Set(Constants.emailKey, email);
         }
 
-        internal static string GetEmail()
+        public static string GetEmail()
         {
             return ProjectInterface.LocalDataSettings.GetString(Constants.emailKey);
         }
         #endregion
 
         #region FirstName
-        internal static void SetFirstName(string firstName)
+        public static void SetFirstName(string firstName)
         {
             ProjectInterface.LocalDataSettings.Set(Constants.firstNameKey, firstName);
         }
 
-        internal static string GetFirstName()
+        public static string GetFirstName()
         {
             var firstName = ProjectInterface.LocalDataSettings.GetString(Constants.firstNameKey);
             if (!String.IsNullOrEmpty(firstName)) return firstName;
@@ -60,48 +60,48 @@ namespace davClassLibrary.DataAccess
         #endregion
 
         #region TotalStorage
-        internal static void SetTotalStorage(long totalStorage)
+        public static void SetTotalStorage(long totalStorage)
         {
             ProjectInterface.LocalDataSettings.Set(Constants.totalStorageKey, totalStorage);
         }
 
-        internal static long GetTotalStorage()
+        public static long GetTotalStorage()
         {
             return ProjectInterface.LocalDataSettings.GetLong(Constants.totalStorageKey);
         }
         #endregion
 
         #region UsedStorage
-        internal static void SetUsedStorage(long usedStorage)
+        public static void SetUsedStorage(long usedStorage)
         {
             ProjectInterface.LocalDataSettings.Set(Constants.usedStorageKey, usedStorage);
         }
 
-        internal static long GetUsedStorage()
+        public static long GetUsedStorage()
         {
             return ProjectInterface.LocalDataSettings.GetLong(Constants.usedStorageKey);
         }
         #endregion
 
         #region Plan
-        internal static void SetPlan(Plan plan)
+        public static void SetPlan(Plan plan)
         {
             ProjectInterface.LocalDataSettings.Set(Constants.planKey, (int)plan);
         }
 
-        internal static Plan GetPlan()
+        public static Plan GetPlan()
         {
             return (Plan)ProjectInterface.LocalDataSettings.GetInt(Constants.planKey);
         }
         #endregion
 
         #region ProfileImageEtag
-        internal static void SetProfileImageEtag(string profileImageEtag)
+        public static void SetProfileImageEtag(string profileImageEtag)
         {
             ProjectInterface.LocalDataSettings.Set(Constants.profileImageEtagKey, profileImageEtag);
         }
 
-        internal static string GetProfileImageEtag()
+        public static string GetProfileImageEtag()
         {
             return ProjectInterface.LocalDataSettings.GetString(Constants.profileImageEtagKey);
         }

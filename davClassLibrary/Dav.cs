@@ -84,7 +84,7 @@ namespace davClassLibrary
             SyncManager.LoadUser();
 
             // Sync the user
-            if(!await SyncManager.SyncUser())
+            if(!await SyncManager.UserSync())
             {
                 isSyncing = false;
                 return;

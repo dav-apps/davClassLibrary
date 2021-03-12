@@ -24,7 +24,7 @@ namespace davClassLibrary
         Deleted = 3
     }
 
-    internal enum SessionUploadStatus
+    public enum SessionUploadStatus
     {
         UpToDate = 0,
         Deleted = 1

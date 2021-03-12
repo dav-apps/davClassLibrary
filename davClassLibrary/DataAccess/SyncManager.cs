@@ -28,7 +28,7 @@ namespace davClassLibrary.DataAccess
         private static IWebSocketConnection websocketConnection;
         private static bool websocketConnectionEstablished = false;
 
-        internal static async Task SessionSyncPush()
+        public static async Task SessionSyncPush()
         {
             var accessToken = SettingsManager.GetAccessToken();
             var sessionUploadStatus = SettingsManager.GetSessionUploadStatus();
@@ -57,7 +57,7 @@ namespace davClassLibrary.DataAccess
             }
         }
 
-        internal static void LoadUser()
+        public static void LoadUser()
         {
             Dav.User.FirstName = SettingsManager.GetFirstName();
             Dav.User.Email = SettingsManager.GetEmail();
@@ -72,7 +72,7 @@ namespace davClassLibrary.DataAccess
                 Dav.User.ProfileImage = new FileInfo(profileImageFilePath);
         }
 
-        internal static async Task<bool> SyncUser()
+        public static async Task<bool> UserSync()
         {
             if (!Dav.IsLoggedIn) return false;
 

@@ -41,6 +41,172 @@ namespace davClassLibrary.Tests.DataAccess
         }
         #endregion
 
+        #region SessionSyncPush
+        [Test]
+        public async Task SessionSyncPushShouldDeleteTheSessionOnTheServer()
+        {
+            var createSessionResponse = await SessionsController.CreateSession(
+                Constants.davDevAuth,
+                Constants.testerUserEmail,
+                Constants.testerUserPassword,
+                Constants.testAppId,
+                Constants.testerDevApiKey
+            );
+            Assert.True(createSessionResponse.Success);
+            string accessToken = createSessionResponse.Data.AccessToken;
+
+            SettingsManager.SetAccessToken(accessToken);
+            SettingsManager.SetSessionUploadStatus(SessionUploadStatus.Deleted);
+
+            // Act
+            await SyncManager.SessionSyncPush();
+
+            // Assert
+            var accessTokenFromDatabase = SettingsManager.GetAccessToken();
+            Assert.IsNull(accessTokenFromDatabase);
+
+            var sessionUploadStatusFromDatabase = SettingsManager.GetSessionUploadStatus();
+            Assert.AreEqual(SessionUploadStatus.UpToDate, sessionUploadStatusFromDatabase);
+
+            var deleteSessionResponse = await SessionsController.DeleteSession(accessToken);
+            Assert.False(deleteSessionResponse.Success);
+            Assert.AreEqual(404, deleteSessionResponse.Status);
+            Assert.AreEqual(ErrorCodes.SessionDoesNotExist, deleteSessionResponse.Errors[0].Code);
+        }
+
+        [Test]
+        public async Task SessionSyncPushShouldRemoveTheSessionFromTheDatabaseIfTheSessionDoesNotExistOnTheServer()
+        {
+            // Arrange
+            SettingsManager.SetAccessToken("hiodahoisaoias");
+            SettingsManager.SetSessionUploadStatus(SessionUploadStatus.Deleted);
+
+            // Act
+            await SyncManager.SessionSyncPush();
+
+            // Assert
+            var accessTokenFromDatabase = SettingsManager.GetAccessToken();
+            Assert.IsNull(accessTokenFromDatabase);
+
+            var sessionUploadStatusFromDatabase = SettingsManager.GetSessionUploadStatus();
+            Assert.AreEqual(SessionUploadStatus.UpToDate, sessionUploadStatusFromDatabase);
+        }
+        #endregion
+
+        #region LoadUser
+        [Test]
+        public void LoadUserShouldLoadTheUserDetailsFromTheLocalSettings()
+        {
+            // Arrange
+            string email = "test@example.com";
+            string firstName = "testUser";
+            long totalStorage = 2309234234;
+            long usedStorage = 23422;
+            Plan plan = Plan.Plus;
+
+            SettingsManager.SetEmail(email);
+            SettingsManager.SetFirstName(firstName);
+            SettingsManager.SetTotalStorage(totalStorage);
+            SettingsManager.SetUsedStorage(usedStorage);
+            SettingsManager.SetPlan(plan);
+
+            // Act
+            SyncManager.LoadUser();
+
+            // Assert
+            Assert.AreEqual(email, Dav.User.Email);
+            Assert.AreEqual(firstName, Dav.User.FirstName);
+            Assert.AreEqual(totalStorage, Dav.User.TotalStorage);
+            Assert.AreEqual(usedStorage, Dav.User.UsedStorage);
+            Assert.AreEqual(plan, Dav.User.Plan);
+        }
+        #endregion
+
+        #region UserSync
+        [Test]
+        public async Task UserSyncShouldDownloadTheUserDetailsAndSaveThemInTheLocalSettings()
+        {
+            // Arrange
+            Dav.IsLoggedIn = true;
+            Dav.AccessToken = Constants.testerXTestAppAccessToken;
+
+            // Act
+            await SyncManager.UserSync();
+
+            // Assert
+            Assert.AreEqual(Constants.testerUserEmail, SettingsManager.GetEmail());
+            Assert.AreEqual(Constants.testerUserFirstName, SettingsManager.GetFirstName());
+            Assert.AreEqual(Constants.testerUserTotalStorage, SettingsManager.GetTotalStorage());
+            Assert.AreEqual(Constants.testerUserUsedStorage, SettingsManager.GetUsedStorage());
+            Assert.AreEqual(Constants.testerUserPlan, SettingsManager.GetPlan());
+
+            Assert.AreEqual(Constants.testerUserEmail, Dav.User.Email);
+            Assert.AreEqual(Constants.testerUserFirstName, Dav.User.FirstName);
+            Assert.AreEqual(Constants.testerUserTotalStorage, Dav.User.TotalStorage);
+            Assert.AreEqual(Constants.testerUserUsedStorage, Dav.User.UsedStorage);
+            Assert.AreEqual(Constants.testerUserPlan, Dav.User.Plan);
+        }
+
+        [Test]
+        public async Task UserSyncShouldDownloadTheUserDetailsAndUpdateTheExistingUserDetailsInTheLocalSettings()
+        {
+            // Arrange
+            Dav.IsLoggedIn = true;
+            Dav.AccessToken = Constants.testerXTestAppAccessToken;
+
+            SettingsManager.SetEmail("test@example.com");
+            SettingsManager.SetFirstName("testUser");
+            SettingsManager.SetTotalStorage(2309234234);
+            SettingsManager.SetUsedStorage(23422);
+            SettingsManager.SetPlan(Plan.Plus);
+            SyncManager.LoadUser();
+
+            // Act
+            await SyncManager.UserSync();
+
+            // Assert
+            Assert.AreEqual(Constants.testerUserEmail, SettingsManager.GetEmail());
+            Assert.AreEqual(Constants.testerUserFirstName, SettingsManager.GetFirstName());
+            Assert.AreEqual(Constants.testerUserTotalStorage, SettingsManager.GetTotalStorage());
+            Assert.AreEqual(Constants.testerUserUsedStorage, SettingsManager.GetUsedStorage());
+            Assert.AreEqual(Constants.testerUserPlan, SettingsManager.GetPlan());
+
+            Assert.AreEqual(Constants.testerUserEmail, Dav.User.Email);
+            Assert.AreEqual(Constants.testerUserFirstName, Dav.User.FirstName);
+            Assert.AreEqual(Constants.testerUserTotalStorage, Dav.User.TotalStorage);
+            Assert.AreEqual(Constants.testerUserUsedStorage, Dav.User.UsedStorage);
+            Assert.AreEqual(Constants.testerUserPlan, Dav.User.Plan);
+        }
+
+        [Test]
+        public async Task UserSyncShouldLogTheUserOutIfTheSessionDoesNotExist()
+        {
+            // Arrange
+            Dav.IsLoggedIn = true;
+            Dav.AccessToken = "siodfhiosdghiosgd";
+
+            SettingsManager.SetEmail("test@example.com");
+            SettingsManager.SetFirstName("testUser");
+            SettingsManager.SetTotalStorage(2309234234);
+            SettingsManager.SetUsedStorage(23422);
+            SettingsManager.SetPlan(Plan.Plus);
+            SyncManager.LoadUser();
+
+            // Act
+            await SyncManager.UserSync();
+
+            // Assert
+            Assert.False(Dav.IsLoggedIn);
+            Assert.IsNull(Dav.AccessToken);
+
+            Assert.IsNull(SettingsManager.GetEmail());
+            Assert.IsNull(SettingsManager.GetFirstName());
+            Assert.AreEqual(0, SettingsManager.GetTotalStorage());
+            Assert.AreEqual(0, SettingsManager.GetUsedStorage());
+            Assert.AreEqual(Plan.Free, SettingsManager.GetPlan());
+        }
+        #endregion
+
         #region Sync
         [Test]
         public async Task SyncShouldDownloadAllTableObjectsFromTheServerAndUpdateThePropertiesOfExistingTableObjects()
