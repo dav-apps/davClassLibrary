@@ -27,7 +27,7 @@ namespace davClassLibrary
         public static List<int> ParallelTableIds { get; internal set; }
         public static string DataPath { get; internal set; }
 
-        public static string AccessToken { get; internal set; }
+        public static string AccessToken { get; set; }
         private const string ApiBaseUrlProduction = "https://dav-backend.herokuapp.com/v1";
         private const string ApiBaseUrlDevelopment = "http://localhost:3111/v1";
         public static string ApiBaseUrl => Environment == Environment.Production ? ApiBaseUrlProduction : ApiBaseUrlDevelopment;

@@ -70,9 +70,9 @@ namespace davClassLibrary
         {
             try
             {
-                var errors = JsonConvert.DeserializeObject<ApiError[]>(responseData);
+                var json = JsonConvert.DeserializeObject<ApiErrors>(responseData);
 
-                if (errors.Length > 0 && errors[0].Code == ErrorCodes.AccessTokenMustBeRenewed)
+                if (json.Errors.Length > 0 && json.Errors[0].Code == ErrorCodes.AccessTokenMustBeRenewed)
                 {
                     // Renew the session
                     var renewSessionResult = await SessionsController.RenewSession(Dav.AccessToken);
@@ -91,7 +91,7 @@ namespace davClassLibrary
                     }
                 }
 
-                return new HandleApiErrorResult { Success = false, Errors = errors };
+                return new HandleApiErrorResult { Success = false, Errors = json.Errors };
             }
             catch (Exception)
             {
@@ -103,7 +103,7 @@ namespace davClassLibrary
             }
         }
 
-        internal static List<int> SortTableIds(List<int> tableIds, List<int> parallelTableIds, Dictionary<int, int> tableIdPages)
+        public static List<int> SortTableIds(List<int> tableIds, List<int> parallelTableIds, Dictionary<int, int> tableIdPages)
         {
             List<int> preparedTableIds = new List<int>();
 

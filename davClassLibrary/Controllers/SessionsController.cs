@@ -37,8 +37,8 @@ namespace davClassLibrary.Controllers
             {
                 try
                 {
-                    var errors = JsonConvert.DeserializeObject<ApiError[]>(responseData);
-                    result.Errors = errors;
+                    var json = JsonConvert.DeserializeObject<ApiErrors>(responseData);
+                    result.Errors = json.Errors;
                 }
                 catch (Exception) { }
             }
@@ -64,8 +64,8 @@ namespace davClassLibrary.Controllers
                 try
                 {
                     string responseData = await response.Content.ReadAsStringAsync();
-                    var errors = JsonConvert.DeserializeObject<ApiError[]>(responseData);
-                    result.Errors = errors;
+                    var json = JsonConvert.DeserializeObject<ApiErrors>(responseData);
+                    result.Errors = json.Errors;
                 }
                 catch (Exception) { }
             }

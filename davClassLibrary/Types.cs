@@ -71,6 +71,11 @@ namespace davClassLibrary
         public string Message { get; set; }
     }
 
+    public class ApiErrors
+    {
+        public ApiError[] Errors { get; set; }
+    }
+
     internal class HandleApiErrorResult
     {
         public bool Success { get; set; }
