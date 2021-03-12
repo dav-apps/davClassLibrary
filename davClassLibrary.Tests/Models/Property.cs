@@ -1,35 +1,23 @@
-﻿using davClassLibrary.Common;
-using davClassLibrary.Tests.Common;
+﻿using davClassLibrary.Models;
 using NUnit.Framework;
-using System.IO;
 using System.Threading.Tasks;
 
 namespace davClassLibrary.Tests.Models
 {
     [TestFixture][SingleThreaded]
-    public class Property
+    public class PropertyTest
     {
         #region Setup
         [OneTimeSetUp]
         public void GlobalSetup()
         {
-            ProjectInterface.LocalDataSettings = new LocalDataSettings();
-            ProjectInterface.RetrieveConstants = new RetrieveConstants();
-            ProjectInterface.TriggerAction = new TriggerAction();
-            ProjectInterface.GeneralMethods = new GeneralMethods();
+            Utils.GlobalSetup();
         }
 
         [SetUp]
         public async Task Setup()
         {
-            // Delete all files and folders in the test folder except the database file
-            var davFolder = new DirectoryInfo(Dav.GetDavDataPath());
-            foreach (var folder in davFolder.GetDirectories())
-                folder.Delete(true);
-
-            // Clear the database
-            var database = new davClassLibrary.DataAccess.DavDatabase();
-            await database.DropAsync();
+            await Utils.Setup();
         }
         #endregion
 
@@ -43,10 +31,10 @@ namespace davClassLibrary.Tests.Models
             string propertyValue = "value";
 
             // Act
-            var property = await davClassLibrary.Models.Property.CreateAsync(tableObjectId, propertyName, propertyValue);
+            var property = await Property.CreateAsync(tableObjectId, propertyName, propertyValue);
 
             // Assert
-            var propertyFromDatabase = await davClassLibrary.Dav.Database.GetPropertyAsync(property.Id);
+            var propertyFromDatabase = await Dav.Database.GetPropertyAsync(property.Id);
             Assert.AreEqual(property.Id, propertyFromDatabase.Id);
             Assert.AreEqual(tableObjectId, propertyFromDatabase.TableObjectId);
             Assert.AreEqual(propertyName, propertyFromDatabase.Name);
@@ -63,13 +51,13 @@ namespace davClassLibrary.Tests.Models
             string oldPropertyValue = "bla";
             string newPropertyValue = "blablabla";
             int tableObjectId = -13;
-            var property = await davClassLibrary.Models.Property.CreateAsync(tableObjectId, propertyName, oldPropertyValue);
+            var property = await Property.CreateAsync(tableObjectId, propertyName, oldPropertyValue);
 
             // Act
             await property.SetValueAsync(newPropertyValue);
 
             // Assert
-            var propertyFromDatabase = await davClassLibrary.Dav.Database.GetPropertyAsync(property.Id);
+            var propertyFromDatabase = await Dav.Database.GetPropertyAsync(property.Id);
             Assert.AreEqual(newPropertyValue, property.Value);
             Assert.AreEqual(newPropertyValue, propertyFromDatabase.Value);
             Assert.AreEqual(propertyName, propertyFromDatabase.Name);
@@ -85,7 +73,7 @@ namespace davClassLibrary.Tests.Models
             int tableObjectId = -14;
             string propertyName = "test123";
             string propertyValue = "blabla";
-            var property = new davClassLibrary.Models.Property(tableObjectId, propertyName, propertyValue);
+            var property = new Property(tableObjectId, propertyName, propertyValue);
 
             // Act
             var propertyData = property.ToPropertyData();
@@ -95,31 +83,6 @@ namespace davClassLibrary.Tests.Models
             Assert.AreEqual(tableObjectId, propertyData.table_object_id);
             Assert.AreEqual(propertyName, propertyData.name);
             Assert.AreEqual(propertyValue, propertyData.value);
-        }
-        #endregion
-
-        #region ConvertPropertyDataToProperty
-        [Test]
-        public void ConvertPropertyDataToPropertyShouldReturnValidProperty()
-        {
-            // Arrange
-            int tableObjectId = -12;
-            string propertyName = "blablabla";
-            string propertyValue = "asdasdasd";
-            var propertyData = new davClassLibrary.Models.PropertyData
-            {
-                table_object_id = tableObjectId,
-                name = propertyName,
-                value = propertyValue
-            };
-
-            // Act
-            var property = davClassLibrary.Models.Property.ConvertPropertyDataToProperty(propertyData);
-
-            // Assert
-            Assert.AreEqual(tableObjectId, property.TableObjectId);
-            Assert.AreEqual(propertyName, property.Name);
-            Assert.AreEqual(propertyValue, property.Value);
         }
         #endregion
     }
