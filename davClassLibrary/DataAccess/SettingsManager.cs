@@ -1,5 +1,4 @@
 ﻿using davClassLibrary.Common;
-using System;
 
 namespace davClassLibrary.DataAccess
 {
@@ -53,7 +52,7 @@ namespace davClassLibrary.DataAccess
         public static string GetFirstName()
         {
             var firstName = ProjectInterface.LocalDataSettings.GetString(Constants.firstNameKey);
-            if (!String.IsNullOrEmpty(firstName)) return firstName;
+            if (!string.IsNullOrEmpty(firstName)) return firstName;
 
             return ProjectInterface.LocalDataSettings.GetString(Constants.usernameKey);
         }
@@ -107,13 +106,13 @@ namespace davClassLibrary.DataAccess
         }
         #endregion
 
-        internal static void RemoveSession()
+        public static void RemoveSession()
         {
             ProjectInterface.LocalDataSettings.Remove(Constants.accessTokenKey);
             ProjectInterface.LocalDataSettings.Remove(Constants.sessionUploadStatusKey);
         }
 
-        internal static void RemoveUser()
+        public static void RemoveUser()
         {
             ProjectInterface.LocalDataSettings.Remove(Constants.emailKey);
             ProjectInterface.LocalDataSettings.Remove(Constants.firstNameKey);
