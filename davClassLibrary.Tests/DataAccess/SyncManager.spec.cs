@@ -1,9 +1,9 @@
 ﻿using davClassLibrary.Controllers;
+using davClassLibrary.DataAccess;
 using davClassLibrary.Models;
 using NUnit.Framework;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Threading.Tasks;
 
 namespace davClassLibrary.Tests.DataAccess
@@ -21,23 +21,33 @@ namespace davClassLibrary.Tests.DataAccess
         [SetUp]
         public async Task Setup()
         {
-            // Delete all files and folders in the test folder except the database file
-            var davFolder = new DirectoryInfo(Utils.GetDavDataPath());
-            foreach (var folder in davFolder.GetDirectories())
-                folder.Delete(true);
+            await Utils.Setup();
+        }
 
-            // Clear the database
-            var database = new davClassLibrary.DataAccess.DavDatabase();
-            await database.DropAsync();
+        [TearDown]
+        public async Task TearDown()
+        {
+            await DeleteTableObjectsOfTable(Constants.testAppFirstTestTableId);
+            await DeleteTableObjectsOfTable(Constants.testAppSecondTestTableId);
+        }
+
+        private async Task DeleteTableObjectsOfTable(int tableId)
+        {
+            var getTableResponse = await TablesController.GetTable(tableId);
+            if (!getTableResponse.Success) return;
+  
+            foreach(var tableObject in getTableResponse.Data.TableObjects)
+                await TableObjectsController.DeleteTableObject(tableObject.Uuid);
         }
         #endregion
 
         #region Sync
+        [Test]
         public async Task SyncShouldDownloadAllTableObjectsFromTheServerAndUpdateThePropertiesOfExistingTableObjects()
         {
             // Arrange
-            davClassLibrary.Dav.IsLoggedIn = true;
-            davClassLibrary.Dav.AccessToken = Constants.testerXTestAppAccessToken;
+            Dav.IsLoggedIn = true;
+            Dav.AccessToken = Constants.testerXTestAppAccessToken;
 
             var firstTableObjectUuid = Guid.NewGuid();
             var firstTableObjectTableId = Constants.testAppFirstTestTableId;
@@ -76,13 +86,13 @@ namespace davClassLibrary.Tests.DataAccess
             );
 
             // Act (1)
-            await davClassLibrary.DataAccess.SyncManager.Sync();
+            await SyncManager.Sync();
 
             // Assert (1)
-            var allTableObjects = await davClassLibrary.Dav.Database.GetAllTableObjectsAsync(false);
+            var allTableObjects = await Dav.Database.GetAllTableObjectsAsync(false);
             Assert.AreEqual(2, allTableObjects.Count);
 
-            var firstTableObjectFromDatabase = await davClassLibrary.Dav.Database.GetTableObjectAsync(firstTableObjectUuid);
+            var firstTableObjectFromDatabase = await Dav.Database.GetTableObjectAsync(firstTableObjectUuid);
             Assert.IsNotNull(firstTableObjectFromDatabase);
             Assert.AreEqual(firstTableObjectUuid, firstTableObjectFromDatabase.Uuid);
             Assert.AreEqual(firstTableObjectTableId, firstTableObjectFromDatabase.TableId);
@@ -90,7 +100,7 @@ namespace davClassLibrary.Tests.DataAccess
             Assert.AreEqual(firstTableObjectFirstPropertyValue, firstTableObjectFromDatabase.GetPropertyValue(firstTableObjectFirstPropertyName));
             Assert.AreEqual(firstTableObjectSecondPropertyValue, firstTableObjectFromDatabase.GetPropertyValue(firstTableObjectSecondPropertyName));
 
-            var secondTableObjectFromDatabase = await davClassLibrary.Dav.Database.GetTableObjectAsync(secondTableObjectUuid);
+            var secondTableObjectFromDatabase = await Dav.Database.GetTableObjectAsync(secondTableObjectUuid);
             Assert.IsNotNull(secondTableObjectFromDatabase);
             Assert.AreEqual(secondTableObjectUuid, secondTableObjectFromDatabase.Uuid);
             Assert.AreEqual(secondTableObjectTableId, secondTableObjectFromDatabase.TableId);
@@ -124,13 +134,13 @@ namespace davClassLibrary.Tests.DataAccess
             );
 
             // Act (2)
-            await davClassLibrary.DataAccess.SyncManager.Sync();
+            await SyncManager.Sync();
 
             // Assert (2)
-            allTableObjects = await davClassLibrary.Dav.Database.GetAllTableObjectsAsync(false);
+            allTableObjects = await Dav.Database.GetAllTableObjectsAsync(false);
             Assert.AreEqual(2, allTableObjects.Count);
 
-            firstTableObjectFromDatabase = await davClassLibrary.Dav.Database.GetTableObjectAsync(firstTableObjectUuid);
+            firstTableObjectFromDatabase = await Dav.Database.GetTableObjectAsync(firstTableObjectUuid);
             Assert.IsNotNull(firstTableObjectFromDatabase);
             Assert.AreEqual(firstTableObjectUuid, firstTableObjectFromDatabase.Uuid);
             Assert.AreEqual(firstTableObjectTableId, firstTableObjectFromDatabase.TableId);
@@ -138,7 +148,7 @@ namespace davClassLibrary.Tests.DataAccess
             Assert.AreEqual(firstTableObjectFirstUpdatedPropertyValue, firstTableObjectFromDatabase.GetPropertyValue(firstTableObjectFirstPropertyName));
             Assert.AreEqual(firstTableObjectSecondUpdatedPropertyValue, firstTableObjectFromDatabase.GetPropertyValue(firstTableObjectSecondPropertyName));
 
-            secondTableObjectFromDatabase = await davClassLibrary.Dav.Database.GetTableObjectAsync(secondTableObjectUuid);
+            secondTableObjectFromDatabase = await Dav.Database.GetTableObjectAsync(secondTableObjectUuid);
             Assert.IsNotNull(secondTableObjectFromDatabase);
             Assert.AreEqual(secondTableObjectUuid, secondTableObjectFromDatabase.Uuid);
             Assert.AreEqual(secondTableObjectTableId, secondTableObjectFromDatabase.TableId);
@@ -147,11 +157,12 @@ namespace davClassLibrary.Tests.DataAccess
             Assert.AreEqual(secondTableObjectSecondUpdatedPropertyValue, secondTableObjectFromDatabase.GetPropertyValue(secondTableObjectSecondPropertyName));
         }
 
+        [Test]
         public async Task SyncShouldRemoveTheTableObjectsThatAreNotOnTheServer()
         {
             // Arrange
-            davClassLibrary.Dav.IsLoggedIn = true;
-            davClassLibrary.Dav.AccessToken = Constants.testerXTestAppAccessToken;
+            Dav.IsLoggedIn = true;
+            Dav.AccessToken = Constants.testerXTestAppAccessToken;
 
             var firstTableObjectUuid = Guid.NewGuid();
             var firstTableObjectTableId = Constants.testAppFirstTestTableId;
@@ -196,7 +207,7 @@ namespace davClassLibrary.Tests.DataAccess
                 }
             );
 
-            await davClassLibrary.Dav.Database.CreateTableObjectWithPropertiesAsync(new TableObject(
+            await Dav.Database.CreateTableObjectWithPropertiesAsync(new TableObject(
                 localTableObjectUuid,
                 localTableObjectTableId,
                 new List<Property>
@@ -208,13 +219,13 @@ namespace davClassLibrary.Tests.DataAccess
             ));
 
             // Act
-            await davClassLibrary.DataAccess.SyncManager.Sync();
+            await SyncManager.Sync();
 
             // Assert
-            var allTableObjects = await davClassLibrary.Dav.Database.GetAllTableObjectsAsync(false);
+            var allTableObjects = await Dav.Database.GetAllTableObjectsAsync(false);
             Assert.AreEqual(2, allTableObjects.Count);
 
-            var firstTableObjectFromDatabase = await davClassLibrary.Dav.Database.GetTableObjectAsync(firstTableObjectUuid);
+            var firstTableObjectFromDatabase = await Dav.Database.GetTableObjectAsync(firstTableObjectUuid);
             Assert.IsNotNull(firstTableObjectFromDatabase);
             Assert.AreEqual(firstTableObjectUuid, firstTableObjectFromDatabase.Uuid);
             Assert.AreEqual(firstTableObjectTableId, firstTableObjectFromDatabase.TableId);
@@ -222,7 +233,7 @@ namespace davClassLibrary.Tests.DataAccess
             Assert.AreEqual(firstTableObjectFirstPropertyValue, firstTableObjectFromDatabase.GetPropertyValue(firstTableObjectFirstPropertyName));
             Assert.AreEqual(firstTableObjectSecondPropertyValue, firstTableObjectFromDatabase.GetPropertyValue(firstTableObjectSecondPropertyName));
 
-            var secondTableObjectFromDatabase = await davClassLibrary.Dav.Database.GetTableObjectAsync(secondTableObjectUuid);
+            var secondTableObjectFromDatabase = await Dav.Database.GetTableObjectAsync(secondTableObjectUuid);
             Assert.IsNotNull(secondTableObjectFromDatabase);
             Assert.AreEqual(secondTableObjectUuid, secondTableObjectFromDatabase.Uuid);
             Assert.AreEqual(secondTableObjectTableId, secondTableObjectFromDatabase.TableId);
@@ -233,11 +244,12 @@ namespace davClassLibrary.Tests.DataAccess
         #endregion
 
         #region SyncPush
+        [Test]
         public async Task SyncPushShouldCreateTableObjectsOnTheServer()
         {
             // Arrange
-            davClassLibrary.Dav.IsLoggedIn = true;
-            davClassLibrary.Dav.AccessToken = Constants.testerXTestAppAccessToken;
+            Dav.IsLoggedIn = true;
+            Dav.AccessToken = Constants.testerXTestAppAccessToken;
 
             var firstTableObjectUuid = Guid.NewGuid();
             var firstTableObjectTableId = Constants.testAppFirstTestTableId;
@@ -253,7 +265,7 @@ namespace davClassLibrary.Tests.DataAccess
             var secondTableObjectSecondPropertyName = "test2";
             var secondTableObjectSecondPropertyValue = "Second test";
 
-            await davClassLibrary.Dav.Database.CreateTableObjectWithPropertiesAsync(new TableObject(
+            await Dav.Database.CreateTableObjectWithPropertiesAsync(new TableObject(
                 firstTableObjectUuid,
                 firstTableObjectTableId,
                 new List<Property>
@@ -264,7 +276,7 @@ namespace davClassLibrary.Tests.DataAccess
                 TableObjectUploadStatus.New
             ));
 
-            await davClassLibrary.Dav.Database.CreateTableObjectWithPropertiesAsync(new TableObject(
+            await Dav.Database.CreateTableObjectWithPropertiesAsync(new TableObject(
                 secondTableObjectUuid,
                 secondTableObjectTableId,
                 new List<Property>
@@ -276,14 +288,14 @@ namespace davClassLibrary.Tests.DataAccess
             ));
 
             // Act
-            await davClassLibrary.DataAccess.SyncManager.SyncPush();
+            await SyncManager.SyncPush();
 
             // Assert
-            var firstTableObjectFromDatabase = await davClassLibrary.Dav.Database.GetTableObjectAsync(firstTableObjectUuid);
+            var firstTableObjectFromDatabase = await Dav.Database.GetTableObjectAsync(firstTableObjectUuid);
             Assert.IsNotNull(firstTableObjectFromDatabase);
             Assert.AreEqual(TableObjectUploadStatus.UpToDate, firstTableObjectFromDatabase.UploadStatus);
 
-            var secondTableObjectFromDatabase = await davClassLibrary.Dav.Database.GetTableObjectAsync(secondTableObjectUuid);
+            var secondTableObjectFromDatabase = await Dav.Database.GetTableObjectAsync(secondTableObjectUuid);
             Assert.IsNotNull(secondTableObjectFromDatabase);
             Assert.AreEqual(TableObjectUploadStatus.UpToDate, secondTableObjectFromDatabase.UploadStatus);
 
@@ -308,11 +320,12 @@ namespace davClassLibrary.Tests.DataAccess
             Assert.AreEqual(secondTableObjectSecondPropertyValue, secondTableObjectFromServer.GetPropertyValue(secondTableObjectSecondPropertyName));
         }
 
+        [Test]
         public async Task SyncPushShouldUpdateTableObjectsOnTheServer()
         {
             // Arrange
-            davClassLibrary.Dav.IsLoggedIn = true;
-            davClassLibrary.Dav.AccessToken = Constants.testerXTestAppAccessToken;
+            Dav.IsLoggedIn = true;
+            Dav.AccessToken = Constants.testerXTestAppAccessToken;
 
             var firstTableObjectUuid = Guid.NewGuid();
             var firstTableObjectTableId = Constants.testAppFirstTestTableId;
@@ -356,7 +369,7 @@ namespace davClassLibrary.Tests.DataAccess
             var secondTableObjectFirstUpdatedPropertyValue = "Second updated value";
             var secondTableObjectSecondUpdatedPropertyValue = "Zweiter aktualisierter Wert";
 
-            await davClassLibrary.Dav.Database.CreateTableObjectAsync(new TableObject(
+            await Dav.Database.CreateTableObjectWithPropertiesAsync(new TableObject(
                 firstTableObjectUuid,
                 firstTableObjectTableId,
                 new List<Property>
@@ -367,7 +380,7 @@ namespace davClassLibrary.Tests.DataAccess
                 TableObjectUploadStatus.Updated
             ));
 
-            await davClassLibrary.Dav.Database.CreateTableObjectAsync(new TableObject(
+            await Dav.Database.CreateTableObjectWithPropertiesAsync(new TableObject(
                 secondTableObjectUuid,
                 secondTableObjectTableId,
                 new List<Property>
@@ -379,25 +392,25 @@ namespace davClassLibrary.Tests.DataAccess
             ));
 
             // Act
-            await davClassLibrary.DataAccess.SyncManager.SyncPush();
+            await SyncManager.SyncPush();
 
             // Assert
-            var firstTableObjectFromDatabase = await davClassLibrary.Dav.Database.GetTableObjectAsync(firstTableObjectUuid);
+            var firstTableObjectFromDatabase = await Dav.Database.GetTableObjectAsync(firstTableObjectUuid);
             Assert.IsNotNull(firstTableObjectFromDatabase);
             Assert.AreEqual(firstTableObjectUuid, firstTableObjectFromDatabase.Uuid);
             Assert.AreEqual(firstTableObjectTableId, firstTableObjectFromDatabase.TableId);
             Assert.AreEqual(2, firstTableObjectFromDatabase.Properties.Count);
             Assert.AreEqual(firstTableObjectFirstUpdatedPropertyValue, firstTableObjectFromDatabase.GetPropertyValue(firstTableObjectFirstPropertyName));
-            Assert.AreEqual(firstTableObjectSecondUpdatedPropertyValue, firstTableObjectFromDatabase.GetPropertyValue(firstTableObjectSecondUpdatedPropertyValue));
+            Assert.AreEqual(firstTableObjectSecondUpdatedPropertyValue, firstTableObjectFromDatabase.GetPropertyValue(firstTableObjectSecondPropertyName));
             Assert.AreEqual(TableObjectUploadStatus.UpToDate, firstTableObjectFromDatabase.UploadStatus);
 
-            var secondTableObjectFromDatabase = await davClassLibrary.Dav.Database.GetTableObjectAsync(secondTableObjectUuid);
+            var secondTableObjectFromDatabase = await Dav.Database.GetTableObjectAsync(secondTableObjectUuid);
             Assert.IsNotNull(secondTableObjectFromDatabase);
             Assert.AreEqual(secondTableObjectUuid, secondTableObjectFromDatabase.Uuid);
             Assert.AreEqual(secondTableObjectTableId, secondTableObjectFromDatabase.TableId);
             Assert.AreEqual(2, secondTableObjectFromDatabase.Properties.Count);
             Assert.AreEqual(secondTableObjectFirstUpdatedPropertyValue, secondTableObjectFromDatabase.GetPropertyValue(secondTableObjectFirstPropertyName));
-            Assert.AreEqual(secondTableObjectSecondUpdatedPropertyValue, secondTableObjectFromDatabase.GetPropertyValue(secondTableObjectSecondUpdatedPropertyValue));
+            Assert.AreEqual(secondTableObjectSecondUpdatedPropertyValue, secondTableObjectFromDatabase.GetPropertyValue(secondTableObjectSecondPropertyName));
             Assert.AreEqual(TableObjectUploadStatus.UpToDate, secondTableObjectFromDatabase.UploadStatus);
 
             var firstTableObjectFromServerResponse = await TableObjectsController.GetTableObject(firstTableObjectUuid);
@@ -416,16 +429,17 @@ namespace davClassLibrary.Tests.DataAccess
             var secondTableObjectFromServer = secondTableObjectFromServerResponse.Data;
             Assert.AreEqual(secondTableObjectUuid, secondTableObjectFromServer.Uuid);
             Assert.AreEqual(secondTableObjectTableId, secondTableObjectFromServer.TableId);
-            Assert.AreEqual(2, secondTableObjectFromServer.TableId);
+            Assert.AreEqual(2, secondTableObjectFromServer.Properties.Count);
             Assert.AreEqual(secondTableObjectFirstUpdatedPropertyValue, secondTableObjectFromServer.GetPropertyValue(secondTableObjectFirstPropertyName));
             Assert.AreEqual(secondTableObjectSecondUpdatedPropertyValue, secondTableObjectFromServer.GetPropertyValue(secondTableObjectSecondPropertyName));
         }
 
+        [Test]
         public async Task SyncPushShouldDeleteTableObjectsOnTheServer()
         {
             // Arrange
-            davClassLibrary.Dav.IsLoggedIn = true;
-            davClassLibrary.Dav.AccessToken = Constants.testerXTestAppAccessToken;
+            Dav.IsLoggedIn = true;
+            Dav.AccessToken = Constants.testerXTestAppAccessToken;
 
             var firstTableObjectUuid = Guid.NewGuid();
             var firstTableObjectTableId = Constants.testAppFirstTestTableId;
@@ -463,7 +477,7 @@ namespace davClassLibrary.Tests.DataAccess
                 }
             );
 
-            await davClassLibrary.Dav.Database.CreateTableObjectAsync(new TableObject(
+            await Dav.Database.CreateTableObjectAsync(new TableObject(
                 firstTableObjectUuid,
                 firstTableObjectTableId,
                 new List<Property>
@@ -474,7 +488,7 @@ namespace davClassLibrary.Tests.DataAccess
                 TableObjectUploadStatus.Deleted
             ));
 
-            await davClassLibrary.Dav.Database.CreateTableObjectAsync(new TableObject(
+            await Dav.Database.CreateTableObjectWithPropertiesAsync(new TableObject(
                 secondTableObjectUuid,
                 secondTableObjectTableId,
                 new List<Property>
@@ -486,13 +500,13 @@ namespace davClassLibrary.Tests.DataAccess
             ));
 
             // Act
-            await davClassLibrary.DataAccess.SyncManager.SyncPush();
+            await SyncManager.SyncPush();
 
             // Assert
-            var firstTableObjectFromDatabase = await davClassLibrary.Dav.Database.GetTableObjectAsync(firstTableObjectUuid);
+            var firstTableObjectFromDatabase = await Dav.Database.GetTableObjectAsync(firstTableObjectUuid);
             Assert.IsNull(firstTableObjectFromDatabase);
 
-            var secondTableObjectFromDatabase = await davClassLibrary.Dav.Database.GetTableObjectAsync(secondTableObjectUuid);
+            var secondTableObjectFromDatabase = await Dav.Database.GetTableObjectAsync(secondTableObjectUuid);
             Assert.IsNull(secondTableObjectFromDatabase);
 
             var firstTableObjectFromServerResponse = await TableObjectsController.GetTableObject(firstTableObjectUuid);
@@ -506,11 +520,12 @@ namespace davClassLibrary.Tests.DataAccess
             Assert.AreEqual(ErrorCodes.TableObjectDoesNotExist, secondTableObjectFromServerResponse.Errors[0].Code);
         }
 
+        [Test]
         public async Task SyncPushShouldDeleteUpdatedAndDeletedTableObjectsThatDoNotExistOnTheServer()
         {
             // Arrange
-            davClassLibrary.Dav.IsLoggedIn = true;
-            davClassLibrary.Dav.AccessToken = Constants.testerXTestAppAccessToken;
+            Dav.IsLoggedIn = true;
+            Dav.AccessToken = Constants.testerXTestAppAccessToken;
 
             var firstTableObjectUuid = Guid.NewGuid();
             var firstTableObjectTableId = Constants.testAppFirstTestTableId;
@@ -526,7 +541,7 @@ namespace davClassLibrary.Tests.DataAccess
             var secondTableObjectSecondPropertyName = "test2";
             var secondTableObjectSecondPropertyValue = "Second test";
 
-            await davClassLibrary.Dav.Database.CreateTableObjectWithPropertiesAsync(new TableObject(
+            await Dav.Database.CreateTableObjectWithPropertiesAsync(new TableObject(
                 firstTableObjectUuid,
                 firstTableObjectTableId,
                 new List<Property>
@@ -537,7 +552,7 @@ namespace davClassLibrary.Tests.DataAccess
                 TableObjectUploadStatus.Updated
             ));
 
-            await davClassLibrary.Dav.Database.CreateTableObjectWithPropertiesAsync(new TableObject(
+            await Dav.Database.CreateTableObjectWithPropertiesAsync(new TableObject(
                 secondTableObjectUuid,
                 secondTableObjectTableId,
                 new List<Property>
@@ -549,13 +564,13 @@ namespace davClassLibrary.Tests.DataAccess
             ));
 
             // Act
-            await davClassLibrary.DataAccess.SyncManager.SyncPush();
+            await SyncManager.SyncPush();
 
             // Assert
-            var firstTableObjectFromDatabase = await davClassLibrary.Dav.Database.GetTableObjectAsync(firstTableObjectUuid);
+            var firstTableObjectFromDatabase = await Dav.Database.GetTableObjectAsync(firstTableObjectUuid);
             Assert.IsNull(firstTableObjectFromDatabase);
 
-            var secondTableObjectFromDatabase = await davClassLibrary.Dav.Database.GetTableObjectAsync(secondTableObjectUuid);
+            var secondTableObjectFromDatabase = await Dav.Database.GetTableObjectAsync(secondTableObjectUuid);
             Assert.IsNull(secondTableObjectFromDatabase);
         }
         #endregion
