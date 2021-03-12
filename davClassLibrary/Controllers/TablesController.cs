@@ -12,7 +12,7 @@ namespace davClassLibrary.Controllers
         public static async Task<ApiResponse<GetTableResponse>> GetTable(int id, int page = 0)
         {
             var httpClient = Dav.httpClient;
-            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(Dav.AccessToken);
+            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Dav.AccessToken);
 
             var response = await httpClient.GetAsync($"{Dav.ApiBaseUrl}/table/{id}?page={page}");
             string responseData = await response.Content.ReadAsStringAsync();

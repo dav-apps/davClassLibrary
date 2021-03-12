@@ -20,7 +20,7 @@ namespace davClassLibrary.Controllers
         )
         {
             var httpClient = Dav.httpClient;
-            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(Dav.AccessToken);
+            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Dav.AccessToken);
             httpClient.DefaultRequestHeaders.Add("CONTENT_TYPE", "application/json");
 
             var requestBodyDict = new Dictionary<string, object>
@@ -76,7 +76,7 @@ namespace davClassLibrary.Controllers
         public static async Task<ApiResponse<TableObject>> GetTableObject(Guid uuid)
         {
             var httpClient = Dav.httpClient;
-            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(Dav.AccessToken);
+            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Dav.AccessToken);
 
             var response = await httpClient.GetAsync($"{Dav.ApiBaseUrl}/table_object/{uuid}");
             string responseData = await response.Content.ReadAsStringAsync();
@@ -118,7 +118,7 @@ namespace davClassLibrary.Controllers
         )
         {
             var httpClient = Dav.httpClient;
-            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(Dav.AccessToken);
+            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Dav.AccessToken);
             httpClient.DefaultRequestHeaders.Add("CONTENT_TYPE", "application/json");
 
             var requestBodyDict = new Dictionary<string, object>
@@ -169,7 +169,7 @@ namespace davClassLibrary.Controllers
         public static async Task<ApiResponse> DeleteTableObject(Guid uuid)
         {
             var httpClient = Dav.httpClient;
-            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(Dav.AccessToken);
+            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Dav.AccessToken);
 
             var response = await httpClient.DeleteAsync($"{Dav.ApiBaseUrl}/table_object/{uuid}");
 
@@ -200,7 +200,7 @@ namespace davClassLibrary.Controllers
         )
         {
             var httpClient = Dav.httpClient;
-            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(Dav.AccessToken);
+            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Dav.AccessToken);
             httpClient.DefaultRequestHeaders.Add("CONTENT_TYPE", contentType);
 
             // Read the file
@@ -244,7 +244,7 @@ namespace davClassLibrary.Controllers
         public static async Task<ApiResponse> GetTableObjectFile(Guid uuid, string filePath, IProgress<int> progress)
         {
             var httpClient = Dav.httpClient;
-            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(Dav.AccessToken);
+            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Dav.AccessToken);
 
             var response = await httpClient.GetAsync($"{Dav.ApiBaseUrl}/table_object/{uuid}/file");
             long contentLength = response.Content.Headers.ContentLength.GetValueOrDefault();

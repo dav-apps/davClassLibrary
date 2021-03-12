@@ -12,7 +12,7 @@ namespace davClassLibrary.Controllers
         public static async Task<ApiResponse<User>> GetUser()
         {
             var httpClient = Dav.httpClient;
-            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(Dav.AccessToken);
+            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Dav.AccessToken);
 
             var response = await httpClient.GetAsync($"{Dav.ApiBaseUrl}/user");
             string responseData = await response.Content.ReadAsStringAsync();
@@ -51,7 +51,7 @@ namespace davClassLibrary.Controllers
         public static async Task<ApiResponse> GetProfileImageOfUser(string filePath)
         {
             var httpClient = Dav.httpClient;
-            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(Dav.AccessToken);
+            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Dav.AccessToken);
 
             var response = await httpClient.GetAsync($"{Dav.ApiBaseUrl}/user/profile_image");
 

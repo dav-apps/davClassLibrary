@@ -12,7 +12,7 @@ namespace davClassLibrary.Controllers
         public static async Task<ApiResponse<WebsocketConnectionResponse>> CreateWebsocketConnection(string accessToken)
         {
             var httpClient = Dav.httpClient;
-            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(Dav.AccessToken);
+            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Dav.AccessToken);
 
             var response = await httpClient.PostAsync($"{Dav.ApiBaseUrl}/websocket_connection", new StringContent("{}", Encoding.UTF8, "application/json"));
             string responseData = await response.Content.ReadAsStringAsync();
