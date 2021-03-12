@@ -54,6 +54,14 @@ namespace davClassLibrary.Models
             UploadStatus = TableObjectUploadStatus.New;
         }
 
+        public TableObject(Guid uuid, int tableId, List<Property> properties, TableObjectUploadStatus uploadStatus)
+        {
+            Uuid = uuid;
+            TableId = tableId;
+            Properties = properties;
+            UploadStatus = uploadStatus;
+        }
+
         public static async Task<TableObject> CreateAsync(int tableId)
         {
             var tableObject = new TableObject(tableId);

@@ -11,7 +11,13 @@ namespace davClassLibrary.Models
         public string Name { get; set; }
         public string Value { get; set; }
 
-        public Property(){}
+        public Property() { }
+
+        public Property(string name, string value)
+        {
+            Name = name;
+            Value = value;
+        }
 
         public Property(int tableObjectId, string name, string value)
         {
@@ -54,19 +60,6 @@ namespace davClassLibrary.Models
                 name = Name,
                 value = Value
             };
-        }
-
-        public static Property ConvertPropertyDataToProperty(PropertyData propertyData)
-        {
-            Property property = new Property
-            {
-                Id = propertyData.id,
-                TableObjectId = propertyData.table_object_id,
-                Name = propertyData.name,
-                Value = propertyData.value
-            };
-
-            return property;
         }
     }
 

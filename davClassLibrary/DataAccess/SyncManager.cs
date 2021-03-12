@@ -13,7 +13,7 @@ using Websockets;
 
 namespace davClassLibrary.DataAccess
 {
-    internal static class SyncManager
+    public static class SyncManager
     {
         private static bool isSyncing = false;
         private static bool syncAgain = false;
@@ -110,7 +110,7 @@ namespace davClassLibrary.DataAccess
             return true;
         }
 
-        internal static async Task<bool> Sync()
+        public static async Task<bool> Sync()
         {
             if (
                 isSyncing
