@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 namespace davClassLibrary.Tests.DataAccess
 {
     [TestFixture][SingleThreaded]
-    public class DavDatabase
+    public class DavDatabaseTest
     {
         private string databasePath;
 
