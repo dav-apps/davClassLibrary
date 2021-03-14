@@ -12,9 +12,9 @@
         internal const string sessionUploadStatusKey = "sessionUploadStatus";
         internal const string emailKey = "email";
         internal const string firstNameKey = "firstName";
-        internal const string totalStorageKey = "totalStorage";
-        internal const string usedStorageKey = "usedStorage";
-        internal const string planKey = "plan";
+        internal const string totalStorageKey = "totalStorage2";
+        internal const string usedStorageKey = "usedStorage2";
+        internal const string planKey = "plan2";
         internal const string profileImageEtagKey = "profileImageEtag";
 
         internal const string extPropertyName = "ext";

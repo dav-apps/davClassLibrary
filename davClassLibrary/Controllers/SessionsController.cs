@@ -75,7 +75,7 @@ namespace davClassLibrary.Controllers
             var httpClient = Dav.httpClient;
             httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Dav.AccessToken);
 
-            var response = await httpClient.GetAsync($"{Dav.ApiBaseUrl}/session/renew");
+            var response = await httpClient.PutAsync($"{Dav.ApiBaseUrl}/session/renew", new StringContent("{}", Encoding.UTF8, "application/json"));
             string responseData = await response.Content.ReadAsStringAsync();
 
             var result = new ApiResponse<SessionResponse>
