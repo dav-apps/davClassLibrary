@@ -60,40 +60,40 @@ namespace davClassLibrary
             ParallelTableIds = parallelTableIds;
             DataPath = dataPath;
 
-            _ = StartSync();
+            LoadUser();
         }
 
-        private static async Task StartSync()
+        private static void LoadUser()
         {
-            if (isSyncing) return;
-            isSyncing = true;
-
             // Get the access token and session upload status from the local settings
             AccessToken = SettingsManager.GetAccessToken();
             var sessionUploadStatus = SettingsManager.GetSessionUploadStatus();
 
-            if(string.IsNullOrEmpty(AccessToken) || sessionUploadStatus == SessionUploadStatus.Deleted)
+            if (string.IsNullOrEmpty(AccessToken) || sessionUploadStatus == SessionUploadStatus.Deleted)
             {
-                await SyncManager.SessionSyncPush();
-                isSyncing = false;
+                _ = SyncManager.SessionSyncPush();
+                IsLoggedIn = false;
                 return;
             }
             IsLoggedIn = true;
 
             // Load the user
             SyncManager.LoadUser();
+        }
+
+        public static async Task SyncData()
+        {
+            if (!IsLoggedIn || isSyncing) return;
+            isSyncing = true;
 
             // Sync the user
-            if(!await SyncManager.UserSync())
-            {
-                isSyncing = false;
-                return;
-            }
+            await SyncManager.UserSync();
 
             // Sync the table objects
             bool syncSuccess = await SyncManager.Sync();
             bool syncPushSuccess = await SyncManager.SyncPush();
-            if(!syncSuccess || !syncPushSuccess)
+
+            if (!syncSuccess || !syncPushSuccess)
             {
                 isSyncing = false;
                 return;
@@ -114,7 +114,8 @@ namespace davClassLibrary
             SettingsManager.SetAccessToken(accessToken);
             SettingsManager.SetSessionUploadStatus(SessionUploadStatus.UpToDate);
 
-            _ = StartSync();
+            LoadUser();
+            _ = SyncData();
         }
 
         public static void Logout()
