@@ -4,6 +4,7 @@ using davClassLibrary.Models;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
@@ -61,7 +62,7 @@ namespace davClassLibrary
             Dictionary<string, string> dictionary = new Dictionary<string, string>();
 
             foreach (var property in properties)
-                dictionary.Add(property.Name, property.Value);
+                dictionary[property.Name] = property.Value;
 
             return dictionary;
         }
