@@ -18,6 +18,7 @@ namespace davClassLibrary.Controllers
             string apiKey
         )
         {
+            HttpResponseMessage response;
             var httpClient = Dav.httpClient;
             httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth);
             httpClient.DefaultRequestHeaders.Add("CONTENT_TYPE", "application/json");
@@ -36,7 +37,15 @@ namespace davClassLibrary.Controllers
                 "application/json"
             );
 
-            var response = await httpClient.PostAsync($"{Dav.ApiBaseUrl}/session", requestBody);
+            try
+            {
+                response = await httpClient.PostAsync($"{Dav.ApiBaseUrl}/session", requestBody);
+            }
+            catch (Exception)
+            {
+                return new ApiResponse<SessionResponse> { Success = false, Status = 0 };
+            }
+            
             string responseData = await response.Content.ReadAsStringAsync();
 
             var result = new ApiResponse<SessionResponse>
@@ -72,10 +81,19 @@ namespace davClassLibrary.Controllers
 
         public static async Task<ApiResponse<SessionResponse>> RenewSession(string accessToken)
         {
+            HttpResponseMessage response;
             var httpClient = Dav.httpClient;
             httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Dav.AccessToken);
 
-            var response = await httpClient.PutAsync($"{Dav.ApiBaseUrl}/session/renew", new StringContent("{}", Encoding.UTF8, "application/json"));
+            try
+            {
+                response = await httpClient.PutAsync($"{Dav.ApiBaseUrl}/session/renew", new StringContent("{}", Encoding.UTF8, "application/json"));
+            }
+            catch (Exception)
+            {
+                return new ApiResponse<SessionResponse> { Success = false, Status = 0 };
+            }
+            
             string responseData = await response.Content.ReadAsStringAsync();
 
             var result = new ApiResponse<SessionResponse>
@@ -111,10 +129,18 @@ namespace davClassLibrary.Controllers
 
         public static async Task<ApiResponse> DeleteSession(string accessToken)
         {
+            HttpResponseMessage response;
             var httpClient = Dav.httpClient;
             httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
 
-            var response = await httpClient.DeleteAsync($"{Dav.ApiBaseUrl}/session");
+            try
+            {
+                response = await httpClient.DeleteAsync($"{Dav.ApiBaseUrl}/session");
+            }
+            catch (Exception)
+            {
+                return new ApiResponse { Success = false, Status = 0 };
+            }
 
             var result = new ApiResponse
             {

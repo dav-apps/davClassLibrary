@@ -2,6 +2,7 @@
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
 
@@ -11,10 +12,19 @@ namespace davClassLibrary.Controllers
     {
         public static async Task<ApiResponse<GetTableResponse>> GetTable(int id, int page = 0)
         {
+            HttpResponseMessage response;
             var httpClient = Dav.httpClient;
             httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Dav.AccessToken);
 
-            var response = await httpClient.GetAsync($"{Dav.ApiBaseUrl}/table/{id}?page={page}");
+            try
+            {
+                response = await httpClient.GetAsync($"{Dav.ApiBaseUrl}/table/{id}?page={page}");
+            }
+            catch (Exception)
+            {
+                return new ApiResponse<GetTableResponse> { Success = false, Status = 0 };
+            }
+
             string responseData = await response.Content.ReadAsStringAsync();
 
             var result = new ApiResponse<GetTableResponse>

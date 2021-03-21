@@ -4,7 +4,6 @@ using davClassLibrary.Models;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
@@ -72,6 +71,7 @@ namespace davClassLibrary
             try
             {
                 var json = JsonConvert.DeserializeObject<ApiErrors>(responseData);
+                if (json == null) return new HandleApiErrorResult { Success = false, Errors = null };
 
                 if (json.Errors.Length > 0 && json.Errors[0].Code == ErrorCodes.AccessTokenMustBeRenewed)
                 {

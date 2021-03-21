@@ -19,6 +19,7 @@ namespace davClassLibrary.Controllers
             Dictionary<string, string> properties
         )
         {
+            HttpResponseMessage response;
             var httpClient = Dav.httpClient;
             httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Dav.AccessToken);
             httpClient.DefaultRequestHeaders.Add("CONTENT_TYPE", "application/json");
@@ -39,7 +40,15 @@ namespace davClassLibrary.Controllers
                 "application/json"
             );
 
-            var response = await httpClient.PostAsync($"{Dav.ApiBaseUrl}/table_object", requestBody);
+            try
+            {
+                response = await httpClient.PostAsync($"{Dav.ApiBaseUrl}/table_object", requestBody);
+            }
+            catch (Exception)
+            {
+                return new ApiResponse<TableObject> { Success = false, Status = 0 };
+            }
+            
             string responseData = await response.Content.ReadAsStringAsync();
 
             var result = new ApiResponse<TableObject>
@@ -75,10 +84,19 @@ namespace davClassLibrary.Controllers
 
         public static async Task<ApiResponse<TableObject>> GetTableObject(Guid uuid)
         {
+            HttpResponseMessage response;
             var httpClient = Dav.httpClient;
             httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Dav.AccessToken);
 
-            var response = await httpClient.GetAsync($"{Dav.ApiBaseUrl}/table_object/{uuid}");
+            try
+            {
+                response = await httpClient.GetAsync($"{Dav.ApiBaseUrl}/table_object/{uuid}");
+            }
+            catch (Exception)
+            {
+                return new ApiResponse<TableObject> { Success = false, Status = 0 };
+            }
+
             string responseData = await response.Content.ReadAsStringAsync();
 
             var result = new ApiResponse<TableObject>
@@ -117,6 +135,7 @@ namespace davClassLibrary.Controllers
             Dictionary<string, string> properties
         )
         {
+            HttpResponseMessage response;
             var httpClient = Dav.httpClient;
             httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Dav.AccessToken);
             httpClient.DefaultRequestHeaders.Add("CONTENT_TYPE", "application/json");
@@ -132,7 +151,15 @@ namespace davClassLibrary.Controllers
                 "application/json"
             );
 
-            var response = await httpClient.PutAsync($"{Dav.ApiBaseUrl}/table_object/{uuid}", requestBody);
+            try
+            {
+                response = await httpClient.PutAsync($"{Dav.ApiBaseUrl}/table_object/{uuid}", requestBody);
+            }
+            catch (Exception)
+            {
+                return new ApiResponse<TableObject> { Success = false, Status = 0 };
+            }
+
             string responseData = await response.Content.ReadAsStringAsync();
 
             var result = new ApiResponse<TableObject>
@@ -168,10 +195,18 @@ namespace davClassLibrary.Controllers
 
         public static async Task<ApiResponse> DeleteTableObject(Guid uuid)
         {
+            HttpResponseMessage response;
             var httpClient = Dav.httpClient;
             httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Dav.AccessToken);
 
-            var response = await httpClient.DeleteAsync($"{Dav.ApiBaseUrl}/table_object/{uuid}");
+            try
+            {
+                response = await httpClient.DeleteAsync($"{Dav.ApiBaseUrl}/table_object/{uuid}");
+            }
+            catch (Exception)
+            {
+                return new ApiResponse { Success = false, Status = 0 };
+            }
 
             var result = new ApiResponse
             {
@@ -199,6 +234,7 @@ namespace davClassLibrary.Controllers
             string contentType
         )
         {
+            HttpResponseMessage response;
             var httpClient = Dav.httpClient;
             httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Dav.AccessToken);
             httpClient.DefaultRequestHeaders.Add("CONTENT_TYPE", contentType);
@@ -207,7 +243,15 @@ namespace davClassLibrary.Controllers
             byte[] data = Utils.ReadFile(filePath);
             if (data == null) return null;
 
-            var response = await httpClient.PutAsync($"{Dav.ApiBaseUrl}/table_object/{uuid}/file", new ByteArrayContent(data));
+            try
+            {
+                response = await httpClient.PutAsync($"{Dav.ApiBaseUrl}/table_object/{uuid}/file", new ByteArrayContent(data));
+            }
+            catch (Exception)
+            {
+                return new ApiResponse<TableObject> { Success = false, Status = 0 };
+            }
+
             string responseData = await response.Content.ReadAsStringAsync();
 
             var result = new ApiResponse<TableObject>
@@ -243,10 +287,19 @@ namespace davClassLibrary.Controllers
 
         public static async Task<ApiResponse> GetTableObjectFile(Guid uuid, string filePath, IProgress<int> progress)
         {
+            HttpResponseMessage response;
             var httpClient = Dav.httpClient;
             httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Dav.AccessToken);
 
-            var response = await httpClient.GetAsync($"{Dav.ApiBaseUrl}/table_object/{uuid}/file");
+            try
+            {
+                response = await httpClient.GetAsync($"{Dav.ApiBaseUrl}/table_object/{uuid}/file");
+            }
+            catch (Exception)
+            {
+                return new ApiResponse { Success = false, Status = 0 };
+            }
+
             long contentLength = response.Content.Headers.ContentLength.GetValueOrDefault();
 
             var result = new ApiResponse
