@@ -576,16 +576,14 @@ namespace davClassLibrary.DataAccess
                     var errorResponse = createTableObjectResponse.Errors;
                     int i = errorResponse.ToList().FindIndex(error => error.Code == ErrorCodes.UuidAlreadyInUse);
 
-                    if(i == -1) return createTableObjectResponse;
+                    if (i == -1) return createTableObjectResponse;
                 }
-
-                var createTableObjectResponseData = createTableObjectResponse.Data;
 
                 if(tableObject.File != null)
                 {
                     // Upload the file
                     var setTableObjectFileResponse = await TableObjectsController.SetTableObjectFile(
-                        createTableObjectResponseData.Uuid,
+                        tableObject.Uuid,
                         tableObject.File.FullName,
                         MimeTypeMap.GetMimeType(tableObject.GetPropertyValue(Constants.extPropertyName))
                     );
@@ -623,9 +621,7 @@ namespace davClassLibrary.DataAccess
                 );
 
                 if (setTableObjectFileResponse.Status != 200)
-                {
                     return setTableObjectFileResponse;
-                }
 
                 // Check if the ext has changed
                 var tableObjectResponseData = setTableObjectFileResponse.Data;
