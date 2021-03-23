@@ -623,7 +623,7 @@ namespace davClassLibrary.DataAccess
                     MimeTypeMap.GetMimeType(tableObject.GetPropertyValue(Constants.extPropertyName))
                 );
 
-                if (setTableObjectFileResponse.Status != 200)
+                if (!setTableObjectFileResponse.Success)
                     return setTableObjectFileResponse;
 
                 // Check if the ext has changed
