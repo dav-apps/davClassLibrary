@@ -572,6 +572,9 @@ namespace davClassLibrary.DataAccess
 
                 if(!createTableObjectResponse.Success)
                 {
+                    if (createTableObjectResponse.Errors == null)
+                        return new ApiResponse<TableObject> { Success = false };
+
                     // Check if the table object already exists
                     var errorResponse = createTableObjectResponse.Errors;
                     int i = errorResponse.ToList().FindIndex(error => error.Code == ErrorCodes.UuidAlreadyInUse);
