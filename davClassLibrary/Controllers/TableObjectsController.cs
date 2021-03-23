@@ -22,7 +22,6 @@ namespace davClassLibrary.Controllers
             HttpResponseMessage response;
             var httpClient = Dav.httpClient;
             httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Dav.AccessToken);
-            httpClient.DefaultRequestHeaders.Add("CONTENT_TYPE", "application/json");
 
             var requestBodyDict = new Dictionary<string, object>
             {
@@ -138,7 +137,6 @@ namespace davClassLibrary.Controllers
             HttpResponseMessage response;
             var httpClient = Dav.httpClient;
             httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Dav.AccessToken);
-            httpClient.DefaultRequestHeaders.Add("CONTENT_TYPE", "application/json");
 
             var requestBodyDict = new Dictionary<string, object>
             {
@@ -237,15 +235,17 @@ namespace davClassLibrary.Controllers
             HttpResponseMessage response;
             var httpClient = Dav.httpClient;
             httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Dav.AccessToken);
-            httpClient.DefaultRequestHeaders.Add("CONTENT_TYPE", contentType);
 
             // Read the file
             byte[] data = Utils.ReadFile(filePath);
             if (data == null) return null;
 
+            var content = new ByteArrayContent(data);
+            content.Headers.ContentType = new MediaTypeHeaderValue(contentType);
+
             try
             {
-                response = await httpClient.PutAsync($"{Dav.ApiBaseUrl}/table_object/{uuid}/file", new ByteArrayContent(data));
+                response = await httpClient.PutAsync($"{Dav.ApiBaseUrl}/table_object/{uuid}/file", content);
             }
             catch (Exception)
             {
