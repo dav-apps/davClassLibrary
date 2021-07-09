@@ -585,10 +585,17 @@ namespace davClassLibrary.DataAccess
                 if(tableObject.File != null)
                 {
                     // Upload the file
+                    string mimeType = "audio/mpeg";
+
+                    try
+                    {
+                        mimeType = MimeTypeMap.GetMimeType(tableObject.GetPropertyValue(Constants.extPropertyName));
+                    } catch(Exception) { }
+
                     var setTableObjectFileResponse = await TableObjectsController.SetTableObjectFile(
                         tableObject.Uuid,
                         tableObject.File.FullName,
-                        MimeTypeMap.GetMimeType(tableObject.GetPropertyValue(Constants.extPropertyName))
+                        mimeType
                     );
 
                     return setTableObjectFileResponse;
@@ -617,10 +624,16 @@ namespace davClassLibrary.DataAccess
             if (tableObject.IsFile && tableObject.File != null)
             {
                 // Upload the file
+                string mimeType = "audio/mpeg";
+                try
+                {
+                    mimeType = MimeTypeMap.GetMimeType(tableObject.GetPropertyValue(Constants.extPropertyName));
+                } catch (Exception) { }
+
                 var setTableObjectFileResponse = await TableObjectsController.SetTableObjectFile(
                     tableObject.Uuid,
                     tableObject.File.FullName,
-                    MimeTypeMap.GetMimeType(tableObject.GetPropertyValue(Constants.extPropertyName))
+                    mimeType
                 );
 
                 if (!setTableObjectFileResponse.Success)
