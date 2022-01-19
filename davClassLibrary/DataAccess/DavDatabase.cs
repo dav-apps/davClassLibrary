@@ -241,7 +241,7 @@ namespace davClassLibrary.DataAccess
         public async Task CreatePropertiesAsync(List<Property> propertiesToCreate)
         {
             await InitAsync();
-            await database.InsertAllAsync(propertiesToCreate);
+            await database.RunInTransactionAsync(transact => transact.InsertAll(propertiesToCreate, false));
         }
 
         public async Task<Property> GetPropertyAsync(int id)
@@ -270,7 +270,7 @@ namespace davClassLibrary.DataAccess
         public async Task UpdatePropertiesAsync(List<Property> propertiesToUpdate)
         {
             await InitAsync();
-            await database.UpdateAllAsync(propertiesToUpdate);
+            await database.RunInTransactionAsync(transact => transact.UpdateAll(propertiesToUpdate, false));
         }
 
         public async Task DeletePropertyAsync(int id)
