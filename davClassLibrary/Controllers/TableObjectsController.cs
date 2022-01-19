@@ -293,7 +293,7 @@ namespace davClassLibrary.Controllers
 
             try
             {
-                response = await httpClient.GetAsync($"{Dav.ApiBaseUrl}/table_object/{uuid}/file");
+                response = await httpClient.GetAsync($"{Dav.ApiBaseUrl}/table_object/{uuid}/file", HttpCompletionOption.ResponseHeadersRead);
             }
             catch (Exception)
             {
@@ -310,6 +310,8 @@ namespace davClassLibrary.Controllers
 
             if (response.IsSuccessStatusCode)
             {
+                FileStream fileStream = null;
+
                 try
                 {
                     if (File.Exists(filePath))
@@ -317,29 +319,28 @@ namespace davClassLibrary.Controllers
 
                     using (var responseStream = await response.Content.ReadAsStreamAsync())
                     {
-                        var fileStream = File.Create(filePath);
-                        var buffer = new byte[1024];
+                        fileStream = File.Create(filePath);
+                        var buffer = new byte[8192];
                         int read;
                         long offset = 0;
 
                         do
                         {
                             read = await responseStream.ReadAsync(buffer, 0, buffer.Length);
-                            await fileStream.WriteAsync(buffer, 0, buffer.Length);
+                            await fileStream.WriteAsync(buffer, 0, read);
                             offset += read;
 
-                            if (offset != 0)
-                                progress.Report((int)Math.Floor(offset / (float)contentLength * 100));
-
+                            if (progress != null && offset != 0 && read != 0 && contentLength != 0)
+                                progress.Report((int)Math.Floor((double)offset / contentLength * 100));
                         } while (read != 0);
 
                         await fileStream.FlushAsync();
-                        fileStream.Dispose();
-                        progress.Report(100);
+                        fileStream.Close();
                     }
                 }
                 catch (Exception)
                 {
+                    if (fileStream != null) fileStream.Close();
                     result.Success = false;
                 }
             }
