@@ -262,11 +262,16 @@ namespace davClassLibrary.DataAccess
                     }
                 }
 
-                ProjectInterface.Callbacks.UpdateAllOfTable(tableId, tableChanged);
-
                 // Check if there is a next page
                 currentTablePages[tableId]++;
-                if (currentTablePages[tableId] > tablePages[tableId]) continue;
+
+                if (currentTablePages[tableId] > tablePages[tableId])
+                {
+                    ProjectInterface.Callbacks.UpdateAllOfTable(tableId, tableChanged, true);
+                    continue;
+                }
+
+                ProjectInterface.Callbacks.UpdateAllOfTable(tableId, tableChanged, false);
 
                 // Get the next page
                 var getTableResult = await TablesController.GetTable(tableId, currentTablePages[tableId]);
@@ -285,7 +290,6 @@ namespace davClassLibrary.DataAccess
             {
                 if (!tableGetResultsOkay[tableId]) continue;
                 var removedTableObjects = removedTableObjectUuids[tableId];
-                var tableChanged = false;
 
                 foreach (var uuid in removedTableObjects)
                 {
@@ -298,10 +302,7 @@ namespace davClassLibrary.DataAccess
                     await obj.DeleteImmediatelyAsync();
 
                     ProjectInterface.Callbacks.DeleteTableObject(obj.Uuid, obj.TableId);
-                    tableChanged = true;
                 }
-
-                ProjectInterface.Callbacks.UpdateAllOfTable(tableId, tableChanged);
             }
 
             isSyncing = false;

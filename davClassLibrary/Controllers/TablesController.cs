@@ -18,7 +18,7 @@ namespace davClassLibrary.Controllers
 
             try
             {
-                response = await httpClient.GetAsync($"{Dav.ApiBaseUrl}/table/{id}?page={page}");
+                response = await httpClient.GetAsync($"{Dav.ApiBaseUrl}/table/{id}?page={page}&count=50");
             }
             catch (Exception)
             {
