@@ -16,6 +16,7 @@
         internal const string usedStorageKey = "usedStorage2";
         internal const string planKey = "plan2";
         internal const string profileImageEtagKey = "profileImageEtag";
+        internal const string tableEtagKey = "tableEtag:{0}";
 
         internal const string extPropertyName = "ext";
         internal const string tableObjectUpdateChannelName = "TableObjectUpdateChannel";

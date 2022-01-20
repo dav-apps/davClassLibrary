@@ -63,6 +63,7 @@ namespace davClassLibrary.Controllers
     {
         public Table Table { get; set; }
         public int Pages { get; set; }
+        public string Etag { get; set; }
         public List<GetTableResponseTableObject> TableObjects { get; set; }
     }
 
@@ -78,11 +79,13 @@ namespace davClassLibrary.Controllers
         public int app_id { get; set; }
         public string name { get; set; }
         public int pages { get; set; }
+        public string etag { get; set; }
         public GetTableResponseTableObjectData[] table_objects { get; set; }
 
         public GetTableResponse ToGetTableResponse()
         {
             List<GetTableResponseTableObject> tableObjects = new List<GetTableResponseTableObject>();
+
             foreach(var obj in table_objects)
             {
                 tableObjects.Add(new GetTableResponseTableObject
@@ -101,6 +104,7 @@ namespace davClassLibrary.Controllers
                     Name = name
                 },
                 Pages = pages,
+                Etag = etag,
                 TableObjects = tableObjects
             };
         }

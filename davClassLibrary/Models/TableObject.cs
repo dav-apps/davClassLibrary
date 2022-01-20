@@ -449,6 +449,7 @@ namespace davClassLibrary.Models
         public Guid uuid { get; set; }
         public bool file { get; set; }
         public string etag { get; set; }
+        public string table_etag { get; set; }
         public Dictionary<string, string> properties { get; set; }
 
         public TableObject ToTableObject()

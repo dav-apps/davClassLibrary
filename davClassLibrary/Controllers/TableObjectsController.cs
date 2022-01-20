@@ -12,7 +12,7 @@ namespace davClassLibrary.Controllers
 {
     public static class TableObjectsController
     {
-        public static async Task<ApiResponse<TableObject>> CreateTableObject(
+        public static async Task<ApiResponse<TableObjectResponse>> CreateTableObject(
             Guid uuid,
             int tableId,
             bool file,
@@ -45,12 +45,12 @@ namespace davClassLibrary.Controllers
             }
             catch (Exception)
             {
-                return new ApiResponse<TableObject> { Success = false, Status = 0 };
+                return new ApiResponse<TableObjectResponse> { Success = false, Status = 0 };
             }
             
             string responseData = await response.Content.ReadAsStringAsync();
 
-            var result = new ApiResponse<TableObject>
+            var result = new ApiResponse<TableObjectResponse>
             {
                 Success = response.IsSuccessStatusCode,
                 Status = (int)response.StatusCode
@@ -61,7 +61,12 @@ namespace davClassLibrary.Controllers
                 try
                 {
                     var tableObjectData = JsonConvert.DeserializeObject<TableObjectData>(responseData);
-                    result.Data = tableObjectData.ToTableObject();
+
+                    result.Data = new TableObjectResponse
+                    {
+                        TableEtag = tableObjectData.table_etag,
+                        TableObject = tableObjectData.ToTableObject()
+                    };
                 }
                 catch (Exception)
                 {
@@ -81,7 +86,7 @@ namespace davClassLibrary.Controllers
             return result;
         }
 
-        public static async Task<ApiResponse<TableObject>> GetTableObject(Guid uuid)
+        public static async Task<ApiResponse<TableObjectResponse>> GetTableObject(Guid uuid)
         {
             HttpResponseMessage response;
             var httpClient = Dav.httpClient;
@@ -93,12 +98,12 @@ namespace davClassLibrary.Controllers
             }
             catch (Exception)
             {
-                return new ApiResponse<TableObject> { Success = false, Status = 0 };
+                return new ApiResponse<TableObjectResponse> { Success = false, Status = 0 };
             }
 
             string responseData = await response.Content.ReadAsStringAsync();
 
-            var result = new ApiResponse<TableObject>
+            var result = new ApiResponse<TableObjectResponse>
             {
                 Success = response.IsSuccessStatusCode,
                 Status = (int)response.StatusCode
@@ -109,7 +114,12 @@ namespace davClassLibrary.Controllers
                 try
                 {
                     var tableObjectData = JsonConvert.DeserializeObject<TableObjectData>(responseData);
-                    result.Data = tableObjectData.ToTableObject();
+                    
+                    result.Data = new TableObjectResponse
+                    {
+                        TableEtag = tableObjectData.table_etag,
+                        TableObject = tableObjectData.ToTableObject()
+                    };
                 }
                 catch (Exception)
                 {
@@ -129,7 +139,7 @@ namespace davClassLibrary.Controllers
             return result;
         }
 
-        public static async Task<ApiResponse<TableObject>> UpdateTableObject(
+        public static async Task<ApiResponse<TableObjectResponse>> UpdateTableObject(
             Guid uuid,
             Dictionary<string, string> properties
         )
@@ -155,12 +165,12 @@ namespace davClassLibrary.Controllers
             }
             catch (Exception)
             {
-                return new ApiResponse<TableObject> { Success = false, Status = 0 };
+                return new ApiResponse<TableObjectResponse> { Success = false, Status = 0 };
             }
 
             string responseData = await response.Content.ReadAsStringAsync();
 
-            var result = new ApiResponse<TableObject>
+            var result = new ApiResponse<TableObjectResponse>
             {
                 Success = response.IsSuccessStatusCode,
                 Status = (int)response.StatusCode
@@ -171,7 +181,12 @@ namespace davClassLibrary.Controllers
                 try
                 {
                     var tableObjectData = JsonConvert.DeserializeObject<TableObjectData>(responseData);
-                    result.Data = tableObjectData.ToTableObject();
+                    
+                    result.Data = new TableObjectResponse
+                    {
+                        TableEtag = tableObjectData.table_etag,
+                        TableObject = tableObjectData.ToTableObject()
+                    };
                 }
                 catch (Exception)
                 {
@@ -226,7 +241,7 @@ namespace davClassLibrary.Controllers
             return result;
         }
 
-        public static async Task<ApiResponse<TableObject>> SetTableObjectFile(
+        public static async Task<ApiResponse<TableObjectResponse>> SetTableObjectFile(
             Guid uuid,
             string filePath,
             string contentType
@@ -249,12 +264,12 @@ namespace davClassLibrary.Controllers
             }
             catch (Exception)
             {
-                return new ApiResponse<TableObject> { Success = false, Status = 0 };
+                return new ApiResponse<TableObjectResponse> { Success = false, Status = 0 };
             }
 
             string responseData = await response.Content.ReadAsStringAsync();
 
-            var result = new ApiResponse<TableObject>
+            var result = new ApiResponse<TableObjectResponse>
             {
                 Success = response.IsSuccessStatusCode,
                 Status = (int)response.StatusCode
@@ -265,7 +280,12 @@ namespace davClassLibrary.Controllers
                 try
                 {
                     var tableObjectData = JsonConvert.DeserializeObject<TableObjectData>(responseData);
-                    result.Data = tableObjectData.ToTableObject();
+                    
+                    result.Data = new TableObjectResponse
+                    {
+                        TableEtag = tableObjectData.table_etag,
+                        TableObject = tableObjectData.ToTableObject()
+                    };
                 }
                 catch (Exception)
                 {
@@ -357,5 +377,11 @@ namespace davClassLibrary.Controllers
 
             return result;
         }
+    }
+
+    public class TableObjectResponse
+    {
+        public string TableEtag { get; set; }
+        public TableObject TableObject { get; set; }
     }
 }
