@@ -149,6 +149,23 @@ namespace davClassLibrary.Tests.DataAccess
         }
         #endregion
 
+        #region TableEtag
+        [Test]
+        public void ShouldSetAndGetTableEtag()
+        {
+            // Arrange
+            int tableId = 23;
+            string tableEtag = "sdfsdofhsfd";
+
+            // Act
+            SettingsManager.SetTableEtag(tableId, tableEtag);
+            string tableEtagFromSettings = SettingsManager.GetTableEtag(tableId);
+
+            // Assert
+            Assert.AreEqual(tableEtag, tableEtagFromSettings);
+        }
+        #endregion
+
         #region RemoveSession
         [Test]
         public void RemoveSessionShouldRemoveAllSessionSettings()

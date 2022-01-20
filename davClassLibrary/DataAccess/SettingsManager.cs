@@ -106,6 +106,18 @@ namespace davClassLibrary.DataAccess
         }
         #endregion
 
+        #region TableEtag
+        public static void SetTableEtag(int tableId, string tableEtag)
+        {
+            ProjectInterface.LocalDataSettings.Set(string.Format(Constants.tableEtagKey, tableId), tableEtag);
+        }
+
+        public static string GetTableEtag(int tableId)
+        {
+            return ProjectInterface.LocalDataSettings.GetString(string.Format(Constants.tableEtagKey, tableId));
+        }
+        #endregion
+
         public static void RemoveSession()
         {
             ProjectInterface.LocalDataSettings.Remove(Constants.accessTokenKey);
