@@ -17,6 +17,7 @@ namespace davClassLibrary.DataAccess
     {
         private static bool isSyncing = false;
         private static bool syncAgain = false;
+        private static bool syncCompleted = false;
 
         internal static List<TableObjectDownload> fileDownloads = new List<TableObjectDownload>();
         internal static Guid downloadingFileUuid = Guid.Empty;
@@ -134,17 +135,10 @@ namespace davClassLibrary.DataAccess
             var removedTableObjectUuids = new Dictionary<int, List<Guid>>();
             // Is true if all http calls of the specified table are successful; in the format <tableId, bool>
             var tableGetResultsOkay = new Dictionary<int, bool>();
+            // Holds the new table etags for the tables
+            var tableEtags = new Dictionary<int, string>();
 
             if (tableIds == null || parallelTableIds == null) return false;
-
-            // Populate removedTableObjectUuids
-            foreach (var tableId in tableIds)
-            {
-                removedTableObjectUuids[tableId] = new List<Guid>();
-
-                foreach (var tableObject in await Dav.Database.GetAllTableObjectsAsync(tableId, true))
-                    removedTableObjectUuids[tableId].Add(tableObject.Uuid);
-            }
 
             // Get the first page of each table and generate the sorted tableIds list
             foreach (var tableId in tableIds)
@@ -155,15 +149,29 @@ namespace davClassLibrary.DataAccess
                 tableGetResultsOkay[tableId] = getTableResult.Success;
                 if (getTableResult.Status != 200) continue;
 
+                // Check if the table has any changes
+                if (getTableResult.Data.Etag == SettingsManager.GetTableEtag(tableId))
+                    continue;
+
                 var tableData = getTableResult.Data;
                 
                 // Save the result
                 tableResults[tableId] = tableData;
                 tablePages[tableId] = tableResults[tableId].Pages;
                 currentTablePages[tableId] = 1;
+                tableEtags[tableId] = getTableResult.Data.Etag;
             }
 
             sortedTableIds = Utils.SortTableIds(tableIds, parallelTableIds, tablePages);
+
+            // Populate removedTableObjectUuids
+            foreach (var tableId in sortedTableIds.Distinct())
+            {
+                removedTableObjectUuids[tableId] = new List<Guid>();
+
+                foreach (var tableObject in await Dav.Database.GetAllTableObjectsAsync(tableId, true))
+                    removedTableObjectUuids[tableId].Add(tableObject.Uuid);
+            }
 
             // Process the table results
             foreach (var tableId in sortedTableIds)
@@ -201,7 +209,7 @@ namespace davClassLibrary.DataAccess
                             var getTableObjectResponse = await TableObjectsController.GetTableObject(currentTableObject.Uuid);
                             if (getTableObjectResponse.Status != 200) continue;
 
-                            var tableObject = getTableObjectResponse.Data;
+                            var tableObject = getTableObjectResponse.Data.TableObject;
                             tableObject.UploadStatus = TableObjectUploadStatus.UpToDate;
 
                             // Is it a file?
@@ -236,7 +244,7 @@ namespace davClassLibrary.DataAccess
                         var getTableObjectResponse = await TableObjectsController.GetTableObject(obj.Uuid);
                         if (getTableObjectResponse.Status != 200) continue;
 
-                        var tableObject = getTableObjectResponse.Data;
+                        var tableObject = getTableObjectResponse.Data.TableObject;
                         tableObject.UploadStatus = TableObjectUploadStatus.UpToDate;
 
                         // Is it a file?
@@ -268,6 +276,10 @@ namespace davClassLibrary.DataAccess
                 if (currentTablePages[tableId] > tablePages[tableId])
                 {
                     ProjectInterface.Callbacks.UpdateAllOfTable(tableId, tableChanged, true);
+
+                    // Save the new table etag
+                    SettingsManager.SetTableEtag(tableId, tableEtags[tableId]);
+
                     continue;
                 }
 
@@ -286,7 +298,7 @@ namespace davClassLibrary.DataAccess
 
             // RemovedTableObjects now includes all table objects that were deleted on the server but not locally
             // Delete these table objects locally
-            foreach (var tableId in tableIds)
+            foreach (var tableId in removedTableObjectUuids.Keys)
             {
                 if (!tableGetResultsOkay[tableId]) continue;
                 var removedTableObjects = removedTableObjectUuids[tableId];
@@ -306,6 +318,7 @@ namespace davClassLibrary.DataAccess
             }
 
             isSyncing = false;
+            syncCompleted = true;
 
             // Check if the sync was successful for all tables
             foreach(var value in tableGetResultsOkay.Values)
@@ -317,7 +330,7 @@ namespace davClassLibrary.DataAccess
         public static async Task<bool> SyncPush()
         {
             if (!Dav.IsLoggedIn) return false;
-            if (isSyncing)
+            if (!syncCompleted || isSyncing)
             {
                 syncAgain = true;
                 return false;
@@ -494,7 +507,7 @@ namespace davClassLibrary.DataAccess
                 var getTableObjectResponse = await TableObjectsController.GetTableObject(uuid);
                 if (!getTableObjectResponse.Success) return;
 
-                var tableObject = getTableObjectResponse.Data;
+                var tableObject = getTableObjectResponse.Data.TableObject;
 
                 await tableObject.SaveWithPropertiesAsync();
                 ProjectInterface.Callbacks.UpdateTableObject(tableObject, false);
@@ -580,7 +593,15 @@ namespace davClassLibrary.DataAccess
                     var errorResponse = createTableObjectResponse.Errors;
                     int i = errorResponse.ToList().FindIndex(error => error.Code == ErrorCodes.UuidAlreadyInUse);
 
-                    if (i == -1) return createTableObjectResponse;
+                    if (i == -1)
+                    {
+                        return new ApiResponse<TableObject>
+                        {
+                            Success = false,
+                            Status = createTableObjectResponse.Status,
+                            Errors = createTableObjectResponse.Errors
+                        };
+                    }
                 }
 
                 if(tableObject.File != null)
@@ -599,7 +620,19 @@ namespace davClassLibrary.DataAccess
                         mimeType
                     );
 
-                    return setTableObjectFileResponse;
+                    if (setTableObjectFileResponse.Success)
+                    {
+                        // Save the new table etag
+                        SettingsManager.SetTableEtag(tableObject.TableId, setTableObjectFileResponse.Data.TableEtag);
+                    }
+
+                    return new ApiResponse<TableObject>
+                    {
+                        Success = setTableObjectFileResponse.Success,
+                        Status = setTableObjectFileResponse.Status,
+                        Errors = setTableObjectFileResponse.Errors,
+                        Data = setTableObjectFileResponse.Data?.TableObject
+                    };
                 }
             }
             else
@@ -612,7 +645,19 @@ namespace davClassLibrary.DataAccess
                     Utils.ConvertPropertiesListToDictionary(tableObject.Properties)
                 );
 
-                return createTableObjectResponse;
+                if (createTableObjectResponse.Success)
+                {
+                    // Save the new table etag
+                    SettingsManager.SetTableEtag(tableObject.TableId, createTableObjectResponse.Data.TableEtag);
+                }
+
+                return new ApiResponse<TableObject>
+                {
+                    Success = createTableObjectResponse.Success,
+                    Status = createTableObjectResponse.Status,
+                    Errors = createTableObjectResponse.Errors,
+                    Data = createTableObjectResponse.Data?.TableObject
+                };
             }
 
             return new ApiResponse<TableObject> { Success = false };
@@ -638,11 +683,18 @@ namespace davClassLibrary.DataAccess
                 );
 
                 if (!setTableObjectFileResponse.Success)
-                    return setTableObjectFileResponse;
-
+                {
+                    return new ApiResponse<TableObject>
+                    {
+                        Success = false,
+                        Status = setTableObjectFileResponse.Status,
+                        Errors = setTableObjectFileResponse.Errors
+                    };
+                }
+                
                 // Check if the ext has changed
                 var tableObjectResponseData = setTableObjectFileResponse.Data;
-                string tableObjectResponseDataExt = tableObjectResponseData.GetPropertyValue(Constants.extPropertyName);
+                string tableObjectResponseDataExt = tableObjectResponseData.TableObject.GetPropertyValue(Constants.extPropertyName);
                 string tableObjectExt = tableObject.GetPropertyValue(Constants.extPropertyName);
 
                 if(tableObjectResponseDataExt != tableObjectExt)
@@ -653,10 +705,34 @@ namespace davClassLibrary.DataAccess
                         new Dictionary<string, string> { { Constants.extPropertyName, tableObjectExt } }
                     );
 
-                    return updateTableObjectResponse;
+                    if (updateTableObjectResponse.Success)
+                    {
+                        // Save the new table etag
+                        SettingsManager.SetTableEtag(tableObject.TableId, updateTableObjectResponse.Data.TableEtag);
+                    }
+
+                    return new ApiResponse<TableObject>
+                    {
+                        Success = updateTableObjectResponse.Success,
+                        Status = updateTableObjectResponse.Status,
+                        Errors = updateTableObjectResponse.Errors,
+                        Data = updateTableObjectResponse.Data?.TableObject
+                    };
                 }
 
-                return setTableObjectFileResponse;
+                if (setTableObjectFileResponse.Success)
+                {
+                    // Save the new table etag
+                    SettingsManager.SetTableEtag(tableObject.TableId, setTableObjectFileResponse.Data.TableEtag);
+                }
+
+                return new ApiResponse<TableObject>
+                {
+                    Success = setTableObjectFileResponse.Success,
+                    Status = setTableObjectFileResponse.Status,
+                    Errors = setTableObjectFileResponse.Errors,
+                    Data = setTableObjectFileResponse.Data?.TableObject
+                };
             }
             else if(!tableObject.IsFile)
             {
@@ -666,7 +742,19 @@ namespace davClassLibrary.DataAccess
                     Utils.ConvertPropertiesListToDictionary(tableObject.Properties)
                 );
 
-                return updateTableObjectResponse;
+                if (updateTableObjectResponse.Success)
+                {
+                    // Save the new table etag
+                    SettingsManager.SetTableEtag(tableObject.TableId, updateTableObjectResponse.Data.TableEtag);
+                }
+
+                return new ApiResponse<TableObject>
+                {
+                    Success = updateTableObjectResponse.Success,
+                    Status = updateTableObjectResponse.Status,
+                    Errors = updateTableObjectResponse.Errors,
+                    Data = updateTableObjectResponse.Data?.TableObject
+                };
             }
 
             return new ApiResponse<TableObject> { Success = false };

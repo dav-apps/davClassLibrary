@@ -95,6 +95,7 @@ namespace davClassLibrary
 
             if (!syncSuccess || !syncPushSuccess)
             {
+                ProjectInterface.Callbacks.SyncFinished();
                 isSyncing = false;
                 return;
             }
