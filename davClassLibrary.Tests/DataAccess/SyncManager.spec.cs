@@ -468,7 +468,7 @@ namespace davClassLibrary.Tests.DataAccess
             var firstTableObjectFromServerResponse = await TableObjectsController.GetTableObject(firstTableObjectUuid);
             Assert.True(firstTableObjectFromServerResponse.Success);
 
-            var firstTableObjectFromServer = firstTableObjectFromServerResponse.Data;
+            var firstTableObjectFromServer = firstTableObjectFromServerResponse.Data.TableObject;
             Assert.AreEqual(firstTableObjectUuid, firstTableObjectFromServer.Uuid);
             Assert.AreEqual(firstTableObjectTableId, firstTableObjectFromServer.TableId);
             Assert.AreEqual(2, firstTableObjectFromServer.Properties.Count);
@@ -478,7 +478,7 @@ namespace davClassLibrary.Tests.DataAccess
             var secondTableObjectFromServerResponse = await TableObjectsController.GetTableObject(secondTableObjectUuid);
             Assert.True(secondTableObjectFromServerResponse.Success);
 
-            var secondTableObjectFromServer = secondTableObjectFromServerResponse.Data;
+            var secondTableObjectFromServer = secondTableObjectFromServerResponse.Data.TableObject;
             Assert.AreEqual(secondTableObjectUuid, secondTableObjectFromServer.Uuid);
             Assert.AreEqual(secondTableObjectTableId, secondTableObjectFromServer.TableId);
             Assert.AreEqual(2, secondTableObjectFromServer.Properties.Count);
@@ -582,7 +582,7 @@ namespace davClassLibrary.Tests.DataAccess
             var firstTableObjectFromServerResponse = await TableObjectsController.GetTableObject(firstTableObjectUuid);
             Assert.True(firstTableObjectFromServerResponse.Success);
 
-            var firstTableObjectFromServer = firstTableObjectFromServerResponse.Data;
+            var firstTableObjectFromServer = firstTableObjectFromServerResponse.Data.TableObject;
             Assert.AreEqual(firstTableObjectUuid, firstTableObjectFromServer.Uuid);
             Assert.AreEqual(firstTableObjectTableId, firstTableObjectFromServer.TableId);
             Assert.AreEqual(2, firstTableObjectFromServer.Properties.Count);
@@ -592,7 +592,7 @@ namespace davClassLibrary.Tests.DataAccess
             var secondTableObjectFromServerResponse = await TableObjectsController.GetTableObject(secondTableObjectUuid);
             Assert.True(secondTableObjectFromServerResponse.Success);
 
-            var secondTableObjectFromServer = secondTableObjectFromServerResponse.Data;
+            var secondTableObjectFromServer = secondTableObjectFromServerResponse.Data.TableObject;
             Assert.AreEqual(secondTableObjectUuid, secondTableObjectFromServer.Uuid);
             Assert.AreEqual(secondTableObjectTableId, secondTableObjectFromServer.TableId);
             Assert.AreEqual(2, secondTableObjectFromServer.Properties.Count);
