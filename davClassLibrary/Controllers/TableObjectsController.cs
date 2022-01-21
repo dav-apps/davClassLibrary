@@ -31,7 +31,29 @@ namespace davClassLibrary.Controllers
             };
 
             if (properties != null)
-                requestBodyDict.Add("properties", properties);
+            {
+                if (properties.Count > Constants.maxPropertiesUploadCount)
+                {
+                    // Create the table object with the first properties
+                    // Get all keys from the properties
+                    List<string> keys = new List<string>();
+
+                    foreach (var key in properties.Keys)
+                        keys.Add(key);
+
+                    // Add the first keys to the request body
+                    var selectedPropertiesDict = new Dictionary<string, string>();
+
+                    foreach (var key in keys.GetRange(0, Constants.maxPropertiesUploadCount))
+                        selectedPropertiesDict.Add(key, properties[key]);
+
+                    requestBodyDict.Add("properties", selectedPropertiesDict);
+                }
+                else
+                {
+                    requestBodyDict.Add("properties", properties);
+                }
+            }
 
             var requestBody = new StringContent(
                 JsonConvert.SerializeObject(requestBodyDict),
@@ -47,7 +69,7 @@ namespace davClassLibrary.Controllers
             {
                 return new ApiResponse<TableObjectResponse> { Success = false, Status = 0 };
             }
-            
+
             string responseData = await response.Content.ReadAsStringAsync();
 
             var result = new ApiResponse<TableObjectResponse>
@@ -147,11 +169,32 @@ namespace davClassLibrary.Controllers
             HttpResponseMessage response;
             var httpClient = Dav.httpClient;
             httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Dav.AccessToken);
+            bool multiRequest = properties.Count > Constants.maxPropertiesUploadCount;
+            Dictionary<string, object> requestBodyDict = new Dictionary<string, object>();
+            List<string> keys = new List<string>();
 
-            var requestBodyDict = new Dictionary<string, object>
+            if (multiRequest)
             {
-                { "properties", properties }
-            };
+                var selectedPropertiesDict = new Dictionary<string, string>();
+
+                // Copy all property keys
+                foreach (var key in properties.Keys)
+                    keys.Add(key);
+
+                // Add the first keys to the request body
+                for (int i = 0; i < Constants.maxPropertiesUploadCount; i++)
+                {
+                    string key = keys[0];
+                    selectedPropertiesDict.Add(key, properties[key]);
+                    keys.Remove(key);
+                }
+
+                requestBodyDict.Add("properties", selectedPropertiesDict);
+            }
+            else
+            {
+                requestBodyDict.Add("properties", properties);
+            }
 
             var requestBody = new StringContent(
                 JsonConvert.SerializeObject(requestBodyDict),
@@ -178,19 +221,86 @@ namespace davClassLibrary.Controllers
 
             if (response.IsSuccessStatusCode)
             {
-                try
+                if (multiRequest)
                 {
-                    var tableObjectData = JsonConvert.DeserializeObject<TableObjectData>(responseData);
-                    
-                    result.Data = new TableObjectResponse
+                    // Send all other properties
+                    while (keys.Count > 0)
                     {
-                        TableEtag = tableObjectData.table_etag,
-                        TableObject = tableObjectData.ToTableObject()
+                        requestBodyDict = new Dictionary<string, object>();
+                        Dictionary<string, string> selectedPropertiesDict = new Dictionary<string, string>();
+
+                        for (int i = 0; i < Constants.maxPropertiesUploadCount; i++)
+                        {
+                            if (keys.Count == 0) break;
+
+                            string key = keys[0];
+                            selectedPropertiesDict.Add(key, properties[key]);
+                            keys.Remove(key);
+                        }
+
+                        requestBodyDict.Add("properties", selectedPropertiesDict);
+
+                        requestBody = new StringContent(
+                            JsonConvert.SerializeObject(requestBodyDict),
+                            Encoding.UTF8,
+                            "application/json"
+                        );
+
+                        try
+                        {
+                            response = await httpClient.PutAsync($"{Dav.ApiBaseUrl}/table_object/{uuid}", requestBody);
+                        }
+                        catch (Exception)
+                        {
+                            return new ApiResponse<TableObjectResponse> { Success = false, Status = 0 };
+                        }
+
+                        if (!response.IsSuccessStatusCode) break;
+                    }
+
+                    result = new ApiResponse<TableObjectResponse>
+                    {
+                        Success = response.IsSuccessStatusCode,
+                        Status = (int)response.StatusCode,
                     };
+
+                    if (response.IsSuccessStatusCode)
+                    {
+                        responseData = await response.Content.ReadAsStringAsync();
+                        var tableObjectData = JsonConvert.DeserializeObject<TableObjectData>(responseData);
+
+                        result.Data = new TableObjectResponse
+                        {
+                            TableEtag = tableObjectData.table_etag,
+                            TableObject = tableObjectData.ToTableObject()
+                        };
+                    }
+                    else
+                    {
+                        var errorResult = await Utils.HandleApiError(responseData);
+
+                        if (errorResult.Success)
+                            return await UpdateTableObject(uuid, properties);
+                        else
+                            result.Errors = errorResult.Errors;
+                    }
                 }
-                catch (Exception)
+                else
                 {
-                    result.Success = false;
+                    try
+                    {
+                        var tableObjectData = JsonConvert.DeserializeObject<TableObjectData>(responseData);
+
+                        result.Data = new TableObjectResponse
+                        {
+                            TableEtag = tableObjectData.table_etag,
+                            TableObject = tableObjectData.ToTableObject()
+                        };
+                    }
+                    catch (Exception)
+                    {
+                        result.Success = false;
+                    }
                 }
             }
             else

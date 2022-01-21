@@ -203,7 +203,7 @@ namespace davClassLibrary.DataAccess
                                 });
                             }
                         }
-                        else
+                        else if (currentTableObject.UploadStatus == TableObjectUploadStatus.UpToDate)
                         {
                             // Get the updated table object from the server
                             var getTableObjectResponse = await TableObjectsController.GetTableObject(currentTableObject.Uuid);
@@ -360,7 +360,14 @@ namespace davClassLibrary.DataAccess
 
                         if (createResult.Success)
                         {
-                            tableObject.UploadStatus = TableObjectUploadStatus.UpToDate;
+                            if (tableObject.Properties.Count > Constants.maxPropertiesUploadCount)
+                            {
+                                tableObject.UploadStatus = TableObjectUploadStatus.Updated;
+                                syncAgain = true;
+                            }
+                            else
+                                tableObject.UploadStatus = TableObjectUploadStatus.UpToDate;
+
                             tableObject.Etag = createResult.Data.Etag;
                             await tableObject.SaveAsync();
                         }

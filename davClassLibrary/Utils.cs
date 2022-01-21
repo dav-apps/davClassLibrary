@@ -142,6 +142,13 @@ namespace davClassLibrary
             while (index < pagesSum)
             {
                 int currentTableId = tableIds[currentTableIdIndex];
+
+                if (!tableIdPages.ContainsKey(currentTableId))
+                {
+                    currentTableIdIndex++;
+                    continue;
+                }
+
                 int currentTablePages = tableIdPages[currentTableId];
 
                 if (parallelTableIds.Contains(currentTableId))
