@@ -330,7 +330,7 @@ namespace davClassLibrary.DataAccess
         public static async Task<bool> SyncPush()
         {
             if (!Dav.IsLoggedIn) return false;
-            if (!syncCompleted || isSyncing)
+            if (isSyncing || (!syncCompleted && Dav.Environment != Environment.Test))
             {
                 syncAgain = true;
                 return false;
