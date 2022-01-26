@@ -346,7 +346,7 @@ namespace davClassLibrary.DataAccess
                 {
                     case TableObjectUploadStatus.New:
                         // Check if the tableObject is a file and if it can be uploaded
-                        if (tableObject.IsFile && tableObject.File != null)
+                        if (tableObject.IsFile && tableObject.File != null && tableObject.File.Exists)
                         {
                             var usedStorage = Dav.User.UsedStorage;
                             var totalStorage = Dav.User.TotalStorage;
@@ -611,7 +611,7 @@ namespace davClassLibrary.DataAccess
                     }
                 }
 
-                if(tableObject.File != null)
+                if(tableObject.File != null && tableObject.File.Exists)
                 {
                     // Upload the file
                     string mimeType = "audio/mpeg";
