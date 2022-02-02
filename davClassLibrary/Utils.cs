@@ -105,104 +105,79 @@ namespace davClassLibrary
 
         public static List<int> SortTableIds(List<int> tableIds, List<int> parallelTableIds, Dictionary<int, int> tableIdPages)
         {
-            List<int> preparedTableIds = new List<int>();
+            // Clone tableIdPages
+            Dictionary<int, int> TableIdPagesCopy = new Dictionary<int, int>(tableIdPages);
 
-            // Remove all table ids in parallelTableIds that do not occur in tableIds
-            List<int> removeParallelTableIds = new List<int>();
-            for (int i = 0; i < parallelTableIds.Count; i++)
-            {
-                var value = parallelTableIds[i];
-                if (!tableIds.Contains(value))
-                    removeParallelTableIds.Add(value);
-            }
-            parallelTableIds.RemoveAll((int t) => { return removeParallelTableIds.Contains(t); });
+            // Remove all entries in tableIdPages with value = 0
+            foreach(var key in TableIdPagesCopy.Keys)
+                if (TableIdPagesCopy[key] == 0)
+                    TableIdPagesCopy.Remove(key);
 
-            // Prepare pagesOfParallelTable
-            var pagesOfParallelTable = new Dictionary<int, int>();
-            foreach (var table in tableIdPages)
-            {
-                if (parallelTableIds.Contains(table.Key))
-                    pagesOfParallelTable[table.Key] = table.Value;
-            }
-
-            // Count the pages
-            int pagesSum = 0;
-            foreach (var table in tableIdPages)
-            {
-                pagesSum += table.Value;
-
-                if (parallelTableIds.Contains(table.Key))
-                    pagesOfParallelTable[table.Key] = table.Value - 1;
-            }
-
-            int index = 0;
+            List<int> sortedTableIds = new List<int>();
             int currentTableIdIndex = 0;
-            bool parallelTableIdsInserted = false;
 
-            while (index < pagesSum)
+            while (GetSumOfValuesInDict(TableIdPagesCopy) > 0)
             {
+                if (currentTableIdIndex >= tableIds.Count)
+                    currentTableIdIndex = 0;
+
                 int currentTableId = tableIds[currentTableIdIndex];
 
-                if (!tableIdPages.ContainsKey(currentTableId))
+                if (!TableIdPagesCopy.ContainsKey(currentTableId))
                 {
                     currentTableIdIndex++;
                     continue;
                 }
 
-                int currentTablePages = tableIdPages[currentTableId];
-
-                if (parallelTableIds.Contains(currentTableId))
+                if (parallelTableIds.Contains(currentTableId) && parallelTableIds.Count > 1)
                 {
-                    // Add the table id once as it belongs to parallel table ids
-                    preparedTableIds.Add(currentTableId);
-                    index++;
+                    // Add just one page of the current table
+                    sortedTableIds.Add(currentTableId);
+                    TableIdPagesCopy[currentTableId]--;
+
+                    // Remove the table id from the pages if there are no pages left
+                    if (TableIdPagesCopy[currentTableId] == 0)
+                        TableIdPagesCopy.Remove(currentTableId);
+
+                    // Check if this was the last table of parallelTableIds
+                    int i = parallelTableIds.IndexOf(currentTableId);
+                    bool isLastParallelTable = i == parallelTableIds.Count - 1;
+
+                    if (isLastParallelTable)
+                    {
+                        // Move to the position of the first parallel table
+                        currentTableIdIndex = 0;
+                    }
+                    else
+                    {
+                        currentTableIdIndex++;
+                    }
                 }
                 else
                 {
-                    // Add it for all pages
-                    for (var j = 0; j < currentTablePages; j++)
-                    {
-                        preparedTableIds.Add(currentTableId);
-                        index++;
-                    }
+                    // Add all pages of the current table
+                    for (var i = 0; i < TableIdPagesCopy[currentTableId]; i++)
+                        sortedTableIds.Add(currentTableId);
+
+                    // Clear the pages of the current table
+                    TableIdPagesCopy.Remove(currentTableId);
+
+                    // Go to the next table
+                    currentTableIdIndex++;
                 }
-
-                // Check if all parallel table ids are in prepared table ids
-                bool hasAll = true;
-                foreach (var tableId in parallelTableIds)
-                    if (!preparedTableIds.Contains(tableId))
-                        hasAll = false;
-
-                if (hasAll && !parallelTableIdsInserted)
-                {
-                    parallelTableIdsInserted = true;
-                    int pagesOfParallelTableSum = 0;
-
-                    // Update pagesOfParallelTableSum
-                    foreach (var table in pagesOfParallelTable)
-                        pagesOfParallelTableSum += table.Value;
-
-                    // Append the parallel table ids in the right order
-                    while (pagesOfParallelTableSum > 0)
-                    {
-                        foreach (var parallelTableId in parallelTableIds)
-                        {
-                            if (pagesOfParallelTable[parallelTableId] > 0)
-                            {
-                                preparedTableIds.Add(parallelTableId);
-                                pagesOfParallelTableSum--;
-                                pagesOfParallelTable[parallelTableId]--;
-
-                                index++;
-                            }
-                        }
-                    }
-                }
-
-                currentTableIdIndex++;
             }
 
-            return preparedTableIds;
+            return sortedTableIds;
+        }
+
+        private static int GetSumOfValuesInDict(Dictionary<int, int> dict)
+        {
+            int sum = 0;
+
+            foreach(var key in dict.Keys)
+                sum += dict[key];
+
+            return sum;
         }
     }
 }
