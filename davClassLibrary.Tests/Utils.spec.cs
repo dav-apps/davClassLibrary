@@ -376,6 +376,37 @@ namespace davClassLibrary.Tests
             // Assert
             Assert.AreEqual(new List<int> { 1, 2, 3, 4, 4, 4, 5, 1, 2, 3, 5, 1, 2, 3, 2, 3, 2, 2 }, sortedTableIds);
         }
+
+        [Test]
+        public void SortTableIdsShouldReturnTheCorrectArrayWhenThereArePagesForNonExistentTables()
+        {
+            /*
+                Input:
+                    tableIds:            1, 2, 3, 4
+                    parallelTableIds:    1, 2
+                    pages:               2, 2, 2, 2, 2
+
+                Output:
+                    [1, 2, 1, 2, 3, 3, 4, 4]
+            */
+            // Arrange
+            List<int> tableIds = new List<int> { 1, 2, 3, 4 };
+            List<int> parallelTableIds = new List<int> { 1, 2 };
+            Dictionary<int, int> tableIdPages = new Dictionary<int, int>
+            {
+                [1] = 2,
+                [2] = 2,
+                [3] = 2,
+                [4] = 2,
+                [5] = 2
+            };
+
+            // Act
+            List<int> sortedTableIds = davClassLibrary.Utils.SortTableIds(tableIds, parallelTableIds, tableIdPages);
+
+            // Assert
+            Assert.AreEqual(new List<int> { 1, 2, 1, 2, 3, 3, 4, 4 }, sortedTableIds);
+        }
         #endregion
     }
 }

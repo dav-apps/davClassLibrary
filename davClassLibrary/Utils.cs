@@ -106,10 +106,14 @@ namespace davClassLibrary
         public static List<int> SortTableIds(List<int> tableIds, List<int> parallelTableIds, Dictionary<int, int> tableIdPages)
         {
             // Clone tableIdPages
-            Dictionary<int, int> TableIdPagesCopy = new Dictionary<int, int>(tableIdPages);
+            Dictionary<int, int> TableIdPagesCopy = new Dictionary<int, int>();
+
+            foreach(var key in tableIdPages.Keys)
+                if (tableIds.Contains(key))
+                    TableIdPagesCopy[key] = tableIdPages[key];
 
             // Remove all entries in tableIdPages with value = 0
-            foreach(var key in TableIdPagesCopy.Keys)
+            foreach (var key in TableIdPagesCopy.Keys)
                 if (TableIdPagesCopy[key] == 0)
                     TableIdPagesCopy.Remove(key);
 
@@ -136,7 +140,7 @@ namespace davClassLibrary
                     TableIdPagesCopy[currentTableId]--;
 
                     // Remove the table id from the pages if there are no pages left
-                    if (TableIdPagesCopy[currentTableId] == 0)
+                    if (TableIdPagesCopy[currentTableId] <= 0)
                         TableIdPagesCopy.Remove(currentTableId);
 
                     // Check if this was the last table of parallelTableIds
@@ -145,7 +149,7 @@ namespace davClassLibrary
 
                     if (isLastParallelTable)
                     {
-                        // Move to the position of the first parallel table
+                        // Move to the start of the array
                         currentTableIdIndex = 0;
                     }
                     else
