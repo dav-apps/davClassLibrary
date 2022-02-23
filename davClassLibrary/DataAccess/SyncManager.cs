@@ -417,7 +417,7 @@ namespace davClassLibrary.DataAccess
                             // Delete the table object
                             await tableObject.DeleteImmediatelyAsync();
                         }
-                        else
+                        else if (deleteResult.Errors != null)
                         {
                             var errors = deleteResult.Errors;
 
@@ -427,7 +427,7 @@ namespace davClassLibrary.DataAccess
                                     || error.Code == ErrorCodes.ActionNotAllowed
                             );
 
-                            if(i != -1)
+                            if (i != -1)
                             {
                                 // Delete the table object
                                 await tableObject.DeleteImmediatelyAsync();
@@ -704,7 +704,10 @@ namespace davClassLibrary.DataAccess
                 string tableObjectResponseDataExt = tableObjectResponseData.TableObject.GetPropertyValue(Constants.extPropertyName);
                 string tableObjectExt = tableObject.GetPropertyValue(Constants.extPropertyName);
 
-                if(tableObjectResponseDataExt != tableObjectExt)
+                // Save the new table etag
+                SettingsManager.SetTableEtag(tableObject.TableId, setTableObjectFileResponse.Data.TableEtag);
+
+                if (tableObjectResponseDataExt != tableObjectExt)
                 {
                     // Update the table object with the new ext
                     var updateTableObjectResponse = await TableObjectsController.UpdateTableObject(
@@ -725,12 +728,6 @@ namespace davClassLibrary.DataAccess
                         Errors = updateTableObjectResponse.Errors,
                         Data = updateTableObjectResponse.Data?.TableObject
                     };
-                }
-
-                if (setTableObjectFileResponse.Success)
-                {
-                    // Save the new table etag
-                    SettingsManager.SetTableEtag(tableObject.TableId, setTableObjectFileResponse.Data.TableEtag);
                 }
 
                 return new ApiResponse<TableObject>
