@@ -70,14 +70,16 @@ namespace davClassLibrary
             try
             {
                 var json = JsonConvert.DeserializeObject<ApiErrors>(responseData);
-                if (json == null) return new HandleApiErrorResult { Success = false, Errors = null };
+
+                if (json == null || json.Errors == null)
+                    return new HandleApiErrorResult { Success = false, Errors = null };
 
                 if (json.Errors.Length > 0 && json.Errors[0].Code == ErrorCodes.AccessTokenMustBeRenewed)
                 {
                     // Renew the session
                     var renewSessionResult = await SessionsController.RenewSession(Dav.AccessToken);
 
-                    if (renewSessionResult.Status == 200)
+                    if (renewSessionResult.Success)
                     {
                         // Update the access token and save it in the local settings
                         Dav.AccessToken = renewSessionResult.Data.AccessToken;
