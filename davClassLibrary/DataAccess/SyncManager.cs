@@ -180,6 +180,7 @@ namespace davClassLibrary.DataAccess
 
                 var tableObjects = tableResults[tableId].TableObjects;
                 bool tableChanged = false;
+                bool saveEtag = true;
 
                 foreach (var obj in tableObjects)
                 {
@@ -242,7 +243,12 @@ namespace davClassLibrary.DataAccess
                     {
                         // Get the table object
                         var getTableObjectResponse = await TableObjectsController.GetTableObject(obj.Uuid);
-                        if (getTableObjectResponse.Status != 200) continue;
+
+                        if (getTableObjectResponse.Status != 200)
+                        {
+                            saveEtag = false;
+                            continue;
+                        }
 
                         var tableObject = getTableObjectResponse.Data.TableObject;
                         tableObject.UploadStatus = TableObjectUploadStatus.UpToDate;
@@ -277,8 +283,8 @@ namespace davClassLibrary.DataAccess
                 {
                     ProjectInterface.Callbacks.UpdateAllOfTable(tableId, tableChanged, true);
 
-                    // Save the new table etag
-                    SettingsManager.SetTableEtag(tableId, tableEtags[tableId]);
+                    // Save the new table etag, if all table objects were saved
+                    if (saveEtag) SettingsManager.SetTableEtag(tableId, tableEtags[tableId]);
 
                     continue;
                 }
