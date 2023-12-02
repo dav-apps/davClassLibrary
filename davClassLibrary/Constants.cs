@@ -10,6 +10,7 @@
         // New settings keys
         internal const string accessTokenKey = "accessToken";
         internal const string sessionUploadStatusKey = "sessionUploadStatus";
+        internal const string idKey = "id";
         internal const string emailKey = "email";
         internal const string firstNameKey = "firstName";
         internal const string totalStorageKey = "totalStorage2";

@@ -60,6 +60,7 @@ namespace davClassLibrary.DataAccess
 
         public static void LoadUser()
         {
+            Dav.User.Id = SettingsManager.GetId();
             Dav.User.FirstName = SettingsManager.GetFirstName();
             Dav.User.Email = SettingsManager.GetEmail();
             Dav.User.TotalStorage = SettingsManager.GetTotalStorage();
@@ -79,6 +80,7 @@ namespace davClassLibrary.DataAccess
 
             // Get the user
             var getUserResponse = await UsersController.GetUser();
+
             if (!getUserResponse.Success)
             {
                 Dav.Logout();
@@ -88,6 +90,7 @@ namespace davClassLibrary.DataAccess
             var userResponseData = getUserResponse.Data;
 
             // Update the values in the local settings
+            if (Dav.User.Id != userResponseData.Id) SettingsManager.SetId(userResponseData.Id);
             if (Dav.User.Email != userResponseData.Email) SettingsManager.SetEmail(userResponseData.Email);
             if (Dav.User.FirstName != userResponseData.FirstName) SettingsManager.SetFirstName(userResponseData.FirstName);
             if (Dav.User.TotalStorage != userResponseData.TotalStorage) SettingsManager.SetTotalStorage(userResponseData.TotalStorage);

@@ -4,6 +4,7 @@ namespace davClassLibrary.Models
 {
     public class User
     {
+        public int Id { get; set; }
         public string Email { get; set; }
         public string FirstName { get; set; }
         public long TotalStorage { get; set; }
@@ -17,6 +18,7 @@ namespace davClassLibrary.Models
     {
         public UserData() { }
 
+        public int id {  get; set; }
         public string email { get; set; }
         public string first_name { get; set; }
         public long total_storage { get; set; }
@@ -28,6 +30,7 @@ namespace davClassLibrary.Models
         {
             return new User
             {
+                Id = id,
                 Email = email,
                 FirstName = first_name,
                 TotalStorage = total_storage,

@@ -31,6 +31,18 @@ namespace davClassLibrary.DataAccess
         }
         #endregion
 
+        #region Id
+        public static void SetId(int id)
+        {
+            ProjectInterface.LocalDataSettings.Set(Constants.idKey, id);
+        }
+
+        public static int GetId()
+        {
+            return ProjectInterface.LocalDataSettings.GetInt(Constants.idKey);
+        }
+        #endregion
+
         #region Email
         public static void SetEmail(string email)
         {
