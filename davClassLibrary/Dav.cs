@@ -23,14 +23,17 @@ namespace davClassLibrary
 
         public static Environment Environment { get; internal set; }
         public static int AppId { get; internal set; }
-        public static List<int> TableIds { get; internal set; }
-        public static List<int> ParallelTableIds { get; internal set; }
+        public static List<string> TableNames { get; internal set; }
+        public static List<string> ParallelTableNames { get; internal set; }
         public static string DataPath { get; internal set; }
 
         public static string AccessToken { get; set; }
         private const string ApiBaseUrlProduction = "https://dav-backend-tfpik.ondigitalocean.app/v1";
         private const string ApiBaseUrlDevelopment = "http://localhost:3111/v1";
+        private const string NewApiBaseUrlProduction = "https://dav-api-ax6gp.ondigitalocean.app";
+        private const string NewApiBaseUrlDevelopment = "http://localhost:4000";
         public static string ApiBaseUrl => Environment == Environment.Production ? ApiBaseUrlProduction : ApiBaseUrlDevelopment;
+        public static string NewApiBaseUrl => Environment == Environment.Production ? NewApiBaseUrlProduction : NewApiBaseUrlDevelopment;
 
         private static bool isSyncing = false;
 
@@ -42,6 +45,7 @@ namespace davClassLibrary
             {
                 if (database == null)
                     database = new DavDatabase();
+
                 return database;
             }
         }
@@ -49,15 +53,15 @@ namespace davClassLibrary
         public static void Init(
             Environment environment,
             int appId,
-            List<int> tableIds,
-            List<int> parallelTableIds,
+            List<string> tableNames,
+            List<string> parallelTableNames,
             string dataPath
         )
         {
             Environment = environment;
             AppId = appId;
-            TableIds = tableIds;
-            ParallelTableIds = parallelTableIds;
+            TableNames = tableNames;
+            ParallelTableNames = parallelTableNames;
             DataPath = dataPath;
 
             LoadUser();
