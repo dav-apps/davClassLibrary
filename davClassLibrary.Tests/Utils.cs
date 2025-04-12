@@ -16,8 +16,8 @@ namespace davClassLibrary.Tests
             Dav.Init(
                 Environment.Test,
                 Constants.testAppId,
-                new List<int> { Constants.testAppFirstTestTableId, Constants.testAppSecondTestTableId },
-                new List<int>(),
+                new List<string> { Constants.testAppFirstTestTableName, Constants.testAppSecondTestTableName },
+                new List<string>(),
                 GetDavDataPath()
             );
         }

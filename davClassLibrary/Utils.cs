@@ -105,78 +105,82 @@ namespace davClassLibrary
             }
         }
 
-        public static List<int> SortTableIds(List<int> tableIds, List<int> parallelTableIds, Dictionary<int, int> tableIdPages)
+        public static List<string> SortTableNames(
+            List<string> tableNames,
+            List<string> parallelTableNames,
+            Dictionary<string, int> tableNamePages
+        )
         {
             // Clone tableIdPages
-            Dictionary<int, int> TableIdPagesCopy = new Dictionary<int, int>();
+            Dictionary<string, int> TableNamePagesCopy = new Dictionary<string, int>();
 
-            foreach(var key in tableIdPages.Keys)
-                if (tableIds.Contains(key))
-                    TableIdPagesCopy[key] = tableIdPages[key];
+            foreach(var key in tableNamePages.Keys)
+                if (tableNames.Contains(key))
+                    TableNamePagesCopy[key] = tableNamePages[key];
 
             // Remove all entries in tableIdPages with value = 0
-            foreach (var key in TableIdPagesCopy.Keys)
-                if (TableIdPagesCopy[key] == 0)
-                    TableIdPagesCopy.Remove(key);
+            foreach (var key in TableNamePagesCopy.Keys)
+                if (TableNamePagesCopy[key] == 0)
+                    TableNamePagesCopy.Remove(key);
 
-            List<int> sortedTableIds = new List<int>();
-            int currentTableIdIndex = 0;
+            List<string> sortedTableNames = new List<string>();
+            int currentTableNameIndex = 0;
 
-            while (GetSumOfValuesInDict(TableIdPagesCopy) > 0)
+            while (GetSumOfValuesInDict(TableNamePagesCopy) > 0)
             {
-                if (currentTableIdIndex >= tableIds.Count)
-                    currentTableIdIndex = 0;
+                if (currentTableNameIndex >= tableNames.Count)
+                    currentTableNameIndex = 0;
 
-                int currentTableId = tableIds[currentTableIdIndex];
+                string currentTableName = tableNames[currentTableNameIndex];
 
-                if (!TableIdPagesCopy.ContainsKey(currentTableId))
+                if (!TableNamePagesCopy.ContainsKey(currentTableName))
                 {
-                    currentTableIdIndex++;
+                    currentTableNameIndex++;
                     continue;
                 }
 
-                if (parallelTableIds.Contains(currentTableId) && parallelTableIds.Count > 1)
+                if (parallelTableNames.Contains(currentTableName) && parallelTableNames.Count > 1)
                 {
                     // Add just one page of the current table
-                    sortedTableIds.Add(currentTableId);
-                    TableIdPagesCopy[currentTableId]--;
+                    sortedTableNames.Add(currentTableName);
+                    TableNamePagesCopy[currentTableName]--;
 
                     // Remove the table id from the pages if there are no pages left
-                    if (TableIdPagesCopy[currentTableId] <= 0)
-                        TableIdPagesCopy.Remove(currentTableId);
+                    if (TableNamePagesCopy[currentTableName] <= 0)
+                        TableNamePagesCopy.Remove(currentTableName);
 
                     // Check if this was the last table of parallelTableIds
-                    int i = parallelTableIds.IndexOf(currentTableId);
-                    bool isLastParallelTable = i == parallelTableIds.Count - 1;
+                    int i = parallelTableNames.IndexOf(currentTableName);
+                    bool isLastParallelTable = i == parallelTableNames.Count - 1;
 
                     if (isLastParallelTable)
                     {
                         // Move to the start of the array
-                        currentTableIdIndex = 0;
+                        currentTableNameIndex = 0;
                     }
                     else
                     {
-                        currentTableIdIndex++;
+                        currentTableNameIndex++;
                     }
                 }
                 else
                 {
                     // Add all pages of the current table
-                    for (var i = 0; i < TableIdPagesCopy[currentTableId]; i++)
-                        sortedTableIds.Add(currentTableId);
+                    for (var i = 0; i < TableNamePagesCopy[currentTableName]; i++)
+                        sortedTableNames.Add(currentTableName);
 
                     // Clear the pages of the current table
-                    TableIdPagesCopy.Remove(currentTableId);
+                    TableNamePagesCopy.Remove(currentTableName);
 
                     // Go to the next table
-                    currentTableIdIndex++;
+                    currentTableNameIndex++;
                 }
             }
 
-            return sortedTableIds;
+            return sortedTableNames;
         }
 
-        private static int GetSumOfValuesInDict(Dictionary<int, int> dict)
+        private static int GetSumOfValuesInDict(Dictionary<string, int> dict)
         {
             int sum = 0;
 

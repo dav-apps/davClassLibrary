@@ -14,398 +14,398 @@ namespace davClassLibrary.Tests
         }
         #endregion
 
-        #region SortTableIds
+        #region SortTableNames
         [Test]
-        public void SortTableIdsShouldReturnTheCorrectArrayWhenThereAreNoParallelTableIds()
+        public void SortTableNamesShouldReturnTheCorrectArrayWhenThereAreNoParallelTableNames()
         {
             /*
                 Input:
-                    tableIds:            1, 2, 3, 4
-                    parallelTableIds:    
-                    pages:               2, 2, 2, 2
+                    tableNames:            1, 2, 3, 4
+                    parallelTableNames:    
+                    pages:                 2, 2, 2, 2
 
                 Output:
                     [1, 1, 2, 2, 3, 3, 4, 4]
             */
             // Arrange
-            List<int> tableIds = new List<int> { 1, 2, 3, 4 };
-            List<int> parallelTableIds = new List<int>();
-            Dictionary<int, int> tableIdPages = new Dictionary<int, int>
+            List<string> tableNames = new List<string> { "1", "2", "3", "4" };
+            List<string> parallelTableNames = new List<string>();
+            Dictionary<string, int> tableNamePages = new Dictionary<string, int>
             {
-                [1] = 2,
-                [2] = 2,
-                [3] = 2,
-                [4] = 2
+                ["1"] = 2,
+                ["2"] = 2,
+                ["3"] = 2,
+                ["4"] = 2
             };
 
             // Act
-            List<int> sortedTableIds = davClassLibrary.Utils.SortTableIds(tableIds, parallelTableIds, tableIdPages);
+            List<string> sortedTableNames = davClassLibrary.Utils.SortTableNames(tableNames, parallelTableNames, tableNamePages);
 
             // Assert
-            Assert.AreEqual(new List<int> { 1, 1, 2, 2, 3, 3, 4, 4 }, sortedTableIds);
+            Assert.AreEqual(new List<string> { "1", "1", "2", "2", "3", "3", "4", "4" }, sortedTableNames);
         }
 
         [Test]
-        public void SortTableIdsShouldReturnTheCorrectArrayWhenThereIsOneParallelTableId()
+        public void SortTableNamesShouldReturnTheCorrectArrayWhenThereIsOneParallelTableName()
         {
             /*
                 Input:
-                    tableIds:            1, 2, 3, 4
-                    parallelTableIds:       2
-                    pages:               2, 2, 2, 2
+                    tableNames:            1, 2, 3, 4
+                    parallelTableNames:       2
+                    pages:                 2, 2, 2, 2
 
                 Output:
                     [1, 1, 2, 2, 3, 3, 4, 4]
             */
             // Arrange
-            List<int> tableIds = new List<int> { 1, 2, 3, 4 };
-            List<int> parallelTableIds = new List<int> { 2 };
-            Dictionary<int, int> tableIdPages = new Dictionary<int, int>
+            List<string> tableNames = new List<string> { "1", "2", "3", "4" };
+            List<string> parallelTableNames = new List<string> { "2" };
+            Dictionary<string, int> tableNamePages = new Dictionary<string, int>
             {
-                [1] = 2,
-                [2] = 2,
-                [3] = 2,
-                [4] = 2
+                ["1"] = 2,
+                ["2"] = 2,
+                ["3"] = 2,
+                ["4"] = 2
             };
 
             // Act
-            List<int> sortedTableIds = davClassLibrary.Utils.SortTableIds(tableIds, parallelTableIds, tableIdPages);
+            List<string> sortedTableNames = davClassLibrary.Utils.SortTableNames(tableNames, parallelTableNames, tableNamePages);
 
             // Assert
-            Assert.AreEqual(new List<int> { 1, 1, 2, 2, 3, 3, 4, 4 }, sortedTableIds);
+            Assert.AreEqual(new List<string> { "1", "1", "2", "2", "3", "3", "4", "4" }, sortedTableNames);
         }
 
         [Test]
-        public void SortTableIdsShouldReturnTheCorrectArrayWhenTheParallelTableIdsAreSideBySide()
+        public void SortTableNamesShouldReturnTheCorrectArrayWhenTheParallelTableNamesAreSideBySide()
         {
             /*
                 Input:
-                    tableIds:            1, 2, 3, 4
-                    parallelTableIds:       2, 3
-                    pages:               2, 2, 2, 2
+                    tableNames:            1, 2, 3, 4
+                    parallelTableNames:       2, 3
+                    pages:                 2, 2, 2, 2
 
                 Output:
                     [1, 1, 2, 3, 2, 3, 4, 4]
             */
             // Arrange
-            List<int> tableIds = new List<int> { 1, 2, 3, 4 };
-            List<int> parallelTableIds = new List<int> { 2, 3 };
-            Dictionary<int, int> tableIdPages = new Dictionary<int, int>
+            List<string> tableNames = new List<string> { "1", "2", "3", "4" };
+            List<string> parallelTableNames = new List<string> { "2", "3" };
+            Dictionary<string, int> tableNamePages = new Dictionary<string, int>
             {
-                [1] = 2,
-                [2] = 2,
-                [3] = 2,
-                [4] = 2
+                ["1"] = 2,
+                ["2"] = 2,
+                ["3"] = 2,
+                ["4"] = 2
             };
 
             // Act
-            List<int> sortedTableIds = davClassLibrary.Utils.SortTableIds(tableIds, parallelTableIds, tableIdPages);
+            List<string> sortedTableNames = davClassLibrary.Utils.SortTableNames(tableNames, parallelTableNames, tableNamePages);
 
             // Assert
-            Assert.AreEqual(new List<int> { 1, 1, 2, 3, 2, 3, 4, 4 }, sortedTableIds);
+            Assert.AreEqual(new List<string> { "1", "1", "2", "3", "2", "3", "4", "4" }, sortedTableNames);
         }
 
         [Test]
-        public void SortTableIdsShouldReturnTheCorrectArrayWhenTheParallelTableIdsAreNotSideBySide()
+        public void SortTableNamesShouldReturnTheCorrectArrayWhenTheParallelTableNamesAreNotSideBySide()
         {
             /*
                 Input:
-                    tableIds:            1, 2, 3, 4
-                    parallelTableIds:    1,       4
-                    pages:               2, 2, 2, 2
+                    tableNames:            1, 2, 3, 4
+                    parallelTableNames:    1,       4
+                    pages:                 2, 2, 2, 2
 
                 Output:
                     [1, 2, 2, 3, 3, 4, 1, 4]
             */
             // Arrange
-            List<int> tableIds = new List<int> { 1, 2, 3, 4 };
-            List<int> parallelTableIds = new List<int> { 1, 4 };
-            Dictionary<int, int> tableIdPages = new Dictionary<int, int>
+            List<string> tableNames = new List<string> { "1", "2", "3", "4" };
+            List<string> parallelTableNames = new List<string> { "1", "4" };
+            Dictionary<string, int> tableNamePages = new Dictionary<string, int>
             {
-                [1] = 2,
-                [2] = 2,
-                [3] = 2,
-                [4] = 2
+                ["1"] = 2,
+                ["2"] = 2,
+                ["3"] = 2,
+                ["4"] = 2
             };
 
             // Act
-            List<int> sortedTableIds = davClassLibrary.Utils.SortTableIds(tableIds, parallelTableIds, tableIdPages);
+            List<string> sortedTableNames = davClassLibrary.Utils.SortTableNames(tableNames, parallelTableNames, tableNamePages);
 
             // Assert
-            Assert.AreEqual(new List<int> { 1, 2, 2, 3, 3, 4, 1, 4 }, sortedTableIds);
+            Assert.AreEqual(new List<string> { "1", "2", "2", "3", "3", "4", "1", "4" }, sortedTableNames);
         }
 
         [Test]
-        public void SortTableIdsShouldReturnTheCorrectArrayWhenThereAreDifferentPagesAndTheParallelTableIdsAreNotSideBySide()
+        public void SortTableNamesShouldReturnTheCorrectArrayWhenThereAreDifferentPagesAndTheParallelTableNamesAreNotSideBySide()
         {
             /*
                 Input:
-                    tableIds:            1, 2, 3, 4
-                    parallelTableIds:    1,       4
-                    pages:               3, 1, 2, 4
+                    tableNames:            1, 2, 3, 4
+                    parallelTableNames:    1,       4
+                    pages:                 3, 1, 2, 4
 
                 Output:
                     [1, 2, 3, 3, 4, 1, 4, 1, 4, 4]
             */
             // Arrange
-            List<int> tableIds = new List<int> { 1, 2, 3, 4 };
-            List<int> parallelTableIds = new List<int> { 1, 4 };
-            Dictionary<int, int> tableIdPages = new Dictionary<int, int>
+            List<string> tableNames = new List<string> { "1", "2", "3", "4" };
+            List<string> parallelTableNames = new List<string> { "1", "4" };
+            Dictionary<string, int> tableNamePages = new Dictionary<string, int>
             {
-                [1] = 3,
-                [2] = 1,
-                [3] = 2,
-                [4] = 4
+                ["1"] = 3,
+                ["2"] = 1,
+                ["3"] = 2,
+                ["4"] = 4
             };
 
             // Act
-            List<int> sortedTableIds = davClassLibrary.Utils.SortTableIds(tableIds, parallelTableIds, tableIdPages);
+            List<string> sortedTableNames = davClassLibrary.Utils.SortTableNames(tableNames, parallelTableNames, tableNamePages);
 
             // Assert
-            Assert.AreEqual(new List<int> { 1, 2, 3, 3, 4, 1, 4, 1, 4, 4 }, sortedTableIds);
+            Assert.AreEqual(new List<string> { "1", "2", "3", "3", "4", "1", "4", "1", "4", "4" }, sortedTableNames);
         }
 
         [Test]
-        public void SortTableIdsShouldReturnTheCorrectArrayWhenThereAreDifferentPagesAndTheParallelTableIdsAreSideBySide()
+        public void SortTableNamesShouldReturnTheCorrectArrayWhenThereAreDifferentPagesAndTheParallelTableNamesAreSideBySide()
         {
             /*
                 Input:
-                    tableIds:            1, 2, 3, 4
-                    parallelTableIds:    1, 2
-                    pages:               2, 4, 3, 2
+                    tableNames:            1, 2, 3, 4
+                    parallelTableNames:    1, 2
+                    pages:                 2, 4, 3, 2
 
                 Output:
                     [1, 2, 1, 2, 2, 2, 3, 3, 3, 4, 4]
             */
             // Arrange
-            List<int> tableIds = new List<int> { 1, 2, 3, 4 };
-            List<int> parallelTableIds = new List<int> { 1, 2 };
-            Dictionary<int, int> tableIdPages = new Dictionary<int, int>
+            List<string> tableNames = new List<string> { "1", "2", "3", "4" };
+            List<string> parallelTableNames = new List<string> { "1", "2" };
+            Dictionary<string, int> tableNamePages = new Dictionary<string, int>
             {
-                [1] = 2,
-                [2] = 4,
-                [3] = 3,
-                [4] = 2
+                ["1"] = 2,
+                ["2"] = 4,
+                ["3"] = 3,
+                ["4"] = 2
             };
 
             // Act
-            List<int> sortedTableIds = davClassLibrary.Utils.SortTableIds(tableIds, parallelTableIds, tableIdPages);
+            List<string> sortedTableNames = davClassLibrary.Utils.SortTableNames(tableNames, parallelTableNames, tableNamePages);
 
             // Assert
-            Assert.AreEqual(new List<int> { 1, 2, 1, 2, 2, 2, 3, 3, 3, 4, 4 }, sortedTableIds);
+            Assert.AreEqual(new List<string> { "1", "2", "1", "2", "2", "2", "3", "3", "3", "4", "4" }, sortedTableNames);
         }
 
         [Test]
-        public void SortTableIdsShouldReturnTheCorrectArrayWhenThereAreNoPages()
+        public void SortTableNamesShouldReturnTheCorrectArrayWhenThereAreNoPages()
         {
             /*
                 Input:
-                    tableIds:            1, 2, 3, 4
-                    parallelTableIds:    1, 2
-                    pages:               0, 0, 0, 0
+                    tableNames:            1, 2, 3, 4
+                    parallelTableNames:    1, 2
+                    pages:                 0, 0, 0, 0
 
                 Output:
                     []
             */
             // Arrange
-            List<int> tableIds = new List<int> { 1, 2, 3, 4 };
-            List<int> parallelTableIds = new List<int> { 1, 2 };
-            Dictionary<int, int> tableIdPages = new Dictionary<int, int>
+            List<string> tableNames = new List<string> { "1", "2", "3", "4" };
+            List<string> parallelTableNames = new List<string> { "1", "2" };
+            Dictionary<string, int> tableNamePages = new Dictionary<string, int>
             {
-                [1] = 0,
-                [2] = 0,
-                [3] = 0,
-                [4] = 0
+                ["1"] = 0,
+                ["2"] = 0,
+                ["3"] = 0,
+                ["4"] = 0
             };
 
             // Act
-            List<int> sortedTableIds = davClassLibrary.Utils.SortTableIds(tableIds, parallelTableIds, tableIdPages);
+            List<string> sortedTableNames = davClassLibrary.Utils.SortTableNames(tableNames, parallelTableNames, tableNamePages);
 
             // Assert
-            Assert.AreEqual(new List<int>(), sortedTableIds);
+            Assert.AreEqual(new List<string>(), sortedTableNames);
         }
 
         [Test]
-        public void SortTableIdsShouldReturnTheCorrectArrayWhenThereIsOnePage()
+        public void SortTableNamesShouldReturnTheCorrectArrayWhenThereIsOnePage()
         {
             /*
                 Input:
-                    tableIds:            1, 2, 3, 4
-                    parallelTableIds:    1, 2
-                    pages:               0, 0, 0, 1
+                    tableNames:            1, 2, 3, 4
+                    parallelTableNames:    1, 2
+                    pages:                 0, 0, 0, 1
 
                 Output:
                     [4]
             */
             // Arrange
-            List<int> tableIds = new List<int> { 1, 2, 3, 4 };
-            List<int> parallelTableIds = new List<int> { 1, 2 };
-            Dictionary<int, int> tableIdPages = new Dictionary<int, int>
+            List<string> tableNames = new List<string> { "1", "2", "3", "4" };
+            List<string> parallelTableNames = new List<string> { "1", "2" };
+            Dictionary<string, int> tableNamePages = new Dictionary<string, int>
             {
-                [1] = 0,
-                [2] = 0,
-                [3] = 0,
-                [4] = 1
+                ["1"] = 0,
+                ["2"] = 0,
+                ["3"] = 0,
+                ["4"] = 1
             };
 
             // Act
-            List<int> sortedTableIds = davClassLibrary.Utils.SortTableIds(tableIds, parallelTableIds, tableIdPages);
+            List<string> sortedTableNames = davClassLibrary.Utils.SortTableNames(tableNames, parallelTableNames, tableNamePages);
 
             // Assert
-            Assert.AreEqual(new List<int> { 4 }, sortedTableIds);
+            Assert.AreEqual(new List<string> { "4" }, sortedTableNames);
         }
 
         [Test]
-        public void SortTableIdsShouldReturnTheCorrectArrayWhenThereAreLotsOfPagesForOneTable()
+        public void SortTableNamesShouldReturnTheCorrectArrayWhenThereAreLotsOfPagesForOneTable()
         {
             /*
                 Input:
-                    tableIds:            1, 2, 3, 4
-                    parallelTableIds:    1, 2
-                    pages:               6, 0, 0, 0
+                    tableNames:            1, 2, 3, 4
+                    parallelTableNames:    1, 2
+                    pages:                 6, 0, 0, 0
 
                 Output:
                     [1, 1, 1, 1, 1, 1]
             */
             // Arrange
-            List<int> tableIds = new List<int> { 1, 2, 3, 4 };
-            List<int> parallelTableIds = new List<int> { 1, 2 };
-            Dictionary<int, int> tableIdPages = new Dictionary<int, int>
+            List<string> tableNames = new List<string> { "1", "2", "3", "4" };
+            List<string> parallelTableNames = new List<string> { "1", "2" };
+            Dictionary<string, int> tableNamePages = new Dictionary<string, int>
             {
-                [1] = 6,
-                [2] = 0,
-                [3] = 0,
-                [4] = 0
+                ["1"] = 6,
+                ["2"] = 0,
+                ["3"] = 0,
+                ["4"] = 0
             };
 
             // Act
-            List<int> sortedTableIds = davClassLibrary.Utils.SortTableIds(tableIds, parallelTableIds, tableIdPages);
+            List<string> sortedTableNames = davClassLibrary.Utils.SortTableNames(tableNames, parallelTableNames, tableNamePages);
 
             // Assert
-            Assert.AreEqual(new List<int> { 1, 1, 1, 1, 1, 1 }, sortedTableIds);
+            Assert.AreEqual(new List<string> { "1", "1", "1", "1", "1", "1" }, sortedTableNames);
         }
 
         [Test]
-        public void SortTableIdsShouldReturnTheCorrectArrayWhenThereAreDifferentCountsOfPagesForParallelTables()
+        public void SortTableNamesShouldReturnTheCorrectArrayWhenThereAreDifferentCountsOfPagesForParallelTables()
         {
             /*
                 Input:
-                    tableIds:            1, 2, 3, 4
-                    parallelTableIds:    1, 2
-                    pages:               6, 8, 1, 0
+                    tableNames:            1, 2, 3, 4
+                    parallelTableNames:    1, 2
+                    pages:                 6, 8, 1, 0
 
                 Output:
                     [1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 2, 2, 3]
             */
             // Arrange
-            List<int> tableIds = new List<int> { 1, 2, 3, 4 };
-            List<int> parallelTableIds = new List<int> { 1, 2 };
-            Dictionary<int, int> tableIdPages = new Dictionary<int, int>
+            List<string> tableNames = new List<string> { "1", "2", "3", "4" };
+            List<string> parallelTableNames = new List<string> { "1", "2" };
+            Dictionary<string, int> tableNamePages = new Dictionary<string, int>
             {
-                [1] = 6,
-                [2] = 8,
-                [3] = 1,
-                [4] = 0
+                ["1"] = 6,
+                ["2"] = 8,
+                ["3"] = 1,
+                ["4"] = 0
             };
 
             // Act
-            List<int> sortedTableIds = davClassLibrary.Utils.SortTableIds(tableIds, parallelTableIds, tableIdPages);
+            List<string> sortedTableNames = davClassLibrary.Utils.SortTableNames(tableNames, parallelTableNames, tableNamePages);
 
             // Assert
-            Assert.AreEqual(new List<int> { 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 2, 2, 3 }, sortedTableIds);
+            Assert.AreEqual(new List<string> { "1", "2", "1", "2", "1", "2", "1", "2", "1", "2", "1", "2", "2", "2", "3" }, sortedTableNames);
         }
 
         [Test]
-        public void SortTableIdsShouldReturnTheCorrectArrayWhenThereAreMultipleParallelTables()
+        public void SortTableNamesShouldReturnTheCorrectArrayWhenThereAreMultipleParallelTables()
         {
             /*
                 Input:
-                    tableIds:            1, 2, 3, 4, 5
-                    parallelTableIds:    1, 2, 3,    5
-                    pages:               2, 2, 2, 4, 2
+                    tableNames:            1, 2, 3, 4, 5
+                    parallelTableNames:    1, 2, 3,    5
+                    pages:                 2, 2, 2, 4, 2
 
                 Output:
                     [1, 2, 3, 4, 4, 4, 4, 5, 1, 2, 3, 5]
             */
             // Arrange
-            List<int> tableIds = new List<int> { 1, 2, 3, 4, 5 };
-            List<int> parallelTableIds = new List<int> { 1, 2, 3, 5 };
-            Dictionary<int, int> tableIdPages = new Dictionary<int, int>
+            List<string> tableNames = new List<string> { "1", "2", "3", "4", "5" };
+            List<string> parallelTableNames = new List<string> { "1", "2", "3", "5" };
+            Dictionary<string, int> tableNamePages = new Dictionary<string, int>
             {
-                [1] = 2,
-                [2] = 2,
-                [3] = 2,
-                [4] = 4,
-                [5] = 2
+                ["1"] = 2,
+                ["2"] = 2,
+                ["3"] = 2,
+                ["4"] = 4,
+                ["5"] = 2
             };
 
             // Act
-            List<int> sortedTableIds = davClassLibrary.Utils.SortTableIds(tableIds, parallelTableIds, tableIdPages);
+            List<string> sortedTableNames = davClassLibrary.Utils.SortTableNames(tableNames, parallelTableNames, tableNamePages);
 
             // Assert
-            Assert.AreEqual(new List<int> { 1, 2, 3, 4, 4, 4, 4, 5, 1, 2, 3, 5 }, sortedTableIds);
+            Assert.AreEqual(new List<string> { "1", "2", "3", "4", "4", "4", "4", "5", "1", "2", "3", "5" }, sortedTableNames);
         }
 
         [Test]
-        public void SortTableIdsShouldReturnTheCorrectArrayWhenThereAreMultipleParallelTablesWithDifferentCountsOfPages()
+        public void SortTableNamesShouldReturnTheCorrectArrayWhenThereAreMultipleParallelTablesWithDifferentCountsOfPages()
         {
             /*
                 Input:
-                    tableIds:            1, 2, 3, 4, 5
-                    parallelTableIds:    1, 2, 3,    5
-                    pages:               3, 6, 4, 3, 2
+                    tableNames:            1, 2, 3, 4, 5
+                    parallelTableNames:    1, 2, 3,    5
+                    pages:                 3, 6, 4, 3, 2
 
                 Output:
                     [1, 2, 3, 4, 4, 4, 5, 1, 2, 3, 5, 1, 2, 3, 2, 3, 2, 2]
             */
             // Arrange
-            List<int> tableIds = new List<int> { 1, 2, 3, 4, 5 };
-            List<int> parallelTableIds = new List<int> { 1, 2, 3, 5 };
-            Dictionary<int, int> tableIdPages = new Dictionary<int, int>
+            List<string> tableNames = new List<string> { "1", "2", "3", "4", "5" };
+            List<string> parallelTableNames = new List<string> { "1", "2", "3", "5" };
+            Dictionary<string, int> tableNamePages = new Dictionary<string, int>
             {
-                [1] = 3,
-                [2] = 6,
-                [3] = 4,
-                [4] = 3,
-                [5] = 2
+                ["1"] = 3,
+                ["2"] = 6,
+                ["3"] = 4,
+                ["4"] = 3,
+                ["5"] = 2
             };
 
             // Act
-            List<int> sortedTableIds = davClassLibrary.Utils.SortTableIds(tableIds, parallelTableIds, tableIdPages);
+            List<string> sortedTableNames = davClassLibrary.Utils.SortTableNames(tableNames, parallelTableNames, tableNamePages);
 
             // Assert
-            Assert.AreEqual(new List<int> { 1, 2, 3, 4, 4, 4, 5, 1, 2, 3, 5, 1, 2, 3, 2, 3, 2, 2 }, sortedTableIds);
+            Assert.AreEqual(new List<string> { "1", "2", "3", "4", "4", "4", "5", "1", "2", "3", "5", "1", "2", "3", "2", "3", "2", "2" }, sortedTableNames);
         }
 
         [Test]
-        public void SortTableIdsShouldReturnTheCorrectArrayWhenThereArePagesForNonExistentTables()
+        public void SortTableNamesShouldReturnTheCorrectArrayWhenThereArePagesForNonExistentTables()
         {
             /*
                 Input:
-                    tableIds:            1, 2, 3, 4
-                    parallelTableIds:    1, 2
-                    pages:               2, 2, 2, 2, 2
+                    tableNames:            1, 2, 3, 4
+                    parallelTableNames:    1, 2
+                    pages:                 2, 2, 2, 2, 2
 
                 Output:
                     [1, 2, 1, 2, 3, 3, 4, 4]
             */
             // Arrange
-            List<int> tableIds = new List<int> { 1, 2, 3, 4 };
-            List<int> parallelTableIds = new List<int> { 1, 2 };
-            Dictionary<int, int> tableIdPages = new Dictionary<int, int>
+            List<string> tableNames = new List<string> { "1", "2", "3", "4" };
+            List<string> parallelTableNames = new List<string> { "1", "2" };
+            Dictionary<string, int> tableNamePages = new Dictionary<string, int>
             {
-                [1] = 2,
-                [2] = 2,
-                [3] = 2,
-                [4] = 2,
-                [5] = 2
+                ["1"] = 2,
+                ["2"] = 2,
+                ["3"] = 2,
+                ["4"] = 2,
+                ["5"] = 2
             };
 
             // Act
-            List<int> sortedTableIds = davClassLibrary.Utils.SortTableIds(tableIds, parallelTableIds, tableIdPages);
+            List<string> sortedTableNames = davClassLibrary.Utils.SortTableNames(tableNames, parallelTableNames, tableNamePages);
 
             // Assert
-            Assert.AreEqual(new List<int> { 1, 2, 1, 2, 3, 3, 4, 4 }, sortedTableIds);
+            Assert.AreEqual(new List<string> { "1", "2", "1", "2", "3", "3", "4", "4" }, sortedTableNames);
         }
         #endregion
     }

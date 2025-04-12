@@ -15,6 +15,8 @@
         internal const int testAppId = 5;
         internal const int testAppFirstTestTableId = 24;
         internal const int testAppSecondTestTableId = 25;
+        internal const string testAppFirstTestTableName = "FirstTestTable";
+        internal const string testAppSecondTestTableName = "SecondTestTable";
 
         internal const string databaseName = "dav.db";
     }
