@@ -29,6 +29,34 @@ namespace davClassLibrary.DataAccess
         private static IWebSocketConnection websocketConnection;
         private static bool websocketConnectionEstablished = false;
 
+        private static string retrieveTableQueryData = @"
+            id
+		    etag
+		    tableObjects(
+			    limit: $limit
+			    offset: $offset
+		    ) {
+			    total
+			    items {
+				    uuid
+			    }
+		    }
+        ";
+        private static string retrieveTableObjectQueryData = @"
+            uuid
+		    table {
+			    id
+		    }
+		    user {
+			    id
+			    email
+			    firstName
+		    }
+		    fileUrl
+		    etag
+		    properties
+        ";
+
         public static async Task SessionSyncPush()
         {
             var accessToken = SettingsManager.GetAccessToken();
@@ -120,82 +148,99 @@ namespace davClassLibrary.DataAccess
                 isSyncing
                 || !Dav.IsLoggedIn
             ) return false;
+
             isSyncing = true;
 
-            // Holds the table ids, e.g. 1, 2, 3, 4
-            var tableIds = Dav.TableIds;
-            // Holds the parallel table ids, e.g. 2, 3
-            var parallelTableIds = Dav.ParallelTableIds;
-            // Holds the order of the table ids, sorted by the pages and the parallel table ids, e.g. 1, 2, 3, 2, 3, 4
-            var sortedTableIds = new List<int>();
-            // Holds the pages of the table; in the format <tableId, pages>
-            var tablePages = new Dictionary<int, int>();
-            // Holds the last downloaded page; in the format <tableId, pages>
-            var currentTablePages = new Dictionary<int, int>();
-            // Holds the latest table result; in the format <tableId, tableData>
-            var tableResults = new Dictionary<int, GetTableResponse>();
-            // Holds the uuids of the table objects that were removed on the server but not locally; in the format <tableId, List<Guid>>
-            var removedTableObjectUuids = new Dictionary<int, List<Guid>>();
-            // Is true if all http calls of the specified table are successful; in the format <tableId, bool>
-            var tableGetResultsOkay = new Dictionary<int, bool>();
+            // Holds the table names, e.g. 1, 2, 3, 4
+            var tableNames = Dav.TableNames;
+            // Holds the parallel table names, e.g. 2, 3
+            var parallelTableNames = Dav.ParallelTableNames;
+            // Holds the order of the table names, sorted by the pages and the parallel table names, e.g. 1, 2, 3, 2, 3, 4
+            var sortedTableNames = new List<string>();
+            // Mapping for the table names to the table ids
+            var tableIds = new Dictionary<string, int>();
+            // Holds the pages of the table; in the format <tableName, pages>
+            var tablePages = new Dictionary<string, int>();
+            // Holds the last downloaded page; in the format <tableName, pages>
+            var currentTablePages = new Dictionary<string, int>();
+            // Holds the latest table result; in the format <tableName, tableData>
+            var tableResults = new Dictionary<string, TableResource>();
+            // Holds the uuids of the table objects that were removed on the server but not locally; in the format <tableName, List<Guid>>
+            var removedTableObjectUuids = new Dictionary<string, List<Guid>>();
+            // Is true if all http calls of the specified table are successful; in the format <tableName, bool>
+            var getTableResultsOkay = new Dictionary<string, bool>();
             // Holds the new table etags for the tables
-            var tableEtags = new Dictionary<int, string>();
+            var tableEtags = new Dictionary<string, string>();
 
-            if (tableIds == null || parallelTableIds == null) return false;
+            if (
+                tableNames == null
+                || tableNames.Count == 0
+                || parallelTableNames == null
+            ) return false;
 
-            // Get the first page of each table and generate the sorted tableIds list
-            foreach (var tableId in tableIds)
+            decimal tableObjectsLimit = 100;
+
+            // Get the first page of each table
+            foreach (var tableName in tableNames)
             {
                 // Get the first page of the table
-                var getTableResult = await TablesController.GetTable(tableId);
+                var retrieveTableResponse = await TablesController.RetrieveTable(
+                    ApiManager.GraphQLClient,
+                    retrieveTableQueryData,
+                    tableName
+                );
 
-                tableGetResultsOkay[tableId] = getTableResult.Success;
-                if (getTableResult.Status != 200) continue;
+                bool retrieveTableSuccess = retrieveTableResponse.Errors == null;
+
+                getTableResultsOkay[tableName] = retrieveTableSuccess;
+                if (!retrieveTableSuccess) continue;
+
+                var table = retrieveTableResponse.Data.RetrieveTable;
+                tableIds[tableName] = table.id;
 
                 // Check if the table has any changes
-                if (getTableResult.Data.Etag == SettingsManager.GetTableEtag(tableId))
+                if (table.etag == SettingsManager.GetTableEtag(table.id))
                     continue;
-
-                var tableData = getTableResult.Data;
                 
                 // Save the result
-                tableResults[tableId] = tableData;
-                tablePages[tableId] = tableResults[tableId].Pages;
-                currentTablePages[tableId] = 1;
-                tableEtags[tableId] = getTableResult.Data.Etag;
+                tableResults[tableName] = table;
+                tablePages[tableName] = (int)Math.Ceiling(table.tableObjects.total / tableObjectsLimit);
+                currentTablePages[tableName] = 1;
+                tableEtags[tableName] = table.etag;
             }
 
-            sortedTableIds = Utils.SortTableIds(tableIds, parallelTableIds, tablePages);
+            sortedTableNames = Utils.SortTableNames(tableNames, parallelTableNames, tablePages);
 
             // Populate removedTableObjectUuids
-            foreach (var tableId in sortedTableIds.Distinct())
+            foreach (var tableName in sortedTableNames.Distinct())
             {
-                removedTableObjectUuids[tableId] = new List<Guid>();
+                removedTableObjectUuids[tableName] = new List<Guid>();
 
-                foreach (var tableObject in await Dav.Database.GetAllTableObjectsAsync(tableId, true))
-                    removedTableObjectUuids[tableId].Add(tableObject.Uuid);
+                foreach (var tableObject in await Dav.Database.GetAllTableObjectsAsync(tableIds[tableName], true))
+                    removedTableObjectUuids[tableName].Add(tableObject.Uuid);
             }
 
             // Process the table results
-            foreach (var tableId in sortedTableIds)
+            foreach (var tableName in sortedTableNames)
             {
-                if (!tableGetResultsOkay[tableId]) continue;
+                if (!getTableResultsOkay[tableName]) continue;
 
-                var tableObjects = tableResults[tableId].TableObjects;
+                var tableObjects = tableResults[tableName].tableObjects;
                 bool tableChanged = false;
                 bool saveEtag = true;
 
-                foreach (var obj in tableObjects)
+                foreach (var obj in tableObjects.items)
                 {
-                    removedTableObjectUuids[tableId].Remove(obj.Uuid);
+                    // Remove the table objects from removedTableObjectUuids
+                    removedTableObjectUuids[tableName].Remove(obj.uuid);
 
-                    // Is obj in the database?
-                    var currentTableObject = await Dav.Database.GetTableObjectAsync(obj.Uuid);
+                    // Is the table object in the database?
+                    var currentTableObject = await Dav.Database.GetTableObjectAsync(obj.uuid);
 
                     if (currentTableObject != null)
                     {
                         // Has the etag changed?
-                        if (Equals(obj.Etag, currentTableObject.Etag))
+                        if (Equals(obj.etag, currentTableObject.Etag))
                         {
                             // Is it a file and is it already downloaded?
                             if (currentTableObject.IsFile && !currentTableObject.FileDownloaded())
@@ -210,10 +255,15 @@ namespace davClassLibrary.DataAccess
                         else if (currentTableObject.UploadStatus == TableObjectUploadStatus.UpToDate)
                         {
                             // Get the updated table object from the server
-                            var getTableObjectResponse = await TableObjectsController.GetTableObject(currentTableObject.Uuid);
-                            if (getTableObjectResponse.Status != 200) continue;
+                            var retrieveTableObjectResponse = await TableObjectsController.RetrieveTableObject(
+                                ApiManager.GraphQLClient,
+                                retrieveTableObjectQueryData,
+                                currentTableObject.Uuid.ToString()
+                            );
 
-                            var tableObject = getTableObjectResponse.Data.TableObject;
+                            if (retrieveTableObjectResponse.Errors != null) continue;
+
+                            var tableObject = retrieveTableObjectResponse.Data.RetrieveTableObject.ToTableObject();
                             tableObject.UploadStatus = TableObjectUploadStatus.UpToDate;
 
                             // Is it a file?
@@ -229,7 +279,7 @@ namespace davClassLibrary.DataAccess
                                 fileDownloads.Add(new TableObjectDownload
                                 {
                                     uuid = tableObject.Uuid,
-                                    etag = obj.Etag
+                                    etag = obj.etag
                                 });
                             }
                             else
@@ -245,15 +295,19 @@ namespace davClassLibrary.DataAccess
                     else
                     {
                         // Get the table object
-                        var getTableObjectResponse = await TableObjectsController.GetTableObject(obj.Uuid);
+                        var retrieveTableObjectResponse = await TableObjectsController.RetrieveTableObject(
+                            ApiManager.GraphQLClient,
+                            retrieveTableObjectQueryData,
+                            obj.uuid.ToString()
+                        );
 
-                        if (getTableObjectResponse.Status != 200)
+                        if (retrieveTableObjectResponse.Errors != null)
                         {
                             saveEtag = false;
                             continue;
                         }
 
-                        var tableObject = getTableObjectResponse.Data.TableObject;
+                        var tableObject = retrieveTableObjectResponse.Data.RetrieveTableObject.ToTableObject();
                         tableObject.UploadStatus = TableObjectUploadStatus.UpToDate;
 
                         // Is it a file?
@@ -280,37 +334,44 @@ namespace davClassLibrary.DataAccess
                 }
 
                 // Check if there is a next page
-                currentTablePages[tableId]++;
+                currentTablePages[tableName]++;
 
-                if (currentTablePages[tableId] > tablePages[tableId])
+                if (currentTablePages[tableName] > tablePages[tableName])
                 {
-                    ProjectInterface.Callbacks.UpdateAllOfTable(tableId, tableChanged, true);
+                    ProjectInterface.Callbacks.UpdateAllOfTable(tableIds[tableName], tableChanged, true);
 
                     // Save the new table etag, if all table objects were saved
-                    if (saveEtag) SettingsManager.SetTableEtag(tableId, tableEtags[tableId]);
+                    if (saveEtag) SettingsManager.SetTableEtag(tableIds[tableName], tableEtags[tableName]);
 
                     continue;
                 }
 
-                ProjectInterface.Callbacks.UpdateAllOfTable(tableId, tableChanged, false);
+                ProjectInterface.Callbacks.UpdateAllOfTable(tableIds[tableName], tableChanged, false);
 
                 // Get the next page
-                var getTableResult = await TablesController.GetTable(tableId, currentTablePages[tableId]);
-                if(getTableResult.Status != 200)
+                var retrieveTableResult = await TablesController.RetrieveTable(
+                    ApiManager.GraphQLClient,
+                    retrieveTableQueryData,
+                    tableName,
+                    (int)tableObjectsLimit,
+                    (currentTablePages[tableName] - 1) * (int)tableObjectsLimit
+                );
+
+                if (retrieveTableResult.Errors != null)
                 {
-                    tableGetResultsOkay[tableId] = false;
+                    getTableResultsOkay[tableName] = false;
                     continue;
                 }
 
-                tableResults[tableId] = getTableResult.Data;
+                tableResults[tableName] = retrieveTableResult.Data.RetrieveTable;
             }
 
             // RemovedTableObjects now includes all table objects that were deleted on the server but not locally
             // Delete these table objects locally
-            foreach (var tableId in removedTableObjectUuids.Keys)
+            foreach (var tableName in removedTableObjectUuids.Keys)
             {
-                if (!tableGetResultsOkay[tableId]) continue;
-                var removedTableObjects = removedTableObjectUuids[tableId];
+                if (!getTableResultsOkay[tableName]) continue;
+                var removedTableObjects = removedTableObjectUuids[tableName];
 
                 foreach (var uuid in removedTableObjects)
                 {
@@ -330,7 +391,7 @@ namespace davClassLibrary.DataAccess
             syncCompleted = true;
 
             // Check if the sync was successful for all tables
-            foreach(var value in tableGetResultsOkay.Values)
+            foreach(var value in getTableResultsOkay.Values)
                 if (!value) return false;
 
             return true;

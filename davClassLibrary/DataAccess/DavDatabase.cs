@@ -99,6 +99,7 @@ namespace davClassLibrary.DataAccess
             return await Task.Run(async () =>
             {
                 await InitAsync();
+
                 List<TableObject> tableObjectsList = new List<TableObject>();
                 List<TableObject> tableObjects = await database.Table<TableObject>().ToListAsync();
                 List<Property> properties = await database.Table<Property>().ToListAsync();

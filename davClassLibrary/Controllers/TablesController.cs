@@ -1,4 +1,6 @@
 ﻿using davClassLibrary.Models;
+using GraphQL;
+using GraphQL.Client.Http;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -10,6 +12,42 @@ namespace davClassLibrary.Controllers
 {
     public static class TablesController
     {
+        public static async Task<GraphQLResponse<RetrieveTableResponse>> RetrieveTable(
+            GraphQLHttpClient graphQLClient,
+            string queryData,
+            string name,
+            int limit = 100,
+            int offset = 0
+        )
+        {
+            string limitParam = queryData.Contains("limit") ? "$limit: Int" : "";
+            string offsetParam = queryData.Contains("offset") ? "$offset: Int" : "";
+
+            var retrieveTableRequest = new GraphQLRequest
+            {
+                OperationName = "RetrieveTable",
+                Query = $@"
+                    query RetrieveTable(
+                        $name: String!
+                        {limitParam}
+                        {offsetParam}
+                    ) {{
+                        retrieveTable(name: $name) {{
+                            {queryData}
+                        }}
+                    }}
+                ",
+                Variables = new
+                {
+                    name,
+                    limit,
+                    offset
+                }
+            };
+
+            return await graphQLClient.SendQueryAsync<RetrieveTableResponse>(retrieveTableRequest);
+        }
+
         public static async Task<ApiResponse<GetTableResponse>> GetTable(int id, int page = 0)
         {
             HttpResponseMessage response;
@@ -57,6 +95,11 @@ namespace davClassLibrary.Controllers
 
             return result;
         }
+    }
+
+    public class RetrieveTableResponse
+    {
+        public TableResource RetrieveTable { get; set; }
     }
 
     public class GetTableResponse
