@@ -1,6 +1,6 @@
-﻿using davClassLibrary.Models;
+﻿using davClassLibrary.DataAccess;
+using davClassLibrary.Models;
 using GraphQL;
-using GraphQL.Client.Http;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -13,7 +13,6 @@ namespace davClassLibrary.Controllers
     public static class TablesController
     {
         public static async Task<GraphQLResponse<RetrieveTableResponse>> RetrieveTable(
-            GraphQLHttpClient graphQLClient,
             string queryData,
             string name,
             int limit = 100,
@@ -45,7 +44,7 @@ namespace davClassLibrary.Controllers
                 }
             };
 
-            return await graphQLClient.SendQueryAsync<RetrieveTableResponse>(retrieveTableRequest);
+            return await ApiManager.GetGraphQLClient().SendQueryAsync<RetrieveTableResponse>(retrieveTableRequest);
         }
 
         public static async Task<ApiResponse<GetTableResponse>> GetTable(int id, int page = 0)

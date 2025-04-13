@@ -3,44 +3,42 @@ using GraphQL.Client.Serializer.Newtonsoft;
 using System;
 using System.Net.Http.Headers;
 using System.Net.Http;
+using System.Collections.Generic;
 
 namespace davClassLibrary.DataAccess
 {
     public class ApiManager
     {
-        private static HttpClient httpClient;
-        public static HttpClient HttpClient
-        {
-            get
-            {
-                if (httpClient == null)
-                    CreateHttpClient(Dav.AccessToken);
+        private static readonly Dictionary<string, HttpClient> httpClients = new Dictionary<string, HttpClient>();
+        private static readonly Dictionary<string, GraphQLHttpClient> graphQLClients = new Dictionary<string, GraphQLHttpClient>();
 
+        public static HttpClient GetHttpClient(string authorization = null)
+        {
+            if (authorization == null)
+                authorization = Dav.AccessToken;
+
+            if (httpClients.TryGetValue(authorization, out var httpClient))
                 return httpClient;
-            }
-        }
-        private static GraphQLHttpClient graphQLClient;
-        public static GraphQLHttpClient GraphQLClient
-        {
-            get
-            {
-                if (graphQLClient == null)
-                    CreateGraphQLClient(Dav.NewApiBaseUrl, Dav.AccessToken);
 
-                return graphQLClient;
-            }
-        }
-
-        private static void CreateHttpClient(string accessToken)
-        {
             httpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(60) };
-            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", authorization);
+            httpClients.Add(authorization, httpClient);
+
+            return httpClient;
         }
 
-        private static void CreateGraphQLClient(string apiBaseUrl, string accessToken)
+        public static GraphQLHttpClient GetGraphQLClient(string authorization = null)
         {
-            graphQLClient = new GraphQLHttpClient(apiBaseUrl, new NewtonsoftJsonSerializer());
-            if (accessToken != null) graphQLClient.HttpClient.DefaultRequestHeaders.Add("Authorization", accessToken);
+            if (authorization == null)
+                authorization = Dav.AccessToken;
+
+            if (graphQLClients.TryGetValue(authorization, out var graphQLClient))
+                return graphQLClient;
+
+            graphQLClient = new GraphQLHttpClient(Dav.NewApiBaseUrl, new NewtonsoftJsonSerializer());
+            graphQLClient.HttpClient.DefaultRequestHeaders.Add("Authorization", authorization);
+
+            return graphQLClient;
         }
     }
 }

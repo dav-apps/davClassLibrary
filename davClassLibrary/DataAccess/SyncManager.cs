@@ -185,7 +185,6 @@ namespace davClassLibrary.DataAccess
             {
                 // Get the first page of the table
                 var retrieveTableResponse = await TablesController.RetrieveTable(
-                    ApiManager.GraphQLClient,
                     retrieveTableQueryData,
                     tableName
                 );
@@ -256,7 +255,6 @@ namespace davClassLibrary.DataAccess
                         {
                             // Get the updated table object from the server
                             var retrieveTableObjectResponse = await TableObjectsController.RetrieveTableObject(
-                                ApiManager.GraphQLClient,
                                 retrieveTableObjectQueryData,
                                 currentTableObject.Uuid.ToString()
                             );
@@ -296,7 +294,6 @@ namespace davClassLibrary.DataAccess
                     {
                         // Get the table object
                         var retrieveTableObjectResponse = await TableObjectsController.RetrieveTableObject(
-                            ApiManager.GraphQLClient,
                             retrieveTableObjectQueryData,
                             obj.uuid.ToString()
                         );
@@ -350,7 +347,6 @@ namespace davClassLibrary.DataAccess
 
                 // Get the next page
                 var retrieveTableResult = await TablesController.RetrieveTable(
-                    ApiManager.GraphQLClient,
                     retrieveTableQueryData,
                     tableName,
                     (int)tableObjectsLimit,

@@ -1,4 +1,5 @@
-﻿using davClassLibrary.Models;
+﻿using davClassLibrary.DataAccess;
+using davClassLibrary.Models;
 using GraphQL;
 using GraphQL.Client.Http;
 using Newtonsoft.Json;
@@ -15,7 +16,6 @@ namespace davClassLibrary.Controllers
     public static class TableObjectsController
     {
         public static async Task<GraphQLResponse<RetrieveTableObjectResponse>> RetrieveTableObject(
-            GraphQLHttpClient graphQLClient,
             string queryData,
             string uuid
         )
@@ -33,7 +33,7 @@ namespace davClassLibrary.Controllers
                 Variables = new { uuid }
             };
 
-            return await graphQLClient.SendQueryAsync<RetrieveTableObjectResponse>(retrieveTableObjectRequest);
+            return await ApiManager.GetGraphQLClient().SendQueryAsync<RetrieveTableObjectResponse>(retrieveTableObjectRequest);
         }
 
         public static async Task<ApiResponse<TableObjectResponse>> CreateTableObject(
