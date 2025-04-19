@@ -1,96 +1,51 @@
-﻿using Newtonsoft.Json;
-using System;
-using System.Collections.Generic;
-using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Text;
+﻿using davClassLibrary.DataAccess;
+using davClassLibrary.Models;
+using GraphQL;
 using System.Threading.Tasks;
 
 namespace davClassLibrary.Controllers
 {
     public static class CheckoutSessionsController
     {
-        public static async Task<ApiResponse<CreateCheckoutSessionResponse>> CreateCheckoutSession(
+        public static async Task<GraphQLResponse<CreateSubscriptionCheckoutSessionResponse>> CreateSubscriptionCheckoutSession(
+            string queryData,
             int plan,
             string successUrl,
             string cancelUrl
         )
         {
-            HttpResponseMessage response;
-            var httpClient = Dav.httpClient;
-            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Dav.AccessToken);
-
-            var requestBodyDict = new Dictionary<string, object>
+            var createSubscriptionCheckoutSessionRequest = new GraphQLRequest
             {
-                { "plan", plan },
-                { "success_url", successUrl },
-                { "cancel_url", cancelUrl }
+                OperationName = "CreateSubscriptionCheckoutSession",
+                Query = $@"
+                    mutation CreateSubscriptionCheckoutSession(
+                        $plan: Plan!
+					    $successUrl: String!
+					    $cancelUrl: String!
+                    ) {{
+                        createSubscriptionCheckoutSession(
+                            plan: $plan
+						    successUrl: $successUrl
+						    cancelUrl: $cancelUrl
+                        ) {{
+                            {queryData}
+                        }}
+                    }}
+                ",
+                Variables = new
+                {
+                    plan,
+                    successUrl,
+                    cancelUrl
+                }
             };
 
-            var requestBody = new StringContent(
-                JsonConvert.SerializeObject(requestBodyDict),
-                Encoding.UTF8,
-                "application/json"
-            );
-
-            try
-            {
-                response = await httpClient.PostAsync($"{Dav.ApiBaseUrl}/checkout_session", requestBody);
-            }
-            catch (Exception)
-            {
-                return new ApiResponse<CreateCheckoutSessionResponse> { Success = false, Status = 0 };
-            }
-
-            string responseData = await response.Content.ReadAsStringAsync();
-
-            var result = new ApiResponse<CreateCheckoutSessionResponse>
-            {
-                Success = response.IsSuccessStatusCode,
-                Status = (int)response.StatusCode
-            };
-
-            if (response.IsSuccessStatusCode)
-            {
-                try
-                {
-                    var createCheckoutSessionResponseData = JsonConvert.DeserializeObject<CreateCheckoutSessionResponseData>(responseData);
-                    result.Data = createCheckoutSessionResponseData.ToCreateCheckoutSessionResponse();
-                }
-                catch (Exception)
-                {
-                    result.Success = false;
-                }
-            }
-            else
-            {
-                try
-                {
-                    var json = JsonConvert.DeserializeObject<ApiErrors>(responseData);
-                    result.Errors = json.Errors;
-                }
-                catch (Exception) { }
-            }
-
-            return result;
+            return await ApiManager.GetGraphQLClient().SendMutationAsync<CreateSubscriptionCheckoutSessionResponse>(createSubscriptionCheckoutSessionRequest);
         }
     }
+}
 
-    public class CreateCheckoutSessionResponse
-    {
-        public string SessionUrl { get; set; }
-    }
-
-    public class CreateCheckoutSessionResponseData
-    {
-        public string session_url { get; set; }
-
-        public CreateCheckoutSessionResponse ToCreateCheckoutSessionResponse()
-        {
-            return new CreateCheckoutSessionResponse
-            {
-                SessionUrl = session_url
-            };
-        }
-    }
+public class CreateSubscriptionCheckoutSessionResponse
+{
+    public CheckoutSessionResource CreateSubscriptionCheckoutSession { get; set; }
 }
