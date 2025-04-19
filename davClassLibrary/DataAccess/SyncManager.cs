@@ -66,25 +66,11 @@ namespace davClassLibrary.DataAccess
                 return;
 
             // Delete the session on the server
-            var deleteSessionResponse = await SessionsController.DeleteSession(accessToken);
+            await SessionsController.DeleteSession("accessToken", accessToken);
 
-            if (deleteSessionResponse.Success)
-            {
                 // Remove the session
                 SettingsManager.RemoveSession();
             }
-            else
-            {
-                // Check the error
-                int i = deleteSessionResponse.Errors.ToList().FindIndex(error => error.Code == ErrorCodes.SessionDoesNotExist);
-
-                if(i != -1)
-                {
-                    // Remove the session
-                    SettingsManager.RemoveSession();
-                }
-            }
-        }
 
         public static void LoadUser()
         {
@@ -107,34 +93,66 @@ namespace davClassLibrary.DataAccess
             if (!Dav.IsLoggedIn) return false;
 
             // Get the user
-            var getUserResponse = await UsersController.GetUser();
+            var retrieveUserResponse = await UsersController.RetrieveUser($@"
+                id
+			    email
+			    firstName
+			    confirmed
+			    totalStorage
+			    usedStorage
+			    stripeCustomerId
+			    plan
+			    subscriptionStatus
+			    periodEnd
+			    profileImage {{
+				    url
+				    etag
+			    }}
+			    apps {{
+				    total
+				    items {{
+					    id
+					    name
+					    description
+					    published
+					    webLink
+					    googlePlayLink
+					    microsoftStoreLink
+				    }}
+			    }}
+            ");
 
-            if (!getUserResponse.Success)
+            if (retrieveUserResponse.Errors != null)
             {
                 Dav.Logout();
                 return false;
             }
 
-            var userResponseData = getUserResponse.Data;
+            var userResponseData = retrieveUserResponse.Data.RetrieveUser;
+
+            var plan = Plan.Free;
+
+            if (userResponseData.plan == "PLUS")
+                plan = Plan.Plus;
+            else if (userResponseData.plan == "PRO")
+                plan = Plan.Pro;
 
             // Update the values in the local settings
-            if (Dav.User.Id != userResponseData.Id) SettingsManager.SetId(userResponseData.Id);
-            if (Dav.User.Email != userResponseData.Email) SettingsManager.SetEmail(userResponseData.Email);
-            if (Dav.User.FirstName != userResponseData.FirstName) SettingsManager.SetFirstName(userResponseData.FirstName);
-            if (Dav.User.TotalStorage != userResponseData.TotalStorage) SettingsManager.SetTotalStorage(userResponseData.TotalStorage);
-            if (Dav.User.UsedStorage != userResponseData.UsedStorage) SettingsManager.SetUsedStorage(userResponseData.UsedStorage);
-            if (Dav.User.Plan != userResponseData.Plan) SettingsManager.SetPlan(userResponseData.Plan);
+            if (Dav.User.Id != userResponseData.id) SettingsManager.SetId(userResponseData.id);
+            if (Dav.User.Email != userResponseData.email) SettingsManager.SetEmail(userResponseData.email);
+            if (Dav.User.FirstName != userResponseData.firstName) SettingsManager.SetFirstName(userResponseData.firstName);
+            if (Dav.User.TotalStorage != userResponseData.totalStorage) SettingsManager.SetTotalStorage(userResponseData.totalStorage);
+            if (Dav.User.UsedStorage != userResponseData.usedStorage) SettingsManager.SetUsedStorage(userResponseData.usedStorage);
+            if (Dav.User.Plan != plan) SettingsManager.SetPlan(plan);
 
-            if(
+            if (
                 !File.Exists(Path.Combine(Dav.DataPath, Constants.profileImageFileName))
-                || Dav.User.ProfileImageEtag != userResponseData.ProfileImageEtag
+                || Dav.User.ProfileImageEtag != userResponseData.profileImage.etag
             )
             {
                 // Download the profile image
-                var getProfileImageResult = await UsersController.GetProfileImageOfUser(Path.Combine(Dav.DataPath, Constants.profileImageFileName));
-
-                if (getProfileImageResult.Success)
-                    SettingsManager.SetProfileImageEtag(userResponseData.ProfileImageEtag);
+                if (await ApiManager.DownloadFile(userResponseData.profileImage.url, Path.Combine(Dav.DataPath, Constants.profileImageFileName)))
+                    SettingsManager.SetProfileImageEtag(userResponseData.profileImage.etag);
             }
 
             LoadUser();
