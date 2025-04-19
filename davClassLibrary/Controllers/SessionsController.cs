@@ -1,16 +1,13 @@
-﻿using Newtonsoft.Json;
-using System;
-using System.Collections.Generic;
-using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Text;
+﻿using davClassLibrary.DataAccess;
+using GraphQL;
 using System.Threading.Tasks;
 
 namespace davClassLibrary.Controllers
 {
     public static class SessionsController
     {
-        public static async Task<ApiResponse<SessionResponse>> CreateSession(
+        public static async Task<GraphQLResponse<CreateSessionResponse>> CreateSession(
+            string queryData,
             string auth,
             string email,
             string password,
@@ -18,168 +15,97 @@ namespace davClassLibrary.Controllers
             string apiKey
         )
         {
-            HttpResponseMessage response;
-            var httpClient = Dav.httpClient;
-            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth);
-
-            var requestBodyDict = new Dictionary<string, object>
+            var createSessionRequest = new GraphQLRequest
             {
-                { "email", email },
-                { "password", password },
-                { "app_id", appId },
-                { "api_key", apiKey }
+                OperationName = "CreateSession",
+                Query = $@"
+                    mutation CreateSession(
+                        $email: String!
+					    $password: String!
+					    $appId: Int!
+					    $apiKey: String!
+                    ) {{
+                        createSession(
+                            email: $email
+						    password: $password
+						    appId: $appId
+						    apiKey: $apiKey
+                        ) {{
+                            {queryData}
+                        }}
+                    }}
+                ",
+                Variables = new
+                {
+                    email,
+                    password,
+                    appId,
+                    apiKey
+                }
             };
 
-            var requestBody = new StringContent(
-                JsonConvert.SerializeObject(requestBodyDict),
-                Encoding.UTF8,
-                "application/json"
-            );
-
-            try
-            {
-                response = await httpClient.PostAsync($"{Dav.ApiBaseUrl}/session", requestBody);
-            }
-            catch (Exception)
-            {
-                return new ApiResponse<SessionResponse> { Success = false, Status = 0 };
-            }
-            
-            string responseData = await response.Content.ReadAsStringAsync();
-
-            var result = new ApiResponse<SessionResponse>
-            {
-                Success = response.IsSuccessStatusCode,
-                Status = (int)response.StatusCode
-            };
-
-            if (response.IsSuccessStatusCode)
-            {
-                try
-                {
-                    var sessionResponseData = JsonConvert.DeserializeObject<SessionResponseData>(responseData);
-                    result.Data = sessionResponseData.ToSessionResponse();
-                }
-                catch (Exception)
-                {
-                    result.Success = false;
-                }
-            }
-            else
-            {
-                try
-                {
-                    var json = JsonConvert.DeserializeObject<ApiErrors>(responseData);
-                    result.Errors = json.Errors;
-                }
-                catch (Exception) { }
-            }
-
-            return result;
+            return await ApiManager.GetGraphQLClient(auth).SendMutationAsync<CreateSessionResponse>(createSessionRequest);
         }
 
-        public static async Task<ApiResponse<SessionResponse>> RenewSession(string accessToken)
+        public static async Task<GraphQLResponse<RenewSessionResponse>> RenewSession(
+            string queryData,
+            string accessToken
+        )
         {
-            HttpResponseMessage response;
-            var httpClient = Dav.httpClient;
-            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Dav.AccessToken);
-
-            try
+            var renewSessionRequest = new GraphQLRequest
             {
-                response = await httpClient.PutAsync($"{Dav.ApiBaseUrl}/session/renew", new StringContent("{}", Encoding.UTF8, "application/json"));
-            }
-            catch (Exception)
-            {
-                return new ApiResponse<SessionResponse> { Success = false, Status = 0 };
-            }
-            
-            string responseData = await response.Content.ReadAsStringAsync();
-
-            var result = new ApiResponse<SessionResponse>
-            {
-                Success = response.IsSuccessStatusCode,
-                Status = (int)response.StatusCode
+                OperationName = "RenewSession",
+                Query = $@"
+                    mutation RenewSession {{
+                        renewSession {{
+                            {queryData}
+                        }}
+                    }}
+                "
             };
 
-            if (response.IsSuccessStatusCode)
-            {
-                try
-                {
-                    var sessionResponseData = JsonConvert.DeserializeObject<SessionResponseData>(responseData);
-                    result.Data = sessionResponseData.ToSessionResponse();
-                }
-                catch (Exception)
-                {
-                    result.Success = false;
-                }
-            }
-            else
-            {
-                try
-                {
-                    var json = JsonConvert.DeserializeObject<ApiErrors>(responseData);
-                    result.Errors = json.Errors;
-                }
-                catch (Exception) { }
-            }
-
-            return result;
+            return await ApiManager.GetGraphQLClient(accessToken).SendMutationAsync<RenewSessionResponse>(renewSessionRequest);
         }
 
-        public static async Task<ApiResponse> DeleteSession(string accessToken)
+        public static async Task<GraphQLResponse<DeleteSessionResponse>> DeleteSession(
+            string queryData,
+            string accessToken
+        )
         {
-            HttpResponseMessage response;
-            var httpClient = Dav.httpClient;
-            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-
-            try
+            var deleteSessionRequest = new GraphQLRequest
             {
-                response = await httpClient.DeleteAsync($"{Dav.ApiBaseUrl}/session");
-            }
-            catch (Exception)
-            {
-                return new ApiResponse { Success = false, Status = 0 };
-            }
-
-            var result = new ApiResponse
-            {
-                Success = response.IsSuccessStatusCode,
-                Status = (int)response.StatusCode
+                OperationName = "DeleteSession",
+                Query = $@"
+                    mutation DeleteSession {{
+                        deleteSession {{
+                            {queryData}
+                        }}
+                    }}
+                "
             };
 
-            if (!response.IsSuccessStatusCode)
-            {
-                try
-                {
-                    string responseData = await response.Content.ReadAsStringAsync();
-                    var json = JsonConvert.DeserializeObject<ApiErrors>(responseData);
-                    result.Errors = json.Errors;
-                }
-                catch (Exception) { }
-            }
-
-            return result;
+            return await ApiManager.GetGraphQLClient(accessToken).SendMutationAsync<DeleteSessionResponse>(deleteSessionRequest);
         }
     }
 
-    public class SessionResponse
+    public class CreateSessionResponse
     {
-        public string AccessToken { get; set; }
-        public string WebsiteAccessToken { get; set; }
+        public SessionResponseData CreateSession { get; set; }
+    }
+
+    public class RenewSessionResponse
+    {
+        public SessionResponseData RenewSession { get; set; }
+    }
+
+    public class DeleteSessionResponse
+    {
+        public SessionResponseData DeleteSession { get; set; }
     }
 
     public class SessionResponseData
     {
-        public string access_token { get; set; }
-        public string website_access_token { get; set; }
-
-        public SessionResponse ToSessionResponse()
-        {
-            return new SessionResponse
-            {
-                AccessToken = access_token,
-                WebsiteAccessToken = website_access_token
-            };
-        }
+        public string accessToken { get; set; }
+        public string websiteAccessToken { get; set; }
     }
 }
