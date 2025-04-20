@@ -38,6 +38,7 @@ namespace davClassLibrary.Models
         public UserResource user { get; set; }
         public TableResource table { get; set; }
         public string etag { get; set; }
+        public string fileUrl { get; set; }
 
         public TableObject ToTableObject()
         {

@@ -17,6 +17,14 @@ namespace davClassLibrary.Controllers
     {
         public static async Task<GraphQLResponse<RetrieveTableObjectResponse>> RetrieveTableObject(
             string queryData,
+            Guid uuid
+        )
+        {
+            return await RetrieveTableObject(queryData, uuid.ToString());
+        }
+
+        public static async Task<GraphQLResponse<RetrieveTableObjectResponse>> RetrieveTableObject(
+            string queryData,
             string uuid
         )
         {

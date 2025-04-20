@@ -297,6 +297,7 @@ namespace davClassLibrary.Models
             // DownloadStatus is NotDownloaded
             // Check if fileDownloads contains this TableObject
             int i = SyncManager.fileDownloads.FindIndex(obj => obj.uuid.Equals(Uuid));
+
             if (i != -1)
             {
                 // Move the item to the beginning of the list
@@ -322,14 +323,31 @@ namespace davClassLibrary.Models
             if (!SyncManager.downloadingFileUuid.Equals(Guid.Empty)) return false;
             SyncManager.SetDownloadingFileUuid(Uuid);
 
+            var retrieveTableObjectResponse = await TableObjectsController.RetrieveTableObject("fileUrl", Uuid);
+            string fileUrl = retrieveTableObjectResponse.Data?.RetrieveTableObject?.fileUrl;
+
+            if (
+                retrieveTableObjectResponse.Errors != null
+                || fileUrl == null
+            )
+            {
+                SyncManager.SetDownloadingFileUuid(Guid.Empty);
+                return false;
+            }
+
             var progress = new Progress<int>((int value) => SyncManager.ReportFileDownloadProgress(Uuid, value));
-            var response = new ApiResponse();
+            bool response = false;
+
             await Task.Run(async () =>
             {
-                response = await TableObjectsController.GetTableObjectFile(Uuid, GetTempFilePath(), progress);
+                response = await ApiManager.DownloadFile(
+                    fileUrl,
+                    GetTempFilePath(),
+                    progress
+                );
             });
 
-            if (response.Success)
+            if (response)
             {
                 try
                 {
@@ -396,8 +414,10 @@ namespace davClassLibrary.Models
 
                 // Save the properties
                 Dictionary<string, string> propertiesDict = new Dictionary<string, string>();
+                
                 foreach (var property in Properties)
                     propertiesDict.Add(property.Name, property.Value);
+
                 await tableObject.SetPropertyValuesAsync(propertiesDict);
             }
 
