@@ -1,6 +1,7 @@
 ﻿using davClassLibrary.DataAccess;
 using davClassLibrary.Models;
 using GraphQL;
+using System;
 using System.Threading.Tasks;
 
 namespace davClassLibrary.Controllers
@@ -39,7 +40,14 @@ namespace davClassLibrary.Controllers
                 }
             };
 
-            return await ApiManager.GetGraphQLClient().SendQueryAsync<RetrieveTableResponse>(retrieveTableRequest);
+            try
+            {
+                return await ApiManager.GetGraphQLClient().SendQueryAsync<RetrieveTableResponse>(retrieveTableRequest);
+            }
+            catch (Exception)
+            {
+                return null;
+            }
         }
     }
 

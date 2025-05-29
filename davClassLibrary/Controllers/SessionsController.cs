@@ -1,5 +1,6 @@
 ﻿using davClassLibrary.DataAccess;
 using GraphQL;
+using System;
 using System.Threading.Tasks;
 
 namespace davClassLibrary.Controllers
@@ -44,7 +45,14 @@ namespace davClassLibrary.Controllers
                 }
             };
 
-            return await ApiManager.GetGraphQLClient(auth).SendMutationAsync<CreateSessionResponse>(createSessionRequest);
+            try
+            {
+                return await ApiManager.GetGraphQLClient(auth).SendMutationAsync<CreateSessionResponse>(createSessionRequest);
+            }
+            catch(Exception)
+            {
+                return null;
+            }
         }
 
         public static async Task<GraphQLResponse<RenewSessionResponse>> RenewSession(
@@ -64,7 +72,14 @@ namespace davClassLibrary.Controllers
                 "
             };
 
-            return await ApiManager.GetGraphQLClient(accessToken).SendMutationAsync<RenewSessionResponse>(renewSessionRequest);
+            try
+            {
+                return await ApiManager.GetGraphQLClient(accessToken).SendMutationAsync<RenewSessionResponse>(renewSessionRequest);
+            }
+            catch (Exception)
+            {
+                return null;
+            }
         }
 
         public static async Task<GraphQLResponse<DeleteSessionResponse>> DeleteSession(
@@ -84,7 +99,14 @@ namespace davClassLibrary.Controllers
                 "
             };
 
-            return await ApiManager.GetGraphQLClient(accessToken).SendMutationAsync<DeleteSessionResponse>(deleteSessionRequest);
+            try
+            {
+                return await ApiManager.GetGraphQLClient(accessToken).SendMutationAsync<DeleteSessionResponse>(deleteSessionRequest);
+            }
+            catch (Exception)
+            {
+                return null;
+            }
         }
     }
 

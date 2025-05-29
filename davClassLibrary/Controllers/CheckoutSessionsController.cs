@@ -1,6 +1,7 @@
 ﻿using davClassLibrary.DataAccess;
 using davClassLibrary.Models;
 using GraphQL;
+using System;
 using System.Threading.Tasks;
 
 namespace davClassLibrary.Controllers
@@ -40,7 +41,14 @@ namespace davClassLibrary.Controllers
                 }
             };
 
-            return await ApiManager.GetGraphQLClient().SendMutationAsync<CreateSubscriptionCheckoutSessionResponse>(createSubscriptionCheckoutSessionRequest);
+            try
+            {
+                return await ApiManager.GetGraphQLClient().SendMutationAsync<CreateSubscriptionCheckoutSessionResponse>(createSubscriptionCheckoutSessionRequest);
+            }
+            catch (Exception)
+            {
+                return null;
+            }
         }
     }
 }
