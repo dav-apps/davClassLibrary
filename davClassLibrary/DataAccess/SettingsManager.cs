@@ -12,10 +12,7 @@ namespace davClassLibrary.DataAccess
 
         public static string GetAccessToken()
         {
-            var accessToken = ProjectInterface.LocalDataSettings.GetString(Constants.accessTokenKey);
-            if (!string.IsNullOrEmpty(accessToken)) return accessToken;
-
-            return ProjectInterface.LocalDataSettings.GetString(Constants.jwtKey);
+            return ProjectInterface.LocalDataSettings.GetString(Constants.accessTokenKey);
         }
         #endregion
 
@@ -63,10 +60,7 @@ namespace davClassLibrary.DataAccess
 
         public static string GetFirstName()
         {
-            var firstName = ProjectInterface.LocalDataSettings.GetString(Constants.firstNameKey);
-            if (!string.IsNullOrEmpty(firstName)) return firstName;
-
-            return ProjectInterface.LocalDataSettings.GetString(Constants.usernameKey);
+            return ProjectInterface.LocalDataSettings.GetString(Constants.firstNameKey);
         }
         #endregion
 
