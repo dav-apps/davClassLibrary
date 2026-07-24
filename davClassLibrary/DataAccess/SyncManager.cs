@@ -2,14 +2,12 @@
 using davClassLibrary.Controllers;
 using davClassLibrary.Models;
 using MimeTypes;
-using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
-using Websockets;
 
 namespace davClassLibrary.DataAccess
 {
@@ -25,9 +23,6 @@ namespace davClassLibrary.DataAccess
         internal static Guid currentFileDownloadUuid = Guid.Empty;
         internal static WebClient currentFileDownloadWebClient = null;
         internal static Dictionary<Guid, List<IProgress<(Guid, int)>>> fileDownloadProgressList = new Dictionary<Guid, List<IProgress<(Guid, int)>>>();
-
-        private static IWebSocketConnection websocketConnection;
-        private static bool websocketConnectionEstablished = false;
 
         private static string retrieveTableQueryData = @"
             id
@@ -530,89 +525,6 @@ namespace davClassLibrary.DataAccess
             }
 
             return true;
-        }
-
-        internal static async Task StartWebsocketConnection()
-        {
-            if (
-                !Dav.IsLoggedIn
-                || Dav.Environment == Environment.Test
-            ) return;
-
-            // Create a WebsocketConnection on the server
-            var createWebsocketConnectionResponse = await WebsocketConnectionsController.CreateWebsocketConnection(Dav.AccessToken);
-            if (!createWebsocketConnectionResponse.Success) return;
-
-            string token = createWebsocketConnectionResponse.Data.Token;
-
-            websocketConnection = WebSocketFactory.Create();
-            websocketConnection.OnOpened += WebsocketConnection_OnOpened;
-            websocketConnection.OnMessage += WebsocketConnection_OnMessage;
-
-            websocketConnection.Open($"{Dav.ApiBaseUrl.Replace("http", "ws")}/cable?token={token}");
-        }
-
-        internal static void CloseWebsocketConnection()
-        {
-            if (!websocketConnectionEstablished) return;
-            websocketConnection.Close();
-            websocketConnectionEstablished = false;
-        }
-
-        private static void WebsocketConnection_OnOpened()
-        {
-            websocketConnectionEstablished = true;
-
-            string json = JsonConvert.SerializeObject(new
-            {
-                command = "subscribe",
-                identifier = "{\"channel\": \"" + Constants.tableObjectUpdateChannelName + "\"}"
-            });
-
-            websocketConnection.Send(json);
-        }
-
-        private static async void WebsocketConnection_OnMessage(string message)
-        {
-            dynamic json = JsonConvert.DeserializeObject(message);
-
-            if (json.type == "ping" || json.message == null)
-                return;
-            else if(json.type == "reject_subscription")
-            {
-                CloseWebsocketConnection();
-                return;
-            }
-
-            var uuid = (Guid)json.message.uuid;
-            var change = (int)json.message.change;
-            var accessTokenMd5 = (string)json.message.access_token_md5;
-            if (uuid == null || string.IsNullOrEmpty(accessTokenMd5)) return;
-
-            // Don't notify the app if the session is the current session
-            if (Utils.CreateMD5(Dav.AccessToken) == accessTokenMd5) return;
-
-            if(change == 0 || change == 1)
-            {
-                // Get the table object from the server and update it locally
-                var getTableObjectResponse = await TableObjectsController.GetTableObject(uuid);
-                if (!getTableObjectResponse.Success) return;
-
-                var tableObject = getTableObjectResponse.Data.TableObject;
-
-                await tableObject.SaveWithPropertiesAsync();
-                ProjectInterface.Callbacks.UpdateTableObject(tableObject, false);
-            }
-            else if(change == 2)
-            {
-                var tableObject = await Dav.Database.GetTableObjectAsync(uuid);
-                if (tableObject == null) return;
-
-                ProjectInterface.Callbacks.DeleteTableObject(tableObject.Uuid, tableObject.TableId);
-
-                // Remove the table object from the database
-                await Dav.Database.DeleteTableObjectImmediatelyAsync(uuid);
-            }
         }
 
         internal static void StartFileDownloads()
