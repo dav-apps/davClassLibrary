@@ -92,7 +92,7 @@ namespace davClassLibrary
 
         internal static async Task<List<string>> HandleGraphQLApiErrors(List<string> errorCodes)
         {
-            if (errorCodes.Contains(ErrorCodesNew.SessionExpired))
+            if (errorCodes.Contains(ErrorCodes.SessionExpired))
             {
                 // Renew the session
                 var renewSessionResult = await SessionsController.RenewSession("accessToken", Dav.AccessToken);
@@ -125,7 +125,7 @@ namespace davClassLibrary
                 if (json == null || json.code == null)
                     return new HandleApiErrorResult { Success = false, Errors = null };
 
-                if (json.code == ErrorCodesNew.SessionExpired)
+                if (json.code == ErrorCodes.SessionExpired)
                 {
                     // Renew the session
                     var renewSessionResult = await SessionsController.RenewSession("accessToken", Dav.AccessToken);

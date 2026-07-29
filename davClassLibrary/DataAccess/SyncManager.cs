@@ -455,7 +455,7 @@ namespace davClassLibrary.DataAccess
                             var errors = createResult.Errors;
 
                             // Check if the table object already exists
-                            if (createResult.Errors.Contains(ErrorCodesNew.UuidAlreadyInUse))
+                            if (createResult.Errors.Contains(ErrorCodes.UuidAlreadyInUse))
                             {
                                 // Set the upload status to UpToDate
                                 tableObject.UploadStatus = TableObjectUploadStatus.UpToDate;
@@ -478,7 +478,7 @@ namespace davClassLibrary.DataAccess
                             var errors = updateResult.Errors;
 
                             // Check if the table object does not exist
-                            if (updateResult.Errors.Contains(ErrorCodesNew.TableObjectDoesNotExist))
+                            if (updateResult.Errors.Contains(ErrorCodes.TableObjectDoesNotExist))
                             {
                                 // Delete the table object
                                 await tableObject.DeleteImmediatelyAsync();
@@ -494,8 +494,8 @@ namespace davClassLibrary.DataAccess
                             await tableObject.DeleteImmediatelyAsync();
                         }
                         else if (
-                            deleteResult.Errors.Contains(ErrorCodesNew.ActionNotAllowed)
-                            || deleteResult.Errors.Contains(ErrorCodesNew.TableObjectDoesNotExist)
+                            deleteResult.Errors.Contains(ErrorCodes.ActionNotAllowed)
+                            || deleteResult.Errors.Contains(ErrorCodes.TableObjectDoesNotExist)
                         )
                         {
                             // Delete the table object
@@ -583,7 +583,7 @@ namespace davClassLibrary.DataAccess
                 if (
                     !createTableObjectResponse.Success
                     && createTableObjectResponse.Errors != null
-                    && !createTableObjectResponse.Errors.Contains(ErrorCodesNew.UuidAlreadyInUse)
+                    && !createTableObjectResponse.Errors.Contains(ErrorCodes.UuidAlreadyInUse)
                 )
                 {
                     return new GraphQLApiResponse<TableObject>
