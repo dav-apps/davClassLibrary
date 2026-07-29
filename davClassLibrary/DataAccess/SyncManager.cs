@@ -63,9 +63,9 @@ namespace davClassLibrary.DataAccess
             // Delete the session on the server
             await SessionsController.DeleteSession("accessToken", accessToken);
 
-                // Remove the session
-                SettingsManager.RemoveSession();
-            }
+            // Remove the session
+            SettingsManager.RemoveSession();
+        }
 
         public static void LoadUser()
         {
@@ -123,8 +123,7 @@ namespace davClassLibrary.DataAccess
                 return false;
             }
 
-            var userResponseData = retrieveUserResponse.Data.RetrieveUser;
-
+            var userResponseData = retrieveUserResponse.Data;
             var plan = Plan.Free;
 
             if (userResponseData.plan == "PLUS")
@@ -207,7 +206,7 @@ namespace davClassLibrary.DataAccess
                 getTableResultsOkay[tableName] = retrieveTableSuccess;
                 if (!retrieveTableSuccess) continue;
 
-                var table = retrieveTableResponse.Data.RetrieveTable;
+                var table = retrieveTableResponse.Data;
                 tableIds[tableName] = table.id;
 
                 // Check if the table has any changes
@@ -269,12 +268,12 @@ namespace davClassLibrary.DataAccess
                             // Get the updated table object from the server
                             var retrieveTableObjectResponse = await TableObjectsController.RetrieveTableObject(
                                 retrieveTableObjectQueryData,
-                                currentTableObject.Uuid.ToString()
+                                currentTableObject.Uuid
                             );
 
                             if (retrieveTableObjectResponse.Errors != null) continue;
 
-                            var tableObject = retrieveTableObjectResponse.Data.RetrieveTableObject.ToTableObject();
+                            var tableObject = retrieveTableObjectResponse.Data.ToTableObject();
                             tableObject.UploadStatus = TableObjectUploadStatus.UpToDate;
 
                             // Is it a file?
@@ -308,7 +307,7 @@ namespace davClassLibrary.DataAccess
                         // Get the table object
                         var retrieveTableObjectResponse = await TableObjectsController.RetrieveTableObject(
                             retrieveTableObjectQueryData,
-                            obj.uuid.ToString()
+                            obj.uuid
                         );
 
                         if (retrieveTableObjectResponse.Errors != null)
@@ -317,7 +316,7 @@ namespace davClassLibrary.DataAccess
                             continue;
                         }
 
-                        var tableObject = retrieveTableObjectResponse.Data.RetrieveTableObject.ToTableObject();
+                        var tableObject = retrieveTableObjectResponse.Data.ToTableObject();
                         tableObject.UploadStatus = TableObjectUploadStatus.UpToDate;
 
                         // Is it a file?
@@ -372,7 +371,7 @@ namespace davClassLibrary.DataAccess
                     continue;
                 }
 
-                tableResults[tableName] = retrieveTableResult.Data.RetrieveTable;
+                tableResults[tableName] = retrieveTableResult.Data;
             }
 
             // RemovedTableObjects now includes all table objects that were deleted on the server but not locally
@@ -400,7 +399,7 @@ namespace davClassLibrary.DataAccess
             syncCompleted = true;
 
             // Check if the sync was successful for all tables
-            foreach(var value in getTableResultsOkay.Values)
+            foreach (var value in getTableResultsOkay.Values)
                 if (!value) return false;
 
             return true;
@@ -456,8 +455,7 @@ namespace davClassLibrary.DataAccess
                             var errors = createResult.Errors;
 
                             // Check if the table object already exists
-                            int i = errors.ToList().FindIndex(error => error.Code == ErrorCodes.UuidAlreadyInUse);
-                            if(i != -1)
+                            if (createResult.Errors.Contains(ErrorCodesNew.UuidAlreadyInUse))
                             {
                                 // Set the upload status to UpToDate
                                 tableObject.UploadStatus = TableObjectUploadStatus.UpToDate;
@@ -480,8 +478,7 @@ namespace davClassLibrary.DataAccess
                             var errors = updateResult.Errors;
 
                             // Check if the table object does not exist
-                            int i = errors.ToList().FindIndex(error => error.Code == ErrorCodes.TableObjectDoesNotExist);
-                            if(i != -1)
+                            if (updateResult.Errors.Contains(ErrorCodesNew.TableObjectDoesNotExist))
                             {
                                 // Delete the table object
                                 await tableObject.DeleteImmediatelyAsync();
@@ -496,22 +493,15 @@ namespace davClassLibrary.DataAccess
                             // Delete the table object
                             await tableObject.DeleteImmediatelyAsync();
                         }
-                        else if (deleteResult.Errors != null)
+                        else if (
+                            deleteResult.Errors.Contains(ErrorCodesNew.ActionNotAllowed)
+                            || deleteResult.Errors.Contains(ErrorCodesNew.TableObjectDoesNotExist)
+                        )
                         {
-                            var errors = deleteResult.Errors;
-
-                            int i = errors.ToList().FindIndex(
-                                error =>
-                                    error.Code == ErrorCodes.TableObjectDoesNotExist
-                                    || error.Code == ErrorCodes.ActionNotAllowed
-                            );
-
-                            if (i != -1)
-                            {
-                                // Delete the table object
-                                await tableObject.DeleteImmediatelyAsync();
-                            }
+                            // Delete the table object
+                            await tableObject.DeleteImmediatelyAsync();
                         }
+
                         break;
                 }
             }
@@ -573,41 +563,37 @@ namespace davClassLibrary.DataAccess
             ProjectInterface.Callbacks.TableObjectDownloadProgress(uuid, value);
         }
 
-        private static async Task<ApiResponse<TableObject>> CreateTableObjectOnServer(TableObject tableObject)
+        private static async Task<GraphQLApiResponse<TableObject>> CreateTableObjectOnServer(TableObject tableObject)
         {
-            if (!Dav.IsLoggedIn) return new ApiResponse<TableObject> { Success = false };
+            if (!Dav.IsLoggedIn) return new GraphQLApiResponse<TableObject> { Success = false };
 
             if (tableObject.IsFile)
             {
                 // Create the table object
                 var createTableObjectResponse = await TableObjectsController.CreateTableObject(
+                    "uuid",
                     tableObject.Uuid,
                     tableObject.TableId,
                     true,
-                    new Dictionary<string, string> { { Constants.extPropertyName, tableObject.GetPropertyValue(Constants.extPropertyName) } }
+                    tableObject.GetPropertyValue(Constants.extPropertyName),
+                    null
                 );
 
-                if(!createTableObjectResponse.Success)
+                // Check if the table object already exists
+                if (
+                    !createTableObjectResponse.Success
+                    && createTableObjectResponse.Errors != null
+                    && !createTableObjectResponse.Errors.Contains(ErrorCodesNew.UuidAlreadyInUse)
+                )
                 {
-                    if (createTableObjectResponse.Errors == null)
-                        return new ApiResponse<TableObject> { Success = false };
-
-                    // Check if the table object already exists
-                    var errorResponse = createTableObjectResponse.Errors;
-                    int i = errorResponse.ToList().FindIndex(error => error.Code == ErrorCodes.UuidAlreadyInUse);
-
-                    if (i == -1)
+                    return new GraphQLApiResponse<TableObject>
                     {
-                        return new ApiResponse<TableObject>
-                        {
-                            Success = false,
-                            Status = createTableObjectResponse.Status,
-                            Errors = createTableObjectResponse.Errors
-                        };
-                    }
+                        Success = false,
+                        Errors = createTableObjectResponse.Errors
+                    };
                 }
 
-                if(tableObject.File != null && tableObject.File.Exists)
+                if (tableObject.File != null && tableObject.File.Exists)
                 {
                     // Upload the file
                     string mimeType = "audio/mpeg";
@@ -617,24 +603,23 @@ namespace davClassLibrary.DataAccess
                         mimeType = MimeTypeMap.GetMimeType(tableObject.GetPropertyValue(Constants.extPropertyName));
                     } catch(Exception) { }
 
-                    var setTableObjectFileResponse = await TableObjectsController.SetTableObjectFile(
+                    var uploadTableObjectFileResponse = await TableObjectsController.UploadTableObjectFile(
                         tableObject.Uuid,
-                        tableObject.File.FullName,
-                        mimeType
+                        mimeType,
+                        tableObject.File.FullName
                     );
 
-                    if (setTableObjectFileResponse.Success)
+                    if (uploadTableObjectFileResponse.Success)
                     {
                         // Save the new table etag
-                        SettingsManager.SetTableEtag(tableObject.TableId, setTableObjectFileResponse.Data.TableEtag);
+                        SettingsManager.SetTableEtag(tableObject.TableId, uploadTableObjectFileResponse.Data.table.etag);
                     }
 
-                    return new ApiResponse<TableObject>
+                    return new GraphQLApiResponse<TableObject>
                     {
-                        Success = setTableObjectFileResponse.Success,
-                        Status = setTableObjectFileResponse.Status,
-                        Errors = setTableObjectFileResponse.Errors,
-                        Data = setTableObjectFileResponse.Data?.TableObject
+                        Success = uploadTableObjectFileResponse.Success,
+                        Errors = uploadTableObjectFileResponse.Error?.Code != null ? new List<string> { uploadTableObjectFileResponse.Error.Code } : null,
+                        Data = new TableObject { Etag = uploadTableObjectFileResponse.Data.etag }
                     };
                 }
             }
@@ -642,128 +627,159 @@ namespace davClassLibrary.DataAccess
             {
                 // Create the table object
                 var createTableObjectResponse = await TableObjectsController.CreateTableObject(
+                    $@"
+                        etag
+                        table {{
+                            etag
+                        }}
+                    ",
                     tableObject.Uuid,
                     tableObject.TableId,
                     false,
+                    null,
                     Utils.ConvertPropertiesListToDictionary(tableObject.Properties)
                 );
 
-                if (createTableObjectResponse.Success)
+                if (createTableObjectResponse.Errors == null)
                 {
                     // Save the new table etag
-                    SettingsManager.SetTableEtag(tableObject.TableId, createTableObjectResponse.Data.TableEtag);
+                    SettingsManager.SetTableEtag(tableObject.TableId, createTableObjectResponse.Data?.table.etag);
                 }
 
-                return new ApiResponse<TableObject>
+                return new GraphQLApiResponse<TableObject>
                 {
                     Success = createTableObjectResponse.Success,
-                    Status = createTableObjectResponse.Status,
                     Errors = createTableObjectResponse.Errors,
-                    Data = createTableObjectResponse.Data?.TableObject
+                    Data = createTableObjectResponse.Data?.ToTableObject()
                 };
             }
 
-            return new ApiResponse<TableObject> { Success = false };
+            return new GraphQLApiResponse<TableObject> { Success = false };
         }
 
-        private static async Task<ApiResponse<TableObject>> UpdateTableObjectOnServer(TableObject tableObject)
+        private static async Task<GraphQLApiResponse<TableObject>> UpdateTableObjectOnServer(TableObject tableObject)
         {
-            if (!Dav.IsLoggedIn) return new ApiResponse<TableObject> { Success = false };
+            if (!Dav.IsLoggedIn) return new GraphQLApiResponse<TableObject> { Success = false };
 
             if (tableObject.IsFile && tableObject.File != null)
             {
                 // Upload the file
                 string mimeType = "audio/mpeg";
+
                 try
                 {
                     mimeType = MimeTypeMap.GetMimeType(tableObject.GetPropertyValue(Constants.extPropertyName));
                 } catch (Exception) { }
 
-                var setTableObjectFileResponse = await TableObjectsController.SetTableObjectFile(
+                var uploadTableObjectFileResponse = await TableObjectsController.UploadTableObjectFile(
                     tableObject.Uuid,
                     tableObject.File.FullName,
                     mimeType
                 );
 
-                if (!setTableObjectFileResponse.Success)
+                if (!uploadTableObjectFileResponse.Success)
                 {
-                    return new ApiResponse<TableObject>
-                    {
-                        Success = false,
-                        Status = setTableObjectFileResponse.Status,
-                        Errors = setTableObjectFileResponse.Errors
-                    };
+                    var result = new GraphQLApiResponse<TableObject> { Success = false };
+
+                    if (uploadTableObjectFileResponse.Error.Code != null)
+                        result.Errors = new List<string> { uploadTableObjectFileResponse.Error.Code };
+
+                    return result;
                 }
-                
+
                 // Check if the ext has changed
-                var tableObjectResponseData = setTableObjectFileResponse.Data;
-                string tableObjectResponseDataExt = tableObjectResponseData.TableObject.GetPropertyValue(Constants.extPropertyName);
+                var tableObjectResponseData = uploadTableObjectFileResponse.Data;
+                var properties = tableObjectResponseData.properties.ToList();
+                var i = properties.FindIndex(p => p.Key == Constants.extPropertyName);
+                string tableObjectResponseDataExt = i != -1 ? (string)properties[i].Value : null;
                 string tableObjectExt = tableObject.GetPropertyValue(Constants.extPropertyName);
 
                 // Save the new table etag
-                SettingsManager.SetTableEtag(tableObject.TableId, setTableObjectFileResponse.Data.TableEtag);
+                SettingsManager.SetTableEtag(tableObject.TableId, uploadTableObjectFileResponse.Data.table.etag);
 
                 if (tableObjectResponseDataExt != tableObjectExt)
                 {
                     // Update the table object with the new ext
                     var updateTableObjectResponse = await TableObjectsController.UpdateTableObject(
+                        $@"
+                            etag
+                            table {{
+                                etag
+                            }}
+                        ",
                         tableObject.Uuid,
-                        new Dictionary<string, string> { { Constants.extPropertyName, tableObjectExt } }
+                        tableObjectExt,
+                        null
                     );
 
                     if (updateTableObjectResponse.Success)
                     {
                         // Save the new table etag
-                        SettingsManager.SetTableEtag(tableObject.TableId, updateTableObjectResponse.Data.TableEtag);
+                        SettingsManager.SetTableEtag(tableObject.TableId, updateTableObjectResponse.Data.table.etag);
                     }
 
-                    return new ApiResponse<TableObject>
+                    return new GraphQLApiResponse<TableObject>
                     {
                         Success = updateTableObjectResponse.Success,
-                        Status = updateTableObjectResponse.Status,
                         Errors = updateTableObjectResponse.Errors,
-                        Data = updateTableObjectResponse.Data?.TableObject
+                        Data = updateTableObjectResponse.Data?.ToTableObject()
                     };
                 }
 
-                return new ApiResponse<TableObject>
+                return new GraphQLApiResponse<TableObject>
                 {
-                    Success = setTableObjectFileResponse.Success,
-                    Status = setTableObjectFileResponse.Status,
-                    Errors = setTableObjectFileResponse.Errors,
-                    Data = setTableObjectFileResponse.Data?.TableObject
+                    Success = uploadTableObjectFileResponse.Success,
+                    Errors = uploadTableObjectFileResponse.Error?.Code != null ? new List<string> { uploadTableObjectFileResponse.Error.Code } : null,
+                    Data = new TableObject { Etag = uploadTableObjectFileResponse.Data.etag }
                 };
             }
-            else if(!tableObject.IsFile)
+            else if (!tableObject.IsFile)
             {
                 // Update the table object
                 var updateTableObjectResponse = await TableObjectsController.UpdateTableObject(
+                    $@"
+                        etag
+                        table {{
+                            etag
+                        }}
+                    ",
                     tableObject.Uuid,
+                    null,
                     Utils.ConvertPropertiesListToDictionary(tableObject.Properties)
                 );
 
-                if (updateTableObjectResponse.Success)
+                if (updateTableObjectResponse.Errors == null)
                 {
                     // Save the new table etag
-                    SettingsManager.SetTableEtag(tableObject.TableId, updateTableObjectResponse.Data.TableEtag);
+                    SettingsManager.SetTableEtag(tableObject.TableId, updateTableObjectResponse.Data.table.etag);
                 }
 
-                return new ApiResponse<TableObject>
+                return new GraphQLApiResponse<TableObject>
                 {
                     Success = updateTableObjectResponse.Success,
-                    Status = updateTableObjectResponse.Status,
                     Errors = updateTableObjectResponse.Errors,
-                    Data = updateTableObjectResponse.Data?.TableObject
+                    Data = updateTableObjectResponse.Data?.ToTableObject()
                 };
             }
 
-            return new ApiResponse<TableObject> { Success = false };
+            return new GraphQLApiResponse<TableObject> { Success = false };
         }
 
-        private static async Task<ApiResponse> DeleteTableObjectOnServer(TableObject tableObject)
+        private static async Task<GraphQLApiResponse> DeleteTableObjectOnServer(TableObject tableObject)
         {
-            if (!Dav.IsLoggedIn) return new ApiResponse { Success = false };
-            return await TableObjectsController.DeleteTableObject(tableObject.Uuid);
+            if (!Dav.IsLoggedIn) return new GraphQLApiResponse { Success = false };
+            var deleteTableObjectResponse = await TableObjectsController.DeleteTableObject("uuid", tableObject.Uuid);
+
+            if (deleteTableObjectResponse.Errors == null)
+                return new GraphQLApiResponse { Success = true };
+            else
+            {
+                return new GraphQLApiResponse
+                {
+                    Success = false,
+                    Errors = deleteTableObjectResponse.Errors
+                };
+            }
         }
 
         internal static void SetDownloadingFileUuid(Guid uuid)

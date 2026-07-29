@@ -324,7 +324,7 @@ namespace davClassLibrary.Models
             SyncManager.SetDownloadingFileUuid(Uuid);
 
             var retrieveTableObjectResponse = await TableObjectsController.RetrieveTableObject("fileUrl", Uuid);
-            string fileUrl = retrieveTableObjectResponse.Data?.RetrieveTableObject?.fileUrl;
+            string fileUrl = retrieveTableObjectResponse.Data?.fileUrl;
 
             if (
                 retrieveTableObjectResponse.Errors != null
@@ -461,6 +461,20 @@ namespace davClassLibrary.Models
             return tableObjectData;
         }
         #endregion
+    }
+
+    public class UploadTableObjectFileTableData
+    {
+        public string name { get; set; }
+        public string etag { get; set; }
+    }
+
+    public class UploadTableObjectFileData
+    {
+        public Guid uuid { get; set; }
+        public UploadTableObjectFileTableData table { get; set; }
+        public string etag { get; set; }
+        public Dictionary<string, object> properties { get; set; }
     }
 
     public class TableObjectData

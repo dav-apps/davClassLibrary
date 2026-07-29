@@ -1,6 +1,7 @@
 ﻿using davClassLibrary.Controllers;
 using davClassLibrary.DataAccess;
 using davClassLibrary.Models;
+using GraphQL;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -65,35 +66,88 @@ namespace davClassLibrary
             return dictionary;
         }
 
+        public static List<string> GetErrorCodesOfGraphQLError(GraphQLError[] errors)
+        {
+            List<string> errorCodes = new List<string>();
+
+            foreach (var error in errors)
+            {
+                object code = null;
+                error.Extensions?.TryGetValue("code", out code);
+
+                if (code.Equals("VALIDATION_FAILED"))
+                {
+                    object validationErrors = null;
+                    error.Extensions?.TryGetValue("errors", out validationErrors);
+                    List<string> validationErrorsList = (List<string>)validationErrors;
+                }
+                else if (code != null)
+                {
+                    errorCodes.Add((string)code);
+                }
+            }
+
+            return errorCodes;
+        }
+
+        internal static async Task<List<string>> HandleGraphQLApiErrors(List<string> errorCodes)
+        {
+            if (errorCodes.Contains(ErrorCodesNew.SessionExpired))
+            {
+                // Renew the session
+                var renewSessionResult = await SessionsController.RenewSession("accessToken", Dav.AccessToken);
+
+                if (renewSessionResult.Errors == null)
+                {
+                    // Update the access token and save it in the local settings
+                    Dav.AccessToken = renewSessionResult.Data.accessToken;
+                    SettingsManager.SetAccessToken(Dav.AccessToken);
+                    return null;
+                }
+                else
+                {
+                    return renewSessionResult.Errors;
+                }
+
+            }
+            else
+            {
+                return errorCodes;
+            }
+        }
+
         internal static async Task<HandleApiErrorResult> HandleApiError(string responseData)
         {
             try
             {
-                var json = JsonConvert.DeserializeObject<ApiErrors>(responseData);
+                var json = JsonConvert.DeserializeObject<ApiErrorRaw>(responseData);
 
-                if (json == null || json.Errors == null)
+                if (json == null || json.code == null)
                     return new HandleApiErrorResult { Success = false, Errors = null };
 
-                if (json.Errors.Length > 0 && json.Errors[0].Code == ErrorCodes.AccessTokenMustBeRenewed)
+                if (json.code == ErrorCodesNew.SessionExpired)
                 {
                     // Renew the session
-                    var renewSessionResult = await SessionsController.RenewSession(Dav.AccessToken);
+                    var renewSessionResult = await SessionsController.RenewSession("accessToken", Dav.AccessToken);
 
-                    if (renewSessionResult.Success)
+                    if (renewSessionResult.Errors == null)
                     {
                         // Update the access token and save it in the local settings
-                        Dav.AccessToken = renewSessionResult.Data.AccessToken;
+                        Dav.AccessToken = renewSessionResult.Data.accessToken;
                         SettingsManager.SetAccessToken(Dav.AccessToken);
 
                         return new HandleApiErrorResult { Success = true, Errors = null };
                     }
                     else
                     {
-                        return new HandleApiErrorResult { Success = false, Errors = renewSessionResult.Errors };
+                        return new HandleApiErrorResult {
+                            Success = false,
+                            Errors = renewSessionResult.Errors
+                        };
                     }
                 }
 
-                return new HandleApiErrorResult { Success = false, Errors = json.Errors };
+                return new HandleApiErrorResult { Success = false, Errors = new List<string> { json.code } };
             }
             catch (Exception)
             {

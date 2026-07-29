@@ -38,7 +38,7 @@ namespace davClassLibrary.DataAccess
             if (graphQLClients.TryGetValue(authorization, out var graphQLClient))
                 return graphQLClient;
 
-            graphQLClient = new GraphQLHttpClient(Dav.NewApiBaseUrl, new NewtonsoftJsonSerializer());
+            graphQLClient = new GraphQLHttpClient(Dav.ApiBaseUrl, new NewtonsoftJsonSerializer());
             graphQLClient.HttpClient.DefaultRequestHeaders.Add("Authorization", authorization);
 
             return graphQLClient;

@@ -28,12 +28,9 @@ namespace davClassLibrary
         public static string DataPath { get; internal set; }
 
         public static string AccessToken { get; set; }
-        private const string ApiBaseUrlProduction = "https://dav-backend-tfpik.ondigitalocean.app/v1";
-        private const string ApiBaseUrlDevelopment = "http://localhost:3111/v1";
-        private const string NewApiBaseUrlProduction = "https://dav-api-ax6gp.ondigitalocean.app";
-        private const string NewApiBaseUrlDevelopment = "http://localhost:4000";
+        private const string ApiBaseUrlProduction = "https://dav-api-ax6gp.ondigitalocean.app";
+        private const string ApiBaseUrlDevelopment = "https://dav-api-staging-kb5tf.ondigitalocean.app";
         public static string ApiBaseUrl => Environment == Environment.Production ? ApiBaseUrlProduction : ApiBaseUrlDevelopment;
-        public static string NewApiBaseUrl => Environment == Environment.Production ? NewApiBaseUrlProduction : NewApiBaseUrlDevelopment;
 
         private static bool isSyncing = false;
 
@@ -104,7 +101,6 @@ namespace davClassLibrary
                 return;
             }
 
-            await SyncManager.StartWebsocketConnection();
             SyncManager.StartFileDownloads();
 
             ProjectInterface.Callbacks.SyncFinished();
@@ -127,9 +123,6 @@ namespace davClassLibrary
         {
             AccessToken = null;
             IsLoggedIn = false;
-
-            // Close the websocket connection
-            SyncManager.CloseWebsocketConnection();
 
             // Remove the user
             SettingsManager.RemoveUser();

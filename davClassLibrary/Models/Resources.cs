@@ -60,6 +60,6 @@ namespace davClassLibrary.Models
 
     public class CheckoutSessionResource
     {
-        public Guid uuid { get; set; }
+        public string url { get; set; }
     }
 }

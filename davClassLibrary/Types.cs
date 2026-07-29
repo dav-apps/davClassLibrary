@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 
 namespace davClassLibrary
 {
@@ -38,48 +39,43 @@ namespace davClassLibrary
         Downloaded = 3
     }
 
-    public class HttpResponse
-    {
-        public int Status { get; set; }
-        public string Data { get; set; }
-
-        public HttpResponse(int status, string data)
-        {
-            Status = status;
-            Data = data;
-        }
-    }
-
     public class ApiResponse<T>
     {
         public bool Success { get; set; }
         public int Status { get; set; }
         public T Data { get; set; }
-        public ApiError[] Errors { get; set; }
+        public ApiResponseError Error { get; set; }
     }
 
-    public class ApiResponse
+    public class ApiResponseError
     {
-        public bool Success { get; set; }
-        public int Status { get; set; }
-        public ApiError[] Errors { get; set; }
-    }
-
-    public class ApiError
-    {
-        public int Code { get; set; }
+        public string Code { get; set; }
         public string Message { get; set; }
     }
 
-    public class ApiErrors
+    public class GraphQLApiResponse<T>
     {
-        public ApiError[] Errors { get; set; }
+        public bool Success { get; set; }
+        public T Data { get; set; }
+        public List<string> Errors { get; set; }
+    }
+
+    public class GraphQLApiResponse
+    {
+        public bool Success { get; set; }
+        public List<string> Errors { get; set; }
+    }
+
+    public class ApiErrorRaw
+    {
+        public string code { get; set; }
+        public string message { get; set; }
     }
 
     internal class HandleApiErrorResult
     {
         public bool Success { get; set; }
-        public ApiError[] Errors { get; set; }
+        public List<string> Errors { get; set; }
     }
 
     internal class TableObjectDownload
