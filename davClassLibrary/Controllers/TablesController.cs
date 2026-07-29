@@ -2,13 +2,14 @@
 using davClassLibrary.Models;
 using GraphQL;
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace davClassLibrary.Controllers
 {
     public static class TablesController
     {
-        public static async Task<GraphQLResponse<RetrieveTableResponse>> RetrieveTable(
+        public static async Task<GraphQLApiResponse<TableResource>> RetrieveTable(
             string queryData,
             string name,
             int limit = 100,
@@ -42,11 +43,38 @@ namespace davClassLibrary.Controllers
 
             try
             {
-                return await ApiManager.GetGraphQLClient().SendQueryAsync<RetrieveTableResponse>(retrieveTableRequest);
+                var response = await ApiManager
+                    .GetGraphQLClient()
+                    .SendQueryAsync<RetrieveTableResponse>(
+                        retrieveTableRequest
+                    );
+
+                if (response.Errors != null && response.Errors.Any())
+                {
+                    var errorCodes = Utils.GetErrorCodesOfGraphQLError(response.Errors);
+                    var renewSessionErrors = await Utils.HandleGraphQLApiErrors(errorCodes);
+
+                    if (renewSessionErrors != null)
+                    {
+                        return new GraphQLApiResponse<TableResource>
+                        {
+                            Success = false,
+                            Errors = renewSessionErrors
+                        };
+                    }
+
+                    return await RetrieveTable(queryData, name, limit, offset);
+                }
+
+                return new GraphQLApiResponse<TableResource>
+                {
+                    Success = true,
+                    Data = response.Data.RetrieveTable
+                };
             }
             catch (Exception)
             {
-                return null;
+                return new GraphQLApiResponse<TableResource> { Success = false };
             }
         }
     }

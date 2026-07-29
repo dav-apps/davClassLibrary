@@ -2,15 +2,16 @@
 using davClassLibrary.Models;
 using GraphQL;
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace davClassLibrary.Controllers
 {
     public static class CheckoutSessionsController
     {
-        public static async Task<GraphQLResponse<CreateSubscriptionCheckoutSessionResponse>> CreateSubscriptionCheckoutSession(
+        public static async Task<GraphQLApiResponse<CheckoutSessionResource>> CreateSubscriptionCheckoutSession(
             string queryData,
-            int plan,
+            Plan plan,
             string successUrl,
             string cancelUrl
         )
@@ -43,11 +44,43 @@ namespace davClassLibrary.Controllers
 
             try
             {
-                return await ApiManager.GetGraphQLClient().SendMutationAsync<CreateSubscriptionCheckoutSessionResponse>(createSubscriptionCheckoutSessionRequest);
+                var response = await ApiManager
+                    .GetGraphQLClient()
+                    .SendMutationAsync<CreateSubscriptionCheckoutSessionResponse>(
+                        createSubscriptionCheckoutSessionRequest
+                    );
+
+                if (response.Errors != null && response.Errors.Any())
+                {
+                    var errorCodes = Utils.GetErrorCodesOfGraphQLError(response.Errors);
+                    var renewSessionErrors = await Utils.HandleGraphQLApiErrors(errorCodes);
+
+                    if (renewSessionErrors != null)
+                    {
+                        return new GraphQLApiResponse<CheckoutSessionResource>
+                        {
+                            Success = false,
+                            Errors = renewSessionErrors
+                        };
+                    }
+
+                    return await CreateSubscriptionCheckoutSession(
+                        queryData,
+                        plan,
+                        successUrl,
+                        cancelUrl
+                    );
+                }
+
+                return new GraphQLApiResponse<CheckoutSessionResource>
+                {
+                    Success = true,
+                    Data = response.Data.CreateSubscriptionCheckoutSession
+                };
             }
             catch (Exception)
             {
-                return null;
+                return new GraphQLApiResponse<CheckoutSessionResource> { Success = false };
             }
         }
     }

@@ -2,13 +2,14 @@
 using davClassLibrary.Models;
 using GraphQL;
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace davClassLibrary.Controllers
 {
     public static class UsersController
     {
-        public static async Task<GraphQLResponse<RetrieveUserResponse>> RetrieveUser(string queryData)
+        public static async Task<GraphQLApiResponse<UserResource>> RetrieveUser(string queryData)
         {
             var retrieveUserRequest = new GraphQLRequest
             {
@@ -24,11 +25,38 @@ namespace davClassLibrary.Controllers
 
             try
             {
-                return await ApiManager.GetGraphQLClient().SendQueryAsync<RetrieveUserResponse>(retrieveUserRequest);
+                var response = await ApiManager
+                    .GetGraphQLClient()
+                    .SendQueryAsync<RetrieveUserResponse>(
+                        retrieveUserRequest
+                    );
+
+                if (response.Errors != null && response.Errors.Any())
+                {
+                    var errorCodes = Utils.GetErrorCodesOfGraphQLError(response.Errors);
+                    var renewSessionErrors = await Utils.HandleGraphQLApiErrors(errorCodes);
+
+                    if (renewSessionErrors != null)
+                    {
+                        return new GraphQLApiResponse<UserResource>
+                        {
+                            Success = false,
+                            Errors = renewSessionErrors
+                        };
+                    }
+
+                    return await RetrieveUser(queryData);
+                }
+
+                return new GraphQLApiResponse<UserResource>
+                {
+                    Success = true,
+                    Data = response.Data.RetrieveUser
+                };
             }
             catch (Exception)
             {
-                return null;
+                return new GraphQLApiResponse<UserResource> { Success = false };
             }
         }
     }

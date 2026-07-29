@@ -1,61 +1,14 @@
 ﻿using davClassLibrary.DataAccess;
 using GraphQL;
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace davClassLibrary.Controllers
 {
     public static class SessionsController
     {
-        public static async Task<GraphQLResponse<CreateSessionResponse>> CreateSession(
-            string queryData,
-            string auth,
-            string email,
-            string password,
-            int appId,
-            string apiKey
-        )
-        {
-            var createSessionRequest = new GraphQLRequest
-            {
-                OperationName = "CreateSession",
-                Query = $@"
-                    mutation CreateSession(
-                        $email: String!
-					    $password: String!
-					    $appId: Int!
-					    $apiKey: String!
-                    ) {{
-                        createSession(
-                            email: $email
-						    password: $password
-						    appId: $appId
-						    apiKey: $apiKey
-                        ) {{
-                            {queryData}
-                        }}
-                    }}
-                ",
-                Variables = new
-                {
-                    email,
-                    password,
-                    appId,
-                    apiKey
-                }
-            };
-
-            try
-            {
-                return await ApiManager.GetGraphQLClient(auth).SendMutationAsync<CreateSessionResponse>(createSessionRequest);
-            }
-            catch(Exception)
-            {
-                return null;
-            }
-        }
-
-        public static async Task<GraphQLResponse<RenewSessionResponse>> RenewSession(
+        public static async Task<GraphQLApiResponse<SessionResponseData>> RenewSession(
             string queryData,
             string accessToken
         )
@@ -74,15 +27,34 @@ namespace davClassLibrary.Controllers
 
             try
             {
-                return await ApiManager.GetGraphQLClient(accessToken).SendMutationAsync<RenewSessionResponse>(renewSessionRequest);
+                var response = await ApiManager
+                    .GetGraphQLClient(accessToken)
+                    .SendMutationAsync<RenewSessionResponse>(
+                        renewSessionRequest
+                    );
+
+                if (response.Errors != null && response.Errors.Any())
+                {
+                    return new GraphQLApiResponse<SessionResponseData>
+                    {
+                        Success = false,
+                        Errors = Utils.GetErrorCodesOfGraphQLError(response.Errors)
+                    };
+                }
+
+                return new GraphQLApiResponse<SessionResponseData>
+                {
+                    Success = true,
+                    Data = response.Data.RenewSession
+                };
             }
             catch (Exception)
             {
-                return null;
+                return new GraphQLApiResponse<SessionResponseData> { Success = false };
             }
         }
 
-        public static async Task<GraphQLResponse<DeleteSessionResponse>> DeleteSession(
+        public static async Task<GraphQLApiResponse<SessionResponseData>> DeleteSession(
             string queryData,
             string accessToken
         )
@@ -101,18 +73,32 @@ namespace davClassLibrary.Controllers
 
             try
             {
-                return await ApiManager.GetGraphQLClient(accessToken).SendMutationAsync<DeleteSessionResponse>(deleteSessionRequest);
+                var response = await ApiManager
+                    .GetGraphQLClient(accessToken)
+                    .SendMutationAsync<DeleteSessionResponse>(
+                        deleteSessionRequest
+                    );
+
+                if (response.Errors != null && response.Errors.Any())
+                {
+                    return new GraphQLApiResponse<SessionResponseData>
+                    {
+                        Success = false,
+                        Errors = Utils.GetErrorCodesOfGraphQLError(response.Errors)
+                    };
+                }
+
+                return new GraphQLApiResponse<SessionResponseData>
+                {
+                    Success = true,
+                    Data = response.Data.DeleteSession
+                };
             }
             catch (Exception)
             {
-                return null;
+                return new GraphQLApiResponse<SessionResponseData> { Success = false };
             }
         }
-    }
-
-    public class CreateSessionResponse
-    {
-        public SessionResponseData CreateSession { get; set; }
     }
 
     public class RenewSessionResponse
