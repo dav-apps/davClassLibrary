@@ -19,7 +19,7 @@ namespace davClassLibrary.Models
         public long usedStorage { get; set; }
         public string stripeCustomerId { get; set; }
         public string plan { get; set; }
-        public int subscriptionStatus { get; set; }
+        public string subscriptionStatus { get; set; }
         public string periodEnd { get; set; }
         public UserProfileImageResource profileImage { get; set; }
     }
@@ -39,13 +39,23 @@ namespace davClassLibrary.Models
         public TableResource table { get; set; }
         public string etag { get; set; }
         public string fileUrl { get; set; }
+        public Dictionary<string, object> properties { get; set; }
 
         public TableObject ToTableObject()
         {
+            List<Property> props = new List<Property>();
+
+            if (properties != null)
+                foreach (var kvp in properties)
+                    props.Add(new Property(kvp.Key, kvp.Value.ToString()));
+
             TableObject tableObject = new TableObject
             {
                 Uuid = uuid,
-                Etag = etag
+                TableId = table.id,
+                Etag = etag,
+                IsFile = fileUrl != null,
+                Properties = props
             };
 
             return tableObject;
