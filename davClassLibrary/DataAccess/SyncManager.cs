@@ -201,10 +201,8 @@ namespace davClassLibrary.DataAccess
                     tableName
                 );
 
-                bool retrieveTableSuccess = retrieveTableResponse.Errors == null;
-
-                getTableResultsOkay[tableName] = retrieveTableSuccess;
-                if (!retrieveTableSuccess) continue;
+                getTableResultsOkay[tableName] = retrieveTableResponse.Success;
+                if (!retrieveTableResponse.Success) continue;
 
                 var table = retrieveTableResponse.Data;
                 tableIds[tableName] = table.id;
@@ -748,7 +746,7 @@ namespace davClassLibrary.DataAccess
                     Utils.ConvertPropertiesListToDictionary(tableObject.Properties)
                 );
 
-                if (updateTableObjectResponse.Errors == null)
+                if (updateTableObjectResponse.Success)
                 {
                     // Save the new table etag
                     SettingsManager.SetTableEtag(tableObject.TableId, updateTableObjectResponse.Data.table.etag);
@@ -770,7 +768,7 @@ namespace davClassLibrary.DataAccess
             if (!Dav.IsLoggedIn) return new GraphQLApiResponse { Success = false };
             var deleteTableObjectResponse = await TableObjectsController.DeleteTableObject("uuid", tableObject.Uuid);
 
-            if (deleteTableObjectResponse.Errors == null)
+            if (deleteTableObjectResponse.Success)
                 return new GraphQLApiResponse { Success = true };
             else
             {
