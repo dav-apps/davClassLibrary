@@ -6,6 +6,7 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -173,7 +174,7 @@ namespace davClassLibrary
                     TableNamePagesCopy[key] = tableNamePages[key];
 
             // Remove all entries in tableIdPages with value = 0
-            foreach (var key in TableNamePagesCopy.Keys)
+            foreach (var key in TableNamePagesCopy.Keys.ToList())
                 if (TableNamePagesCopy[key] == 0)
                     TableNamePagesCopy.Remove(key);
 
