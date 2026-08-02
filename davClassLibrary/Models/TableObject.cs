@@ -326,10 +326,7 @@ namespace davClassLibrary.Models
             var retrieveTableObjectResponse = await TableObjectsController.RetrieveTableObject("fileUrl", Uuid);
             string fileUrl = retrieveTableObjectResponse.Data?.fileUrl;
 
-            if (
-                retrieveTableObjectResponse.Errors != null
-                || fileUrl == null
-            )
+            if (!retrieveTableObjectResponse.Success|| fileUrl == null)
             {
                 SyncManager.SetDownloadingFileUuid(Guid.Empty);
                 return false;

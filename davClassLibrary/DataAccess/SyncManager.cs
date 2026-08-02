@@ -269,7 +269,7 @@ namespace davClassLibrary.DataAccess
                                 currentTableObject.Uuid
                             );
 
-                            if (retrieveTableObjectResponse.Errors != null) continue;
+                            if (!retrieveTableObjectResponse.Success) continue;
 
                             var tableObject = retrieveTableObjectResponse.Data.ToTableObject();
                             tableObject.UploadStatus = TableObjectUploadStatus.UpToDate;
@@ -308,7 +308,7 @@ namespace davClassLibrary.DataAccess
                             obj.uuid
                         );
 
-                        if (retrieveTableObjectResponse.Errors != null)
+                        if (!retrieveTableObjectResponse.Success)
                         {
                             saveEtag = false;
                             continue;
@@ -363,7 +363,7 @@ namespace davClassLibrary.DataAccess
                     (currentTablePages[tableName] - 1) * (int)tableObjectsLimit
                 );
 
-                if (retrieveTableResult.Errors != null)
+                if (!retrieveTableResult.Success)
                 {
                     getTableResultsOkay[tableName] = false;
                     continue;
