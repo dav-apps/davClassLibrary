@@ -39,6 +39,7 @@ namespace davClassLibrary.DataAccess
                 return graphQLClient;
 
             graphQLClient = new GraphQLHttpClient(Dav.ApiBaseUrl, new NewtonsoftJsonSerializer());
+            graphQLClient.HttpClient.Timeout = TimeSpan.FromMinutes(60);
             graphQLClient.HttpClient.DefaultRequestHeaders.Add("Authorization", authorization);
 
             return graphQLClient;

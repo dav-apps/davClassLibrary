@@ -117,7 +117,7 @@ namespace davClassLibrary.DataAccess
 			    }}
             ");
 
-            if (retrieveUserResponse.Errors != null)
+            if (!retrieveUserResponse.Success)
             {
                 Dav.Logout();
                 return false;
@@ -436,14 +436,7 @@ namespace davClassLibrary.DataAccess
 
                         if (createResult.Success)
                         {
-                            if (tableObject.Properties.Count > Constants.maxPropertiesUploadCount)
-                            {
-                                tableObject.UploadStatus = TableObjectUploadStatus.Updated;
-                                syncAgain = true;
-                            }
-                            else
-                                tableObject.UploadStatus = TableObjectUploadStatus.UpToDate;
-
+                            tableObject.UploadStatus = TableObjectUploadStatus.UpToDate;
                             tableObject.Etag = createResult.Data.Etag;
                             await tableObject.SaveAsync();
                         }
@@ -617,7 +610,7 @@ namespace davClassLibrary.DataAccess
                     {
                         Success = uploadTableObjectFileResponse.Success,
                         Errors = uploadTableObjectFileResponse.Error?.Code != null ? new List<string> { uploadTableObjectFileResponse.Error.Code } : null,
-                        Data = new TableObject { Etag = uploadTableObjectFileResponse.Data.etag }
+                        Data = uploadTableObjectFileResponse.Data != null ? new TableObject { Etag = uploadTableObjectFileResponse.Data.etag } : null
                     };
                 }
             }
@@ -638,7 +631,7 @@ namespace davClassLibrary.DataAccess
                     Utils.ConvertPropertiesListToDictionary(tableObject.Properties)
                 );
 
-                if (createTableObjectResponse.Errors == null)
+                if (createTableObjectResponse.Success)
                 {
                     // Save the new table etag
                     SettingsManager.SetTableEtag(tableObject.TableId, createTableObjectResponse.Data?.table.etag);
