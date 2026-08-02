@@ -98,7 +98,7 @@ namespace davClassLibrary
                 // Renew the session
                 var renewSessionResult = await SessionsController.RenewSession("accessToken", Dav.AccessToken);
 
-                if (renewSessionResult.Errors == null)
+                if (renewSessionResult.Success)
                 {
                     // Update the access token and save it in the local settings
                     Dav.AccessToken = renewSessionResult.Data.accessToken;
