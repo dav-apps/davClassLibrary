@@ -30,7 +30,22 @@ namespace davClassLibrary
         public static string AccessToken { get; set; }
         private const string ApiBaseUrlProduction = "https://dav-api-ax6gp.ondigitalocean.app";
         private const string ApiBaseUrlDevelopment = "https://dav-api-staging-kb5tf.ondigitalocean.app";
-        public static string ApiBaseUrl => Environment == Environment.Production ? ApiBaseUrlProduction : ApiBaseUrlDevelopment;
+        private const string ApiBaseUrlTest = "http://localhost:4000";
+        public static string ApiBaseUrl
+        {
+            get
+            {
+                switch (Environment)
+                {
+                    case Environment.Production:
+                        return ApiBaseUrlProduction;
+                    case Environment.Test:
+                        return ApiBaseUrlTest;
+                    default:
+                        return ApiBaseUrlDevelopment;
+                }
+            }
+        }
 
         private static bool isSyncing = false;
 
