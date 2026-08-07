@@ -119,7 +119,9 @@ namespace davClassLibrary.DataAccess
 
             if (!retrieveUserResponse.Success)
             {
-                Dav.Logout();
+                if (retrieveUserResponse.Errors != null && retrieveUserResponse.Errors.Contains(ErrorCodes.SessionDoesNotExist))
+                    Dav.Logout();
+
                 return false;
             }
 
