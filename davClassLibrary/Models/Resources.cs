@@ -52,7 +52,7 @@ namespace davClassLibrary.Models
             TableObject tableObject = new TableObject
             {
                 Uuid = uuid,
-                TableId = table.id,
+                TableId = table?.id ?? 0,
                 Etag = etag,
                 IsFile = fileUrl != null,
                 Properties = props
