@@ -20,13 +20,15 @@ namespace davClassLibrary.DataAccess
             if (authorization == null)
                 authorization = Dav.AccessToken;
 
-            if (httpClients.TryGetValue(authorization, out var httpClient))
+            if (httpClients.TryGetValue(authorization ?? "", out var httpClient))
                 return httpClient;
 
             httpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(60) };
-            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", authorization);
-            httpClients.Add(authorization, httpClient);
 
+            if (authorization != null)
+                httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", authorization);
+
+            httpClients.Add(authorization ?? "", httpClient);
             return httpClient;
         }
 
@@ -35,13 +37,16 @@ namespace davClassLibrary.DataAccess
             if (authorization == null)
                 authorization = Dav.AccessToken;
 
-            if (graphQLClients.TryGetValue(authorization, out var graphQLClient))
+            if (graphQLClients.TryGetValue(authorization ?? "", out var graphQLClient))
                 return graphQLClient;
 
             graphQLClient = new GraphQLHttpClient(Dav.ApiBaseUrl, new NewtonsoftJsonSerializer());
             graphQLClient.HttpClient.Timeout = TimeSpan.FromMinutes(60);
-            graphQLClient.HttpClient.DefaultRequestHeaders.Add("Authorization", authorization);
 
+            if (authorization != null)
+                graphQLClient.HttpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", authorization);
+
+            graphQLClients.Add(authorization ?? "", graphQLClient);
             return graphQLClient;
         }
 
