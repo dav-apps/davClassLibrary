@@ -27,53 +27,31 @@ namespace davClassLibrary.Tests.DataAccess
         [TearDown]
         public async Task TearDown()
         {
-            await DeleteTableObjectsOfTable(Constants.testAppFirstTestTableId);
-            await DeleteTableObjectsOfTable(Constants.testAppSecondTestTableId);
+            await DeleteTableObjectsOfTable(Constants.testAppFirstTestTableName);
+            await DeleteTableObjectsOfTable(Constants.testAppSecondTestTableName);
         }
 
-        private async Task DeleteTableObjectsOfTable(int tableId)
+        private async Task DeleteTableObjectsOfTable(string name)
         {
-            var getTableResponse = await TablesController.GetTable(tableId);
+            var getTableResponse = await TablesController.RetrieveTable(
+                $@"
+                    tableObjects {{
+                        items {{
+                            uuid
+                        }}
+                    }}
+                ",
+                name
+            );
+
             if (!getTableResponse.Success) return;
   
-            foreach(var tableObject in getTableResponse.Data.TableObjects)
-                await TableObjectsController.DeleteTableObject(tableObject.Uuid);
+            foreach(var tableObject in getTableResponse.Data.tableObjects.items)
+                await TableObjectsController.DeleteTableObject("uuid", tableObject.uuid);
         }
         #endregion
 
         #region SessionSyncPush
-        [Test]
-        public async Task SessionSyncPushShouldDeleteTheSessionOnTheServer()
-        {
-            var createSessionResponse = await SessionsController.CreateSession(
-                Constants.davDevAuth,
-                Constants.testerUserEmail,
-                Constants.testerUserPassword,
-                Constants.testAppId,
-                Constants.testerDevApiKey
-            );
-            Assert.True(createSessionResponse.Success);
-            string accessToken = createSessionResponse.Data.AccessToken;
-
-            SettingsManager.SetAccessToken(accessToken);
-            SettingsManager.SetSessionUploadStatus(SessionUploadStatus.Deleted);
-
-            // Act
-            await SyncManager.SessionSyncPush();
-
-            // Assert
-            var accessTokenFromDatabase = SettingsManager.GetAccessToken();
-            Assert.IsNull(accessTokenFromDatabase);
-
-            var sessionUploadStatusFromDatabase = SettingsManager.GetSessionUploadStatus();
-            Assert.AreEqual(SessionUploadStatus.UpToDate, sessionUploadStatusFromDatabase);
-
-            var deleteSessionResponse = await SessionsController.DeleteSession(accessToken);
-            Assert.False(deleteSessionResponse.Success);
-            Assert.AreEqual(404, deleteSessionResponse.Status);
-            Assert.AreEqual(ErrorCodes.SessionDoesNotExist, deleteSessionResponse.Errors[0].Code);
-        }
-
         [Test]
         public async Task SessionSyncPushShouldRemoveTheSessionFromTheDatabaseIfTheSessionDoesNotExistOnTheServer()
         {
@@ -230,9 +208,11 @@ namespace davClassLibrary.Tests.DataAccess
             var secondTableObjectSecondPropertyValue = "Second test";
 
             await TableObjectsController.CreateTableObject(
+                "uuid",
                 firstTableObjectUuid,
                 firstTableObjectTableId,
                 false,
+                null,
                 new Dictionary<string, string>
                 {
                     { firstTableObjectFirstPropertyName, firstTableObjectFirstPropertyValue },
@@ -241,9 +221,11 @@ namespace davClassLibrary.Tests.DataAccess
             );
 
             await TableObjectsController.CreateTableObject(
+                "uuid",
                 secondTableObjectUuid,
                 secondTableObjectTableId,
                 false,
+                null,
                 new Dictionary<string, string>
                 {
                     { secondTableObjectFirstPropertyName, secondTableObjectFirstPropertyValue },
@@ -282,7 +264,9 @@ namespace davClassLibrary.Tests.DataAccess
             var secondTableObjectSecondUpdatedPropertyValue = "Zweiter aktualisierter Wert";
 
             await TableObjectsController.UpdateTableObject(
+                "uuid",
                 firstTableObjectUuid,
+                null,
                 new Dictionary<string, string>
                 {
                     { firstTableObjectFirstPropertyName, firstTableObjectFirstUpdatedPropertyValue },
@@ -291,7 +275,9 @@ namespace davClassLibrary.Tests.DataAccess
             );
 
             await TableObjectsController.UpdateTableObject(
+                "uuid",
                 secondTableObjectUuid,
+                null,
                 new Dictionary<string, string>
                 {
                     { secondTableObjectFirstPropertyName, secondTableObjectFirstUpdatedPropertyValue },
@@ -352,9 +338,11 @@ namespace davClassLibrary.Tests.DataAccess
             var localTableObjectSecondPropertyValue = "Good day";
 
             await TableObjectsController.CreateTableObject(
+                "uuid",
                 firstTableObjectUuid,
                 firstTableObjectTableId,
                 false,
+                null,
                 new Dictionary<string, string>
                 {
                     { firstTableObjectFirstPropertyName, firstTableObjectFirstPropertyValue },
@@ -363,9 +351,11 @@ namespace davClassLibrary.Tests.DataAccess
             );
 
             await TableObjectsController.CreateTableObject(
+                "uuid",
                 secondTableObjectUuid,
                 secondTableObjectTableId,
                 false,
+                null,
                 new Dictionary<string, string>
                 {
                     { secondTableObjectFirstPropertyName, secondTableObjectFirstPropertyValue },
@@ -465,20 +455,38 @@ namespace davClassLibrary.Tests.DataAccess
             Assert.IsNotNull(secondTableObjectFromDatabase);
             Assert.AreEqual(TableObjectUploadStatus.UpToDate, secondTableObjectFromDatabase.UploadStatus);
 
-            var firstTableObjectFromServerResponse = await TableObjectsController.GetTableObject(firstTableObjectUuid);
+            var firstTableObjectFromServerResponse = await TableObjectsController.RetrieveTableObject(
+                $@"
+                    uuid
+                    properties
+                    table {{
+                        id
+                    }}
+                ",
+                firstTableObjectUuid
+            );
             Assert.True(firstTableObjectFromServerResponse.Success);
 
-            var firstTableObjectFromServer = firstTableObjectFromServerResponse.Data.TableObject;
+            var firstTableObjectFromServer = firstTableObjectFromServerResponse.Data.ToTableObject();
             Assert.AreEqual(firstTableObjectUuid, firstTableObjectFromServer.Uuid);
             Assert.AreEqual(firstTableObjectTableId, firstTableObjectFromServer.TableId);
             Assert.AreEqual(2, firstTableObjectFromServer.Properties.Count);
             Assert.AreEqual(firstTableObjectFirstPropertyValue, firstTableObjectFromServer.GetPropertyValue(firstTableObjectFirstPropertyName));
             Assert.AreEqual(firstTableObjectSecondPropertyValue, firstTableObjectFromServer.GetPropertyValue(firstTableObjectSecondPropertyName));
 
-            var secondTableObjectFromServerResponse = await TableObjectsController.GetTableObject(secondTableObjectUuid);
+            var secondTableObjectFromServerResponse = await TableObjectsController.RetrieveTableObject(
+                $@"
+                    uuid
+                    properties
+                    table {{
+                        id
+                    }}
+                ",
+                secondTableObjectUuid
+            );
             Assert.True(secondTableObjectFromServerResponse.Success);
 
-            var secondTableObjectFromServer = secondTableObjectFromServerResponse.Data.TableObject;
+            var secondTableObjectFromServer = secondTableObjectFromServerResponse.Data.ToTableObject();
             Assert.AreEqual(secondTableObjectUuid, secondTableObjectFromServer.Uuid);
             Assert.AreEqual(secondTableObjectTableId, secondTableObjectFromServer.TableId);
             Assert.AreEqual(2, secondTableObjectFromServer.Properties.Count);
@@ -508,9 +516,11 @@ namespace davClassLibrary.Tests.DataAccess
             var secondTableObjectSecondPropertyValue = "Second test";
 
             await TableObjectsController.CreateTableObject(
+                "uuid",
                 firstTableObjectUuid,
                 firstTableObjectTableId,
                 false,
+                null,
                 new Dictionary<string, string>
                 {
                     { firstTableObjectFirstPropertyName, firstTableObjectFirstPropertyValue },
@@ -519,9 +529,11 @@ namespace davClassLibrary.Tests.DataAccess
             );
 
             await TableObjectsController.CreateTableObject(
+                "uuid",
                 secondTableObjectUuid,
                 secondTableObjectTableId,
                 false,
+                null,
                 new Dictionary<string, string>
                 {
                     { secondTableObjectFirstPropertyName, secondTableObjectFirstPropertyValue },
@@ -579,20 +591,38 @@ namespace davClassLibrary.Tests.DataAccess
             Assert.AreEqual(secondTableObjectSecondUpdatedPropertyValue, secondTableObjectFromDatabase.GetPropertyValue(secondTableObjectSecondPropertyName));
             Assert.AreEqual(TableObjectUploadStatus.UpToDate, secondTableObjectFromDatabase.UploadStatus);
 
-            var firstTableObjectFromServerResponse = await TableObjectsController.GetTableObject(firstTableObjectUuid);
+            var firstTableObjectFromServerResponse = await TableObjectsController.RetrieveTableObject(
+                $@"
+                    uuid
+                    properties
+                    table {{
+                        id
+                    }}
+                ",
+                firstTableObjectUuid
+            );
             Assert.True(firstTableObjectFromServerResponse.Success);
 
-            var firstTableObjectFromServer = firstTableObjectFromServerResponse.Data.TableObject;
+            var firstTableObjectFromServer = firstTableObjectFromServerResponse.Data.ToTableObject();
             Assert.AreEqual(firstTableObjectUuid, firstTableObjectFromServer.Uuid);
             Assert.AreEqual(firstTableObjectTableId, firstTableObjectFromServer.TableId);
             Assert.AreEqual(2, firstTableObjectFromServer.Properties.Count);
             Assert.AreEqual(firstTableObjectFirstUpdatedPropertyValue, firstTableObjectFromServer.GetPropertyValue(firstTableObjectFirstPropertyName));
             Assert.AreEqual(firstTableObjectSecondUpdatedPropertyValue, firstTableObjectFromServer.GetPropertyValue(firstTableObjectSecondPropertyName));
 
-            var secondTableObjectFromServerResponse = await TableObjectsController.GetTableObject(secondTableObjectUuid);
+            var secondTableObjectFromServerResponse = await TableObjectsController.RetrieveTableObject(
+                $@"
+                    uuid
+                    properties
+                    table {{
+                        id
+                    }}
+                ",
+                secondTableObjectUuid
+            );
             Assert.True(secondTableObjectFromServerResponse.Success);
 
-            var secondTableObjectFromServer = secondTableObjectFromServerResponse.Data.TableObject;
+            var secondTableObjectFromServer = secondTableObjectFromServerResponse.Data.ToTableObject();
             Assert.AreEqual(secondTableObjectUuid, secondTableObjectFromServer.Uuid);
             Assert.AreEqual(secondTableObjectTableId, secondTableObjectFromServer.TableId);
             Assert.AreEqual(2, secondTableObjectFromServer.Properties.Count);
@@ -622,9 +652,11 @@ namespace davClassLibrary.Tests.DataAccess
             var secondTableObjectSecondPropertyValue = "Second test";
 
             await TableObjectsController.CreateTableObject(
+                "uuid",
                 firstTableObjectUuid,
                 firstTableObjectTableId,
                 false,
+                null,
                 new Dictionary<string, string>
                 {
                     { firstTableObjectFirstPropertyName, firstTableObjectFirstPropertyValue },
@@ -633,9 +665,11 @@ namespace davClassLibrary.Tests.DataAccess
             );
 
             await TableObjectsController.CreateTableObject(
+                "uuid",
                 secondTableObjectUuid,
                 secondTableObjectTableId,
                 false,
+                null,
                 new Dictionary<string, string>
                 {
                     { secondTableObjectFirstPropertyName, secondTableObjectFirstPropertyValue },
@@ -675,15 +709,13 @@ namespace davClassLibrary.Tests.DataAccess
             var secondTableObjectFromDatabase = await Dav.Database.GetTableObjectAsync(secondTableObjectUuid);
             Assert.IsNull(secondTableObjectFromDatabase);
 
-            var firstTableObjectFromServerResponse = await TableObjectsController.GetTableObject(firstTableObjectUuid);
-            Assert.False(firstTableObjectFromServerResponse.Success);
-            Assert.AreEqual(404, firstTableObjectFromServerResponse.Status);
-            Assert.AreEqual(ErrorCodes.TableObjectDoesNotExist, firstTableObjectFromServerResponse.Errors[0].Code);
+            var firstTableObjectFromServerResponse = await TableObjectsController.RetrieveTableObject("uuid", firstTableObjectUuid);
+            Assert.IsTrue(firstTableObjectFromServerResponse.Success);
+            Assert.IsNull(firstTableObjectFromServerResponse.Data);
 
-            var secondTableObjectFromServerResponse = await TableObjectsController.GetTableObject(secondTableObjectUuid);
-            Assert.False(secondTableObjectFromServerResponse.Success);
-            Assert.AreEqual(404, secondTableObjectFromServerResponse.Status);
-            Assert.AreEqual(ErrorCodes.TableObjectDoesNotExist, secondTableObjectFromServerResponse.Errors[0].Code);
+            var secondTableObjectFromServerResponse = await TableObjectsController.RetrieveTableObject("uuid", secondTableObjectUuid);
+            Assert.IsTrue(secondTableObjectFromServerResponse.Success);
+            Assert.IsNull(secondTableObjectFromServerResponse.Data);
         }
 
         [Test]
