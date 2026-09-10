@@ -1,4 +1,4 @@
-﻿using GraphQL.Client.Http;
+using GraphQL.Client.Http;
 using GraphQL.Client.Serializer.Newtonsoft;
 using System;
 using System.Net.Http.Headers;
@@ -12,6 +12,8 @@ namespace davClassLibrary.DataAccess
 {
     public class ApiManager
     {
+        // Public CDN downloads must never inherit the signed-in user's token.
+        private static readonly HttpClient publicDownloadClient = new HttpClient { Timeout = TimeSpan.FromMinutes(60) };
         private static readonly Dictionary<string, HttpClient> httpClients = new Dictionary<string, HttpClient>();
         private static readonly Dictionary<string, GraphQLHttpClient> graphQLClients = new Dictionary<string, GraphQLHttpClient>();
 
@@ -50,9 +52,18 @@ namespace davClassLibrary.DataAccess
             return graphQLClient;
         }
 
-        public static async Task<bool> DownloadFile(string url, string filePath, IProgress<int> progress = null)
+        public static Task<bool> DownloadFile(string url, string filePath, IProgress<int> progress = null)
         {
-            var httpClient = GetHttpClient();
+            return DownloadFileCore(GetHttpClient(), url, filePath, progress);
+        }
+
+        public static Task<bool> DownloadPublicFile(string url, string filePath, IProgress<int> progress = null)
+        {
+            return DownloadFileCore(publicDownloadClient, url, filePath, progress);
+        }
+
+        private static async Task<bool> DownloadFileCore(HttpClient httpClient, string url, string filePath, IProgress<int> progress)
+        {
             HttpResponseMessage response;
 
             try

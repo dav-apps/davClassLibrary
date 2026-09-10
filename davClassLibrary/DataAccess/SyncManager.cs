@@ -1,4 +1,4 @@
-﻿using davClassLibrary.Common;
+using davClassLibrary.Common;
 using davClassLibrary.Controllers;
 using davClassLibrary.Models;
 using MimeTypes;
@@ -147,7 +147,7 @@ namespace davClassLibrary.DataAccess
             )
             {
                 // Download the profile image
-                if (await ApiManager.DownloadFile(userResponseData.profileImage.url, Path.Combine(Dav.DataPath, Constants.profileImageFileName)))
+                if (await ApiManager.DownloadPublicFile(userResponseData.profileImage.url, Path.Combine(Dav.DataPath, Constants.profileImageFileName)))
                     SettingsManager.SetProfileImageEtag(userResponseData.profileImage.etag);
             }
 
