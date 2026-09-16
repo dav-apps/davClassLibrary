@@ -285,6 +285,21 @@ namespace davClassLibrary.Controllers
             string filePath
         )
         {
+            // Local files may have disappeared while synchronization was queued.
+            // Keep the upload pending instead of letting an async UI caller crash.
+            if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
+                return new ApiResponse<UploadTableObjectFileData> { Success = false };
+            try
+            {
+                return await UploadTableObjectFileCore(uuid, contentType, filePath);
+            }
+            catch (IOException) { return new ApiResponse<UploadTableObjectFileData> { Success = false }; }
+            catch (UnauthorizedAccessException) { return new ApiResponse<UploadTableObjectFileData> { Success = false }; }
+        }
+
+        private static async Task<ApiResponse<UploadTableObjectFileData>> UploadTableObjectFileCore(
+            Guid uuid, string contentType, string filePath)
+        {
             HttpResponseMessage response;
             byte[] data = null;
 

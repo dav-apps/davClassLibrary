@@ -1,4 +1,4 @@
-using davClassLibrary.Common;
+﻿using davClassLibrary.Common;
 using davClassLibrary.Controllers;
 using davClassLibrary.Models;
 using MimeTypes;
@@ -562,6 +562,9 @@ namespace davClassLibrary.DataAccess
 
             if (tableObject.IsFile)
             {
+                if (tableObject.File == null || !File.Exists(tableObject.File.FullName))
+                    return new GraphQLApiResponse<TableObject> { Success = false };
+
                 // Create the table object
                 var createTableObjectResponse = await TableObjectsController.CreateTableObject(
                     "uuid",
@@ -597,9 +600,9 @@ namespace davClassLibrary.DataAccess
                     } catch(Exception) { }
 
                     var uploadTableObjectFileResponse = await TableObjectsController.UploadTableObjectFile(
-                        tableObject.Uuid,
-                        mimeType,
-                        tableObject.File.FullName
+                        uuid: tableObject.Uuid,
+                        contentType: mimeType,
+                        filePath: tableObject.File.FullName
                     );
 
                     if (uploadTableObjectFileResponse.Success)
@@ -665,16 +668,16 @@ namespace davClassLibrary.DataAccess
                 } catch (Exception) { }
 
                 var uploadTableObjectFileResponse = await TableObjectsController.UploadTableObjectFile(
-                    tableObject.Uuid,
-                    tableObject.File.FullName,
-                    mimeType
+                    uuid: tableObject.Uuid,
+                    contentType: mimeType,
+                    filePath: tableObject.File.FullName
                 );
 
                 if (!uploadTableObjectFileResponse.Success)
                 {
                     var result = new GraphQLApiResponse<TableObject> { Success = false };
 
-                    if (uploadTableObjectFileResponse.Error.Code != null)
+                    if (uploadTableObjectFileResponse.Error?.Code != null)
                         result.Errors = new List<string> { uploadTableObjectFileResponse.Error.Code };
 
                     return result;
